@@ -71,6 +71,8 @@ export interface PipelineOptions {
   baseUrl?: string
   signal?: AbortSignal
   onStage?: (stage: Stage, detail?: string) => void
+  /** When true, the site provides the model via the Supabase Edge Function. */
+  useProxy?: boolean
 }
 
 function addUsage(a: AiUsage, b: AiUsage): AiUsage {
@@ -112,7 +114,7 @@ async function pool<T, R>(
 export async function generateStudyMaterial(
   options: PipelineOptions,
 ): Promise<GenerationResult> {
-  const { doc, model, baseUrl, signal, onStage } = options
+  const { doc, model, baseUrl, signal, onStage, useProxy } = options
   const pages = doc.pages
   const pageCount = pages.length
 
@@ -150,6 +152,7 @@ export async function generateStudyMaterial(
         effort: 'low',
         baseUrl,
         signal,
+        useProxy,
       })
 
     let result
@@ -194,6 +197,7 @@ export async function generateStudyMaterial(
     effort: 'medium',
     baseUrl,
     signal,
+    useProxy,
   })
   usage = addUsage(usage, reduced.usage)
 
@@ -248,6 +252,7 @@ export async function generateStudyMaterial(
       effort: 'low',
       baseUrl,
       signal,
+      useProxy,
     })
     usage = addUsage(usage, orgResult.usage)
 
@@ -309,6 +314,7 @@ export async function generateStudyMaterial(
     effort: 'medium',
     baseUrl,
     signal,
+    useProxy,
   })
   usage = addUsage(usage, cardResult.usage)
 
@@ -367,9 +373,10 @@ export async function generateTestForDeck(options: {
   model: AiModel
   baseUrl?: string
   signal?: AbortSignal
+  useProxy?: boolean
   count?: number
 }): Promise<{ questions: QuizQuestion[]; costUsd: number; usage: AiUsage }> {
-  const { deck, keyPoints, pageCount, model, baseUrl, signal } = options
+  const { deck, keyPoints, pageCount, model, baseUrl, signal, useProxy } = options
   const count = Math.min(10, Math.max(4, options.count ?? 8))
 
   const listing = keyPoints
@@ -385,6 +392,7 @@ export async function generateTestForDeck(options: {
     effort: 'medium',
     baseUrl,
     signal,
+    useProxy,
   })
 
   const questions: QuizQuestion[] = []
@@ -423,6 +431,7 @@ export async function askAboutKeyPoint(options: {
   model: AiModel
   baseUrl?: string
   signal?: AbortSignal
+  useProxy?: boolean
 }) {
   const { data, usage } = await generateStructured({
     schema: AskSchema,
@@ -438,6 +447,7 @@ export async function askAboutKeyPoint(options: {
     effort: 'low',
     baseUrl: options.baseUrl,
     signal: options.signal,
+    useProxy: options.useProxy,
   })
 
   return {

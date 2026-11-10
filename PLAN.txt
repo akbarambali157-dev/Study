@@ -24,9 +24,11 @@ not just before an exam.
 
 2. DECISIONS ALREADY MADE (do not re-open these)
 ------------------------------------------------
-  AI:        Bring your own Anthropic API key. Called straight from the browser.
-             No backend, no server holding a key.
-  Accounts:  Supabase for auth and data.
+  AI:        Two modes. Default is BYOK: the student pastes their own key and
+             it stays in the browser. Optionally, the site provides the model
+             through a Supabase Edge Function (ai-proxy) that holds the
+             brewkeg.dev key server-side — students never paste a key.
+  Accounts:  Supabase for auth, data, and the Edge Function proxy.
   Orgs:      Show all four kinds - authoritative agencies, professional bodies,
              Nigerian/local context, further reading.
   Extras:    Spaced repetition (SM-2), page-level citations, export/share
@@ -64,8 +66,9 @@ student's academic record is not.
   zod                             validate every AI response
   motion                          card flip and game animation
 
-There is no server. The only public keys are the Supabase URL and anon key,
-which are meant to be public and are protected by row-level security.
+The only public keys are the Supabase URL and anon key, which are meant to be
+public and are protected by row-level security. The brewkeg.dev API key lives
+server-side in the ai-proxy Edge Function and is never a VITE_ variable.
 
 
 5. THE AI PIPELINE

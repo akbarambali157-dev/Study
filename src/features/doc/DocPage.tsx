@@ -358,6 +358,7 @@ export function DocPage() {
                           pageCount: doc.pageCount,
                           model: settings.model,
                           baseUrl: settings.baseUrl || undefined,
+                          useProxy: settings.useProxy,
                         })
                       }
                       onAsked={(question) =>

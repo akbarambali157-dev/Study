@@ -68,6 +68,7 @@ export function TestPage() {
         pageCount: document.pageCount,
         model: settings.model,
         baseUrl: settings.baseUrl || undefined,
+        useProxy: settings.useProxy,
       })
       setQuestions(result.questions)
       setIndex(0)

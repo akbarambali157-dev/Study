@@ -6,9 +6,10 @@ the two disagree.
 ## Rules this project holds to
 
 - **The API key never becomes a `VITE_` variable.** Vite inlines those into the
-  public bundle. Keys and tokens are typed into Settings at runtime and stored
-  in `sessionStorage` (opt-in `localStorage`). `VITE_AI_BASE_URL` is fine: a URL
-  is not a secret.
+  public bundle. Student-typed keys live in `sessionStorage` (opt-in
+  `localStorage`). `VITE_AI_BASE_URL` is fine: a URL is not a secret. When the
+  site provides the model, the brewkeg.dev key lives only in the Supabase Edge
+  Function's secrets — never in the bundle, never in a `VITE_` variable.
 - **`material/` stays out of git.** It holds a result slip with personal data.
   Do not read, print, commit or send its contents anywhere.
 - **No `dangerouslySetInnerHTML`.** Markdown from the model is rendered to React
@@ -31,6 +32,7 @@ the two disagree.
 | React bindings | `src/lib/hooks.ts` |
 | AI orchestration | `src/lib/llm/pipeline.ts` |
 | AI client (retries, errors, redaction) | `src/lib/llm/ai.ts` |
+| AI proxy (Supabase Edge Function) | `supabase/functions/ai-proxy/index.ts` |
 | Prompts | `src/lib/llm/prompts.ts` |
 | Spaced repetition | `src/lib/srs.ts` |
 | Learning trail | `src/lib/inquiries.ts` |

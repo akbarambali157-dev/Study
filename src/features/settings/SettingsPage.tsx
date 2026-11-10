@@ -35,6 +35,7 @@ export function SettingsPage() {
   const [storedKey, setStoredKey] = useState<string | null>(null)
   const [persist, setPersist] = useState(false)
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
+  const [useProxy, setUseProxy] = useState(settings.useProxy ?? false)
   const [confirmWipe, setConfirmWipe] = useState(false)
 
   useEffect(() => {
@@ -45,6 +46,19 @@ export function SettingsPage() {
   useEffect(() => {
     setBaseUrl(settings.baseUrl ?? '')
   }, [settings.baseUrl])
+
+  useEffect(() => {
+    setUseProxy(settings.useProxy ?? false)
+  }, [settings.useProxy])
+
+  const saveUseProxy = async (checked: boolean) => {
+    await saveSettings({ useProxy: checked })
+    if (checked) {
+      toast('Site-provided model enabled — no key needed.', 'success')
+    } else {
+      toast('Site-provided model disabled — add your own key in Settings.', 'info')
+    }
+  }
 
   const saveKey = () => {
     const trimmed = keyInput.trim()
@@ -119,14 +133,43 @@ export function SettingsPage() {
 
       {/* ── API key ────────────────────────────────────────────────────── */}
       <section className="mb-6">
-        <SectionTitle hint="Takes the place of a login: only you can spend it">
+        <SectionTitle hint="Who pays for the model">
           API key
         </SectionTitle>
         <Card>
+          {/* Proxy mode toggle: site provides the model vs BYOK */}
+          <div className="p-4 border-b border-line">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={useProxy}
+                onChange={(event) => void saveUseProxy(event.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-forest"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  Site provides the model
+                </span>
+                <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">
+                  Students don’t need their own key. The site holds the brewkeg.dev
+                  key server-side and you pay for usage. Turn this off to let each
+                  student paste their own key instead.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="flex items-start gap-3">
             <KeyRound className="mt-0.5 size-5 shrink-0 text-forest-400" />
             <div className="min-w-0 flex-1">
-              {storedKey ? (
+              {useProxy ? (
+                <>
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    Model is provided by the site. Nothing to paste — upload a PDF
+                    and generate notes, cards and tests right away.
+                  </p>
+                </>
+              ) : storedKey ? (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
                     <code className="rounded bg-surface-2 px-2 py-1 font-mono text-[13px]">

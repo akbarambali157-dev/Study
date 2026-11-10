@@ -72,6 +72,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // A deployed build can pin the endpoint without anyone touching Settings.
   // Empty means the standard Anthropic API.
   baseUrl: import.meta.env.VITE_AI_BASE_URL || undefined,
+  // When true, the site provides the model via the Supabase Edge Function
+  // and students never need their own API key.
+  useProxy: false,
 }
 
 export async function getSettings(): Promise<Settings> {

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { ZodType } from 'zod'
 import { getApiKey } from '../apiKey'
+import { aiProxyUrl, supabase } from '../supabase'
 import type { AiModel } from '../types'
 import { sleep } from '../utils'
 
@@ -74,6 +75,101 @@ export interface StructuredRequest<T> {
   effort?: 'low' | 'medium' | 'high'
   baseUrl?: string
   signal?: AbortSignal
+  /** When true, the site provides the model via the Supabase Edge Function
+   * and the browser never touches the API key. */
+  useProxy?: boolean
+}
+
+/**
+ * One structured generation call through the server-side proxy.
+ *
+ * Used when the site provides the model (proxy mode). The browser never sees
+ * the brewkeg.dev key; it calls the Supabase Edge Function, which holds the
+ * key server-side and forwards to https://brewkeg.dev.
+ *
+ * The Edge Function returns { content, usage }; the frontend validates the
+ * content with the same zod schema as the direct path.
+ */
+async function generateStructuredViaProxy<T>(
+  request: StructuredRequest<T>,
+): Promise<{ data: T; usage: AiUsage }> {
+  const attempts = 2
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (request.signal?.aborted) {
+      throw new AiError('Generation stopped.', 'aborted')
+    }
+
+    try {
+      // Get the user's JWT so the Edge Function can identify them
+      const { data: session } = await supabase.auth.getSession()
+      const token = session?.session?.access_token
+
+      const resp = await fetch(aiProxyUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          system: request.system,
+          prompt: request.prompt,
+          model: request.model,
+          max_tokens: request.maxTokens ?? 8000,
+          effort: request.effort ?? 'medium',
+        }),
+        signal: request.signal,
+      })
+
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => null)
+        if (resp.status === 401) {
+          throw new AiError('You need to sign in to use the model.', 'auth')
+        }
+        throw new AiError(
+          errBody?.error ?? `Proxy returned ${resp.status}`,
+          'unknown',
+          resp.status >= 500,
+        )
+      }
+
+      const { content, usage } = (await resp.json()) as {
+        content: string
+        usage: { input_tokens: number; output_tokens: number }
+      }
+
+      // Validate with the same zod schema as the direct path
+      const parsed = request.schema.safeParse(JSON.parse(content))
+      if (!parsed.success) {
+        throw new AiError(
+          'The response did not match the expected shape.',
+          'schema',
+          true,
+        )
+      }
+
+      return {
+        data: parsed.data,
+        usage: {
+          inputTokens: usage.input_tokens,
+          outputTokens: usage.output_tokens,
+        },
+      }
+    } catch (error) {
+      lastError = error
+      const mapped = error instanceof AiError ? error : mapError(error)
+      if (mapped.code === 'aborted') throw mapped
+
+      const shouldRetry =
+        mapped.code === 'schema' || (mapped.retryable && attempt < attempts - 1)
+      if (!shouldRetry) throw mapped
+
+      await sleep(900 * (attempt + 1))
+    }
+  }
+
+  throw mapError(lastError)
 }
 
 /**
@@ -86,6 +182,11 @@ export interface StructuredRequest<T> {
 export async function generateStructured<T>(
   request: StructuredRequest<T>,
 ): Promise<{ data: T; usage: AiUsage }> {
+  // Proxy mode: the site provides the model, key is held server-side.
+  if (request.useProxy) {
+    return generateStructuredViaProxy(request)
+  }
+
   const client = createClient(request.baseUrl)
   const attempts = 2
   let lastError: unknown

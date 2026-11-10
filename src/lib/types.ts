@@ -242,4 +242,9 @@ export interface Settings {
    * — the key still never leaves their browser.
    */
   baseUrl?: string
+  /**
+   * When true, the site provides the model via the Supabase Edge Function.
+   * The browser never touches the API key; students don't bring their own.
+   */
+  useProxy?: boolean
 }

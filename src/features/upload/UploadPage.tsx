@@ -160,6 +160,7 @@ export function UploadPage() {
         model: settings.model,
         baseUrl: settings.baseUrl || undefined,
         signal: controller.signal,
+        useProxy: settings.useProxy,
         onStage: (stage, detail) => setPhase({ kind: 'running', stage, detail }),
       })
 
