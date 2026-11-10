@@ -49,14 +49,18 @@ export function DocPage() {
   const [focused, setFocused] = useState(0)
   const [askingFor, setAskingFor] = useState<string | null>(null)
   const pointRefs = useRef<Map<string, HTMLLIElement>>(new Map())
+  const recordedRef = useRef(false)
 
-  // One reopen event per document open, not per render. Gated on the document
-  // itself so the trail gets one labelled event instead of an unlabelled one
-  // when the row finishes loading.
+  // One reopen event per document open, not per render. Uses a ref so it runs
+  // once when the component mounts, rather than re-firing on every liveQuery
+  // update (which would cause a "Readwrite transaction in liveQuery context" error).
   useEffect(() => {
-    if (!id || !doc) return
-    void record({ kind: 'doc_reopen', documentId: id, topic: doc.title })
-  }, [id, doc])
+    if (!id) return
+    if (!recordedRef.current) {
+      recordedRef.current = true
+      void record({ kind: 'doc_reopen', documentId: id, topic: doc?.title })
+    }
+  }, [id])   // ← only depends on id, not doc, so it won't re-fire on liveQuery updates
 
   const jump = useCallback(
     (delta: number) => {
