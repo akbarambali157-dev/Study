@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+dist-ssr/
+*.local
+
+# environment — never commit real keys
+.env
+.env.*
+!.env.example
+
+# PII: this folder already contains a result slip. Do not publish it.
+material/
+
+# editor / os
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# logs
+*.log
+npm-debug.log*
+
+# PWA build artifacts
+dev-dist/

@@ -1,0 +1,184 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  BookOpen,
+  Command,
+  Compass,
+  Flame,
+  Home,
+  Settings as SettingsIcon,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useProfile, useSettings } from '@/lib/hooks'
+import { isTypingTarget } from '@/lib/shortcuts'
+import { ShortcutsSheet } from '@/components/ShortcutsSheet'
+import { Toaster } from '@/components/ui/toast'
+import { IconButton } from '@/components/ui/Button'
+
+const NAV = [
+  { to: '/', label: 'Today', icon: Home, end: true },
+  { to: '/library', label: 'Library', icon: BookOpen, end: false },
+  { to: '/trail', label: 'Trail', icon: Compass, end: false },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
+]
+
+export function App() {
+  const settings = useSettings()
+  const profile = useProfile()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const pendingG = useRef(false)
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', settings.dark)
+  }, [settings.dark])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+  }, [location.pathname])
+
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return
+
+      if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
+        event.preventDefault()
+        setShortcutsOpen((open) => !open)
+        return
+      }
+      if (event.key === 'Escape') {
+        setShortcutsOpen(false)
+        return
+      }
+
+      if (event.key === 'g') {
+        pendingG.current = true
+        // A lone "g" should not stay armed forever.
+        setTimeout(() => {
+          pendingG.current = false
+        }, 1200)
+        return
+      }
+      if (pendingG.current) {
+        pendingG.current = false
+        const target =
+          event.key === 'l'
+            ? '/library'
+            : event.key === 't'
+              ? '/trail'
+              : event.key === 's'
+                ? '/settings'
+                : event.key === 'h'
+                  ? '/'
+                  : null
+        if (target) {
+          event.preventDefault()
+          navigate(target)
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navigate])
+
+  return (
+    <div className="flex min-h-full flex-col bg-app text-body">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-forest focus:px-4 focus:py-2 focus:text-white"
+      >
+        Skip to content
+      </a>
+
+      <header className="sticky top-0 z-30 border-b border-line bg-app/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center gap-3 px-4 sm:px-6">
+          <NavLink to="/" className="flex items-center gap-2.5">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-forest font-display text-[15px] font-bold text-gold">
+              O
+            </span>
+            <span className="hidden sm:block">
+              <span className="block font-display text-[15px] font-semibold leading-none">
+                OOU Study Hub
+              </span>
+              <span className="mt-1 block text-[11px] leading-none text-muted">
+                PDF to notes to recall
+              </span>
+            </span>
+          </NavLink>
+
+          <nav className="ml-4 hidden items-center gap-1 sm:flex" aria-label="Main">
+            {NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-lg px-3 py-2 text-sm font-medium transition',
+                    isActive
+                      ? 'bg-surface-2 text-body'
+                      : 'text-muted hover:bg-surface-2/60 hover:text-body',
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2">
+            {profile && profile.streakDays > 0 ? (
+              <span
+                className="hidden items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-[#8a5a00] dark:text-gold sm:inline-flex"
+                title={`${profile.streakDays}-day streak`}
+              >
+                <Flame className="size-3.5" />
+                <span className="tnum">{profile.streakDays}</span>
+              </span>
+            ) : null}
+            <IconButton label="Keyboard shortcuts" onClick={openShortcuts}>
+              <Command className="size-4" />
+            </IconButton>
+          </div>
+        </div>
+      </header>
+
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pb-16">
+        <Outlet />
+      </main>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-app/95 backdrop-blur-md sm:hidden"
+        aria-label="Main"
+      >
+        <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  cn(
+                    'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition',
+                    isActive ? 'text-forest dark:text-gold' : 'text-muted',
+                  )
+                }
+              >
+                <Icon className="size-5" />
+                {item.label}
+              </NavLink>
+            )
+          })}
+        </div>
+      </nav>
+
+      <ShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <Toaster />
+    </div>
+  )
+}

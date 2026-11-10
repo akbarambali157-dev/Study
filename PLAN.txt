@@ -1,0 +1,203 @@
+OOU STUDY HUB - PROJECT PLAN
+============================
+Last updated: 2026-11-10
+Read this file before starting work. Update it when scope changes.
+
+
+1. WHAT THIS IS
+---------------
+A study website for students at Olabisi Onabanjo University (OOU).
+
+A student uploads a lecture PDF. The app then:
+
+  1. Extracts the text (in the browser)
+  2. Writes short notes from it
+  3. Derives key points from those short notes, each with a worked example
+  4. Points to organizations related to the topic
+  5. Turns the key points into flashcards (with a 180-degree flip)
+  6. Turns the key points into a multiple-choice test
+  7. Watches what the student goes looking for, and learns what they want to study
+
+Plus a minigame ("Card Rush") so studying is something people open for fun,
+not just before an exam.
+
+
+2. DECISIONS ALREADY MADE (do not re-open these)
+------------------------------------------------
+  AI:        Bring your own Anthropic API key. Called straight from the browser.
+             No backend, no server holding a key.
+  Accounts:  Supabase for auth and data.
+  Orgs:      Show all four kinds - authoritative agencies, professional bodies,
+             Nigerian/local context, further reading.
+  Extras:    Spaced repetition (SM-2), page-level citations, export/share
+             (Anki + CSV + share link), installable offline PWA.
+  Plan file: this file. Keep it current.
+
+
+3. PRIVACY - READ THIS BEFORE UPLOADING ANYTHING
+-------------------------------------------------
+The file material/Study_material.zip contains a RESULT SLIP with personal
+information. Rules:
+
+  - Never commit material/ to a public repository.
+  - Never send the result slip to the AI API.
+  - If a PDF looks like a personal document (matric number, CGPA,
+    "statement of result"), the upload screen warns and asks for confirmation.
+  - Share links never expose a student's other documents.
+
+Being a public website is fine. Being a public website that leaks one
+student's academic record is not.
+
+
+4. HOW IT IS BUILT
+------------------
+  Vite + React + TypeScript       app shell, static build
+  Tailwind CSS v4                 styling
+  react-router                    routes
+  Supabase                        auth + Postgres + private file storage
+  @tanstack/react-query           server data
+  zustand                         UI and game state
+  Dexie (IndexedDB)               offline cache + write queue
+  vite-plugin-pwa                 installable, works offline
+  pdfjs-dist                      PDF text extraction
+  @anthropic-ai/sdk               AI calls (dangerouslyAllowBrowser)
+  zod                             validate every AI response
+  motion                          card flip and game animation
+
+There is no server. The only public keys are the Supabase URL and anon key,
+which are meant to be public and are protected by row-level security.
+
+
+5. THE AI PIPELINE
+------------------
+  extract   pdf.js, page by page. Refuse scanned PDFs (no OCR in v1).
+  chunk     ~20k chars per chunk, split on page boundaries, one page overlap.
+            Every chunk knows which pages it came from.
+  map       per chunk: a short summary + candidate key points
+  reduce    over all chunks: short notes + merged key points (with examples)
+  orgs      from the key points: related organizations, all four kinds
+  cards     from the key points: question/answer flashcards
+  quiz      from the key points: multiple-choice questions
+
+Models: default claude-opus-5-5. Settings offers claude-sonnet-5-5 and
+claude-haiku-5-5 for students watching their budget.
+
+Cost per 40-page PDF, roughly:
+  haiku-5-5      ~$0.01
+  sonnet-5-5     ~$0.24
+  opus-5-5       ~$0.48
+
+The upload screen shows the estimate before running, and refuses PDFs over
+120 pages.
+
+CITATIONS
+  Every note, key point, card and question carries a page number. The page is
+  validated against the chunk the content came from, so a wrong page is
+  impossible - only an imprecise one. Every citation is tappable: it opens the
+  PDF at that page.
+
+PROMPT INJECTION
+  PDF text is untrusted. It is clearly delimited, the system prompt says it is
+  data and never instructions, and every response is schema-validated before it
+  is stored or displayed.
+
+
+6. THE LEARNING TRAIL (what the user asked for)
+-----------------------------------------------
+Every deliberate act of curiosity is recorded:
+  - asking a follow-up question about a note
+  - searching
+  - clicking a related organization
+  - opening the explanation after getting a test question wrong
+  - reopening a document
+  - marking a flashcard "again"
+
+That history is rolled up into a learning profile: what this student keeps
+coming back to, where the gaps are, what to study next. The profile is refreshed
+with ONE batched AI call per ~25 events (not one call per question, which would
+be expensive and slow).
+
+Shown on a "Learning Trail" page with a promise kept in plain sight:
+logging can be paused, exported, or cleared at any time.
+
+
+7. PAGES
+--------
+  /                 landing
+  /auth             sign in / sign up
+  /library          documents and decks, with "due now" counts
+  /upload           upload a PDF and generate everything
+  /doc/:id          notes, key points, related organizations, citations
+  /deck/:id/study   flashcards, flip, grade
+  /deck/:id/rush    Card Rush minigame
+  /deck/:id/test    generated test + results + review
+  /trail            learning trail and suggestions
+  /settings         API key, model, privacy, export, shortcuts
+  /shared/:token    read-only deck from a share link
+
+KEYBOARD
+  ?         shortcuts sheet (every page)
+  Space     flip a flashcard
+  1 2 3 4   grade a card / answer a question
+  <- ->     previous / next card
+  /         focus search
+  n         new upload
+  Esc       back out of a session
+
+THE MINIGAME - CARD RUSH
+  60 seconds. A prompt, four answers. Correct = points times combo, plus time.
+  Wrong = combo resets and the right answer shows with its page. Every third
+  run swaps in "Match Drop" (match six term/definition pairs).
+  XP earned feeds a weekly leaderboard per course.
+
+
+8. LOOK AND FEEL
+----------------
+  deep green #0B3D2E      primary
+  warm gold  #F2B33D      reward only
+  clay       #C2543A      errors
+  warm paper #FAF7F1      surface
+  ink        #12211C      text
+
+  Bricolage Grotesque for headings, Inter for body, JetBrains Mono for formulae.
+  Dark mode available. Big tap targets. Gold means reward and nothing else.
+
+
+9. BUILD ORDER
+--------------
+  0  scaffold, design tokens, UI kit, this plan file          DONE when app runs
+  1  Supabase schema, RLS, auth                                (M)
+  2  library + upload + PDF extraction                         (M)
+  3  notes pipeline with citations                             (L)
+  4  organizations + prompt-injection hardening                (S)
+  5  flashcards + flip + SM-2                                  (L)
+  6  Card Rush + XP                                            (M)
+  7  tests + results                                           (M)
+  8  learning trail + insights                                 (M)
+  9  export, share, offline PWA                                (L)
+  10 polish, accessibility, docs, deploy                       (M)
+
+Each phase ships on its own. Nothing is half-built across phases.
+
+
+10. HOW TO PROVE IT WORKS
+-------------------------
+  - A two-page text PDF goes through the whole pipeline for about a cent
+    (switch the model to haiku in Settings while testing).
+  - Save the first successful run as a fixture, then test against it for free.
+  - A PDF containing "ignore previous instructions" produces normal notes and
+    leaks nothing.
+  - Two accounts cannot see each other's rows or files. A revoked share link
+    404s.
+  - Go offline: library, cards, grading and a game round still work; going
+    online syncs the queue back in order.
+  - Keyboard-only pass on every page.
+
+
+11. STILL OPEN
+--------------
+  - Which courses to seed the organization allowlist for first. The zip in
+    material/ suggests the student's own courses; ask before assuming.
+  - Whether to add OCR (vision) for scanned PDFs in v2.
+  - Whether share links should be public-by-default or require a second tap.
+  - Exact leaderboard scope: per course, per faculty, or both.
