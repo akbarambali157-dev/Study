@@ -1,10 +1,13 @@
-import { ReactNode, useState, useEffect } from 'react'
+import { useState, Component } from 'react'
+import type { ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 /**
  * Simple error boundary that catches runtime errors in the component tree.
  * Also tracks Dexie liveQuery context errors specifically.
  */
 type ErrorBoundaryProps = {
+  children: ReactNode
   fallback: ReactNode
   onError?: (error: Error) => void
 }
@@ -14,11 +17,13 @@ type ErrorBoundaryProps = {
  * This is a common issue when a database write happens inside a liveQuery querier.
  * The boundary catches it and displays a user-friendly message.
  */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, {
+type ErrorBoundaryState = {
   hasError: boolean
   liveQueryError: boolean
   error?: Error
-}> {
+}
+
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = {
@@ -38,8 +43,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, {
 
   // Custom handler for Dexie liveQuery context errors
   // We listen for the specific message pattern from Dexie
-  componentDidCatch(error: unknown, errorInfo: React.ErrorInfo) {
-    const message = error instanceof Error ? error.message : String(error)
+  componentDidCatch(error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    const message = err.message
 
     // Check if this is the Dexie liveQuery context error
     const isLiveQueryError = message.includes('Readwrite transaction in liveQuery context')
@@ -48,15 +54,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, {
       this.setState({
         hasError: true,
         liveQueryError: true,
-        error,
+        error: err,
       })
       // Notify parent via prop if provided
-      this.props.onError?.(error as Error)
+      this.props.onError?.(err)
     } else {
       // Standard error boundary behavior
       this.setState({
         hasError: true,
-        error,
+        error: err,
       })
     }
   }
@@ -106,7 +112,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, {
  */
 export function useLiveQueryError(): {
   hasLiveQueryError: boolean
-  setLiveQueryError: (value: boolean) => void
+  setHasLiveQueryError: (value: boolean) => void
 } {
   const [hasLiveQueryError, setHasLiveQueryError] = useState(false)
   return { hasLiveQueryError, setHasLiveQueryError }
@@ -116,4 +122,3 @@ export function useLiveQueryError(): {
  * Wrap routes or pages with the error boundary
  * Usage: <ErrorBoundary fallback={<>...</>}>PageContent</ErrorBoundary>
  */
-export { ErrorBoundary }
