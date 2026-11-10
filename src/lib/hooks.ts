@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, DEFAULT_SETTINGS, getProfile } from './db'
+import { db, DEFAULT_SETTINGS, ensureProfile, getProfile } from './db'
 import { getReviews, libraryOverview } from './store'
 import type {
   Card,
@@ -51,7 +52,24 @@ export function useSettings() {
 }
 
 export function useProfile() {
-  return useLiveQuery(() => getProfile(), [], null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+
+  // Read-only liveQuery: no writes inside the querier, so Dexie won't throw
+  // "Readwrite transaction in liveQuery context".
+  const live = useLiveQuery(() => getProfile(), [], null)
+
+  // Ensure a profile exists outside the liveQuery context (this writes to the DB).
+  useEffect(() => {
+    let mounted = true
+    ensureProfile().then((p) => {
+      if (mounted) setProfile(p)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  return live ?? profile ?? null
 }
 
 export function useLibrary() {

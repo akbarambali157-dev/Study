@@ -91,9 +91,21 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   return next
 }
 
-export async function getProfile(): Promise<Profile> {
-  const found = await db.profile.get('me')
-  if (found) return found
+/**
+ * Read-only: returns null if no profile exists yet. Safe to call inside a
+ * liveQuery querier — no writes happen here. That's what ensureProfile is for.
+ */
+export async function getProfile(): Promise<Profile | null> {
+  return (await db.profile.get('me')) ?? null
+}
+
+/**
+ * Creates the profile if it doesn't exist. Must be called outside a liveQuery
+ * context (e.g. from a useEffect or event handler) because it writes to the DB.
+ */
+export async function ensureProfile(): Promise<Profile> {
+  const existing = await db.profile.get('me')
+  if (existing) return existing
   const fresh: Profile = { id: 'me', displayName: 'Student', xp: 0, streakDays: 0 }
   await db.profile.put(fresh)
   return fresh
