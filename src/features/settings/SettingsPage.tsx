@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   Check,
   Download,
@@ -7,11 +7,13 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Wrench,
 } from 'lucide-react'
 import { PageHeading, SectionTitle } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
+import { z } from 'zod'
 import {
   clearApiKey,
   getApiKey,
@@ -25,8 +27,12 @@ import { formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
 import { downloadFile } from '@/lib/export'
+import { generateStructured } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
+
+/** Minimal schema for the connection test — the model just says "yes". */
+const TestSchema = z.object({ ok: z.string() })
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -37,6 +43,8 @@ export function SettingsPage() {
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
   const [useProxy, setUseProxy] = useState(settings.useProxy ?? false)
   const [confirmWipe, setConfirmWipe] = useState(false)
+const [testingAI, setTestingAI] = useState(false)
+const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 
   useEffect(() => {
     setStoredKey(getApiKey())
@@ -59,6 +67,45 @@ export function SettingsPage() {
       toast('Site-provided model disabled — add your own key in Settings.', 'info')
     }
   }
+
+  const testAI = useCallback(async () => {
+    const hasKey = hasApiKey()
+    if (!useProxy && !hasKey) {
+      toast('No key and proxy mode is off — add a key or turn on "Site provides the model".', 'error')
+      return
+    }
+    setTestingAI(true)
+    setAiTestResult(null)
+    try {
+      const model = settings.model
+      const { data, usage } = await generateStructured({
+        schema: TestSchema,
+        system: 'You are a connection test. Reply with exactly {"ok":"yes"} and nothing else.',
+        prompt: 'Test',
+        model,
+        maxTokens: 20,
+        effort: 'low',
+        baseUrl: settings.baseUrl || undefined,
+        useProxy,
+      })
+      if (data.ok === 'yes') {
+        setAiTestResult('ok')
+        toast(
+          `AI is working — got a reply (${usage.inputTokens} in / ${usage.outputTokens} out tokens).`,
+          'success',
+        )
+      } else {
+        setAiTestResult('fail')
+        toast('AI replied but with an unexpected shape.', 'error')
+      }
+    } catch (err) {
+      setAiTestResult('fail')
+      const message = err instanceof Error ? err.message : String(err)
+      toast(`AI test failed: ${message}`, 'error')
+    } finally {
+      setTestingAI(false)
+    }
+  }, [hasApiKey, useProxy, settings.model, settings.baseUrl])
 
   const saveKey = () => {
     const trimmed = keyInput.trim()
@@ -242,6 +289,41 @@ export function SettingsPage() {
               )}
             </div>
           </div>
+
+          {/* ── AI connection test ───────────────────────────────────────── */}
+          {(useProxy || storedKey) && (
+            <div className="mt-4 border-t border-line pt-4">
+              <label className="text-xs font-medium uppercase tracking-wide text-muted">
+                Test the model connection
+              </label>
+              <div className="mt-1.5 flex flex-wrap gap-2 sm:flex-row">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={testAI}
+                  disabled={testingAI}
+                  icon={
+                    testingAI ? (
+                      <Wrench className="size-3.5 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="size-3.5" />
+                    )
+                  }
+                >
+                  {testingAI ? 'Testing…' : 'Test connection'}
+                </Button>
+                {aiTestResult === 'ok' ? (
+                  <Chip tone="green">Connection OK — the model replied.</Chip>
+                ) : aiTestResult === 'fail' ? (
+                  <Chip tone="clay">Test failed. Check the key or proxy setting.</Chip>
+                ) : null}
+              </div>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Sends a single test prompt to the current model. Uses a few tokens
+                and shows you exactly whether the AI is reachable before you upload a PDF.
+              </p>
+            </div>
+          )}
 
           <div className="mt-4 border-t border-line pt-4">
             <label className="text-xs font-medium uppercase tracking-wide text-muted">
