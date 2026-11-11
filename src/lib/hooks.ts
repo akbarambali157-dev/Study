@@ -10,6 +10,7 @@ import type {
   KeyPoint,
   Note,
   OrgKind,
+  Profile,
   QuizQuestion,
 } from './types'
 
