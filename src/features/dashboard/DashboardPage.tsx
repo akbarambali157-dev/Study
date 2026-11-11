@@ -39,6 +39,9 @@ export function DashboardPage() {
       await touchStreak()
       toast('Demo study set added — explore it freely.', 'success')
       navigate(`/doc/${docId}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Demo setup failed.'
+      toast(message, 'error')
     } finally {
       setSeeding(false)
     }

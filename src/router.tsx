@@ -2,6 +2,7 @@ import { createHashRouter } from 'react-router-dom'
 import { App } from './App'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { NotFoundPage } from './features/NotFoundPage'
+import { AuthPage } from './features/auth/AuthPage'
 
 /**
  * Hash routing on purpose: the same build works on GitHub Pages, Netlify and
@@ -18,6 +19,10 @@ export const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <DashboardPage /> },
+      {
+        path: 'auth',
+        element: <AuthPage />,
+      },
       {
         path: 'library',
         lazy: async () => ({

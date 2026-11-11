@@ -33,14 +33,10 @@ export class StudyHubDb extends Dexie {
   profile!: Table<Profile, string>
   learningProfile!: Table<LearningProfile, string>
   settings!: Table<Settings, string>
+  pdfBlobs!: Table<{ id: string; savedAt: string }, string>
 
   constructor() {
     super('oou-study-hub')
-    // v2 adds a place for the original PDF blob, so a citation can open the
-    // real page. Stored locally only — the file is never uploaded.
-    this.version(2).stores({
-      pdfBlobs: 'id, savedAt',
-    })
     this.version(1).stores({
       courses: 'id, code, createdAt',
       documents: 'id, courseId, createdAt, status',
@@ -57,6 +53,7 @@ export class StudyHubDb extends Dexie {
       profile: 'id',
       learningProfile: 'id',
       settings: 'id',
+      pdfBlobs: 'id, savedAt',
     })
   }
 }
