@@ -42,13 +42,14 @@ export function CitationChip({
       }}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1',
-        'text-[11px] font-medium text-muted transition hover:border-forest-400 hover:text-forest',
+        'text-[11px] font-medium text-muted transition',
+        'hover:border-forest-400 hover:text-forest hover:bg-surface-3',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
         className,
       )}
     >
       <FileText className="size-3" aria-hidden />
-      <span className="tnum">p. {page}</span>
+      <span className="tnum font-semibold text-body">p. {page}</span>
     </button>
   )
 }

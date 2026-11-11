@@ -190,9 +190,9 @@ export function DashboardPage() {
           <Link
             key={doc.id}
             to={deck ? `/doc/${doc.id}` : `/doc/${doc.id}`}
-            className="flex items-center gap-3 rounded-xl border border-line bg-surface p-3.5 transition hover:border-forest-400/50"
+            className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5 key-point-card"
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-forest-400">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-forest-400 border border-line">
               <BookOpen className="size-4.5" />
             </span>
             <span className="min-w-0 flex-1">

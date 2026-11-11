@@ -111,9 +111,9 @@ export function LibraryPage() {
             <ul className="space-y-3">
               {filtered.map(({ doc, deck, cardCount, dueCount, lastAttempt }) => (
                 <li key={doc.id}>
-                  <Card className="p-4">
+                  <Card tone="elevated" className="p-4 key-point-card">
                     <div className="flex flex-wrap items-start gap-3">
-                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-forest-400">
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-forest-400 border border-line">
                         <BookOpen className="size-5" />
                       </span>
 

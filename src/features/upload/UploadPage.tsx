@@ -221,7 +221,7 @@ export function UploadPage() {
           if (dropped) void accept(dropped)
         }}
         className={[
-          'rounded-2xl border-2 border-dashed px-6 py-10 text-center transition',
+          'rounded-2xl border-2 border-dashed px-6 py-10 text-center transition key-point-card',
           dragging ? 'border-forest-400 bg-forest-400/5' : 'border-line bg-surface/60',
           busy ? 'opacity-60' : '',
         ].join(' ')}

@@ -6,26 +6,31 @@
   --bg: #faf7f1;
   --surface: #fffdf9;
   --surface-2: #f3ece1;
+  --surface-3: #eadfd1;
   --text: #12211c;
-  --muted: #5a6b63;
-  --line: #e3dacc;
-  --shadow: 0 1px 2px rgb(18 33 28 / 0.06), 0 10px 30px -12px rgb(18 33 28 / 0.18);
+  --muted: #6b7a70;
+  --line: #d8cbbf;
+  --shadow: 0 1px 2px rgb(18 33 28 / 0.06), 0 8px 24px -10px rgb(18 33 28 / 0.12);
+  --shadow-card: 0 1px 3px rgb(18 33 28 / 0.08), 0 4px 12px -2px rgb(18 33 28 / 0.06);
 }
 
 .dark {
-  --bg: #0b1310;
-  --surface: #12201b;
-  --surface-2: #172a23;
+  --bg: #0a100e;
+  --surface: #121a15;
+  --surface-2: #1b2620;
+  --surface-3: #26332c;
   --text: #e9f1ec;
-  --muted: #9db0a7;
-  --line: #23342d;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -12px rgb(0 0 0 / 0.6);
+  --muted: #a3b0a7;
+  --line: #2a3830;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px -10px rgb(0 0 0 / 0.45);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4), 0 4px 12px -2px rgb(0 0 0 / 0.25);
 }
 
 @theme {
   --color-app: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-body: var(--text);
   --color-muted: var(--muted);
   --color-line: var(--line);
@@ -37,6 +42,7 @@
   --color-mint: #cfe9dc;
   --color-gold: #f2b33d;
   --color-gold-soft: #fbe2a8;
+  --color-gold-strong: #d97706;
   --color-clay: #c2543a;
   --color-clay-soft: #f6d9d0;
   --color-ink: #12211c;
@@ -47,6 +53,8 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   --radius-card: 1.25rem;
+  --radius-xl: 1rem;
+  --radius-lg: 0.75rem;
 }
 
 @layer base {
@@ -136,6 +144,138 @@
 @utility scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
+}
+
+/* ── surface elevation ─────────────────────────────────────────────────── */
+
+.surface-elevated {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.surface-elevated:hover {
+  border-color: var(--color-forest-400);
+  box-shadow: var(--shadow);
+}
+
+/* ── gold accent border for active/selected states ─────────────────────── */
+
+.border-gold-strong {
+  border-color: var(--color-gold-strong);
+}
+
+.border-gold-strong:hover {
+  border-color: var(--color-gold);
+}
+
+/* ── study metric card ─────────────────────────────────────────────────── */
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    var(--color-forest) 0%,
+    var(--color-forest-400) 100%
+  );
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+/* ── reading page background texture (subtle paper feel) ───────────────── */
+
+.paper-bg {
+  background: var(--bg);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(18, 33, 28, 0.04) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
+}
+
+.dark .paper-bg {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 0
+  );
+}
+
+/* ── typographic refinements ───────────────────────────────────────────── */
+
+.text-forest-strong {
+  color: var(--color-forest-400);
+}
+
+.dark .text-forest-strong {
+  color: var(--color-mint);
+}
+
+.text-gold-strong {
+  color: var(--color-gold-strong);
+}
+
+/* ── key point card hover ──────────────────────────────────────────────── */
+
+.key-point-card {
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 150ms ease;
+}
+
+.key-point-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-forest-400);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── flashcard flip enhancements ───────────────────────────────────────── */
+
+.flip-scene {
+  perspective: 1200px;
+}
+
+.flip-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.flip-face--back {
+  transform: rotateY(180deg);
+}
+
+/* ── PWA install banner ────────────────────────────────────────────────── */
+
+.install-banner {
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 /* ── 3D flip ─────────────────────────────────────────────────────────── */

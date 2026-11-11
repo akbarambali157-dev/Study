@@ -4,13 +4,20 @@ import { cn } from '@/lib/utils'
 export function Card({
   children,
   className,
+  tone = 'surface',
   as: Tag = 'div',
 }: {
   children: ReactNode
   className?: string
+  tone?: 'surface' | 'elevated' | 'gold'
   as?: 'div' | 'section' | 'article' | 'li'
 }) {
-  return <Tag className={cn('card-surface p-5', className)}>{children}</Tag>
+  const tones = {
+    surface: 'card-surface p-5',
+    elevated: 'surface-elevated p-5',
+    gold: 'surface-elevated border-gold-strong p-5 bg-gold/10',
+  }
+  return <Tag className={cn(tones[tone], className)}>{children}</Tag>
 }
 
 export function Chip({
@@ -19,7 +26,7 @@ export function Chip({
   className,
 }: {
   children: ReactNode
-  tone?: 'neutral' | 'gold' | 'green' | 'clay'
+  tone?: 'neutral' | 'gold' | 'green' | 'clay' | 'forest'
   className?: string
 }) {
   const tones = {
@@ -27,6 +34,7 @@ export function Chip({
     gold: 'bg-gold/15 text-[#8a5a00] border-gold/40 dark:text-gold',
     green: 'bg-mint/60 text-forest border-forest-400/30 dark:bg-forest-500/25 dark:text-mint',
     clay: 'bg-clay-soft text-clay border-clay/30 dark:bg-clay/20',
+    forest: 'bg-mint/20 text-forest border-forest-400/40 dark:bg-forest-500/20 dark:text-mint',
   }
   return (
     <span

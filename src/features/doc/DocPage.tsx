@@ -259,8 +259,9 @@ export function DocPage() {
                   onMouseEnter={() => setFocused(index)}
                 >
                   <Card
+                    tone="elevated"
                     className={cn(
-                      'transition',
+                      'key-point-card transition',
                       focused === index ? 'border-forest-400/40 shadow-sm' : undefined,
                     )}
                   >

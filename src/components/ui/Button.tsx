@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'gold'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'gold' | 'surface'
 type Size = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<Variant, string> = {
@@ -11,7 +11,9 @@ const VARIANTS: Record<Variant, string> = {
     'bg-surface text-body border border-line hover:bg-surface-2 active:bg-surface-2/80',
   ghost: 'text-muted hover:text-body hover:bg-surface-2',
   danger: 'bg-clay text-white hover:brightness-95 active:brightness-90',
-  gold: 'bg-gold text-ink hover:brightness-105 active:brightness-95 font-semibold shadow-sm',
+  gold: 'bg-gold text-ink hover:bg-gold/90 active:bg-gold-strong font-semibold shadow-sm',
+  surface:
+    'bg-surface-2 text-body border border-line hover:bg-surface-3 hover:border-forest-400/50 active:bg-surface-3',
 }
 
 const SIZES: Record<Size, string> = {

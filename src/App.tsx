@@ -93,14 +93,14 @@ export function App() {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-line bg-app/85 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-line bg-app/90 backdrop-blur-md surface-elevated">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center gap-3 px-4 sm:px-6">
           <NavLink to="/" className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-forest font-display text-[15px] font-bold text-gold">
+            <span className="flex size-9 items-center justify-center rounded-2xl bg-gradient-to-br from-forest to-forest-500 font-display text-[15px] font-bold text-white shadow-sm">
               O
             </span>
             <span className="hidden sm:block">
-              <span className="block font-display text-[15px] font-semibold leading-none">
+              <span className="block font-display text-[15px] font-semibold leading-none text-body">
                 OOU Study Hub
               </span>
               <span className="mt-1 block text-[11px] leading-none text-muted">
