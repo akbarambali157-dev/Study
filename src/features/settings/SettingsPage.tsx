@@ -60,6 +60,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
   }, [settings.useProxy])
 
   const saveUseProxy = async (checked: boolean) => {
+    setUseProxy(checked)
     await saveSettings({ useProxy: checked })
     if (checked) {
       toast('Site-provided model enabled — no key needed.', 'success')
@@ -107,7 +108,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
     }
   }, [hasApiKey, useProxy, settings.model, settings.baseUrl])
 
-  const saveKey = () => {
+  const saveKey = async () => {
     const trimmed = keyInput.trim()
     if (!trimmed) {
       toast('Paste a key first.', 'error')
@@ -120,7 +121,12 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
     saveApiKey(trimmed, persist)
     setStoredKey(trimmed)
     setKeyInput('')
-    toast('Key saved. It stays in this browser.', 'success')
+    // A saved BYOK key is ignored while hosted-proxy mode is enabled.
+    // Switch modes as part of saving so the key the student just supplied is
+    // actually the credential used by the next connection test/upload.
+    setUseProxy(false)
+    await saveSettings({ useProxy: false })
+    toast('Your key is saved and personal-key mode is enabled.', 'success')
   }
 
   const removeKey = () => {
@@ -215,6 +221,14 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
                     Model is provided by the site. Nothing to paste — upload a PDF
                     and generate notes, cards and tests right away.
                   </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-3"
+                    onClick={() => void saveUseProxy(false)}
+                  >
+                    {hasApiKey() ? 'Use my saved API key instead' : 'Switch to my own API key'}
+                  </Button>
                 </>
               ) : storedKey ? (
                 <>
