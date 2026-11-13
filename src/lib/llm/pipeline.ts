@@ -124,6 +124,7 @@ export async function generateStudyMaterial(
 
   const chunks = chunkPages(pages)
   let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
+  let costUsd = 0
 
   // ── map: one call per chunk ────────────────────────────────────────────
   // This is the stage that sends the whole document, so it runs on the cheapest
@@ -156,24 +157,27 @@ export async function generateStudyMaterial(
       })
 
     let result
+    let usedModel = mapModel
     try {
       result = await call(mapModel)
     } catch (error) {
-      // An endpoint that does not carry the cheap model should cost one retry,
-      // not the whole run. A student's stop request is never retried.
+      // Fall back only when the provider explicitly rejects this model. Network,
+      // authentication and rate-limit errors must not trigger a second paid call.
       if (error instanceof AiError && error.code === 'aborted') throw error
-      if (mapModel === model) throw error
+      if (!(error instanceof AiError) || error.code !== 'model-unavailable' || mapModel === model) throw error
+      usedModel = model
       result = await call(model)
     }
 
     const { data, usage: chunkUsage } = result
-    usage = addUsage(usage, chunkUsage)
     mapped += 1
     onStage?.('map', `${mapped} of ${chunks.length}`)
 
-    return { chunk, ...data }
+    return { chunk, ...data, usage: chunkUsage, usedModel }
   })
 
+  usage = addUsage(usage, maps.reduce((total, item) => addUsage(total, item.usage), { inputTokens: 0, outputTokens: 0 }))
+  costUsd += maps.reduce((total, item) => total + tokensToCost(item.usedModel, item.usage.inputTokens, item.usage.outputTokens), 0)
   ensureNotAborted(signal)
 
   const digests = maps
@@ -200,6 +204,7 @@ export async function generateStudyMaterial(
     useProxy,
   })
   usage = addUsage(usage, reduced.usage)
+  costUsd += tokensToCost(model, reduced.usage.inputTokens, reduced.usage.outputTokens)
 
   ensureNotAborted(signal)
 
@@ -255,6 +260,7 @@ export async function generateStudyMaterial(
       useProxy,
     })
     usage = addUsage(usage, orgResult.usage)
+    costUsd += tokensToCost(model, orgResult.usage.inputTokens, orgResult.usage.outputTokens)
 
     const orgs: Org[] = []
 
@@ -317,6 +323,7 @@ export async function generateStudyMaterial(
     useProxy,
   })
   usage = addUsage(usage, cardResult.usage)
+  costUsd += tokensToCost(model, cardResult.usage.inputTokens, cardResult.usage.outputTokens)
 
   const deckId = uid('deck')
   const cards: Card[] = []
@@ -354,7 +361,7 @@ export async function generateStudyMaterial(
 
   return {
     usage,
-    costUsd: tokensToCost(model, usage.inputTokens, usage.outputTokens),
+    costUsd,
     noteId,
     deckId,
     keyPointCount: keyPoints.length,
