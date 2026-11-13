@@ -6,13 +6,8 @@ import { AuthPage } from './features/auth/AuthPage'
 import { ProfileSetupPage } from './features/auth/ProfileSetupPage'
 
 /**
- * Hash routing on purpose: the same build works on GitHub Pages, Netlify and
- * Vercel with no rewrite rules, and a share link can carry a whole deck in the
- * fragment without any server.
- *
- * Every route below the shell is loaded on demand. pdf.js alone is over a
- * megabyte, and there is no reason for a student to download the PDF reader
- * just to look at today's due count.
+ * Hash routing keeps this static build portable across Vercel and GitHub Pages.
+ * Heavy document and game routes are loaded only when a student opens them.
  */
 export const router = createHashRouter([
   {
@@ -20,13 +15,13 @@ export const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: 'auth', element: <AuthPage /> },
+      { path: 'profile-setup', element: <ProfileSetupPage /> },
       {
-        path: 'auth',
-        element: <AuthPage />,
-      },
-      {
-        path: 'profile-setup',
-        element: <ProfileSetupPage />,
+        path: 'community',
+        lazy: async () => ({
+          Component: (await import('./features/community/FeedPage')).FeedPage,
+        }),
       },
       {
         path: 'library',
