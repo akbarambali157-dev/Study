@@ -39,6 +39,18 @@ export async function extractPdf(
     throw new PdfError('This PDF is larger than 30 MB. Compress it or split it into smaller files, then try again.', 'toolarge')
   }
 
+  // PDF.js 6 uses ES2025 Iterator Helpers. Do not install a fake global
+  // constructor: it masks the missing API and causes harder-to-diagnose crashes.
+  const iteratorApi = (globalThis as typeof globalThis & {
+    Iterator?: { from?: unknown; prototype?: { map?: unknown } }
+  }).Iterator
+  if (typeof iteratorApi?.from !== 'function' || typeof iteratorApi.prototype?.map !== 'function') {
+    throw new PdfError(
+      'Your browser is missing the JavaScript features required to read PDFs. Update Safari or Chrome, then try again.',
+      'unknown',
+    )
+  }
+
   const buffer = await file.arrayBuffer()
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
