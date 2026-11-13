@@ -96,6 +96,13 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
+  const maxTokens = Number(body.max_tokens ?? 8000)
+  if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 12_000) {
+    return new Response(JSON.stringify({ error: 'max_tokens must be between 1 and 12000' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
   if (body.prompt.length > 250_000 || (body.system?.length ?? 0) > 30_000) {
     return new Response(JSON.stringify({ error: 'prompt exceeds the allowed size' }), {
       status: 413,
@@ -114,7 +121,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: body.model,
-        max_tokens: body.max_tokens ?? 8000,
+        max_tokens: maxTokens,
         system: body.system ?? '',
         messages: [{ role: 'user', content: body.prompt }],
         ...(body.output_config ? { output_config: body.output_config } : {}),
