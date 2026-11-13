@@ -193,9 +193,13 @@ async function generateStructuredViaProxy<T>(
         if (resp.status === 401) {
           throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth')
         }
+        const detail = typeof errBody?.error === 'string' ? errBody.error : `Proxy returned ${resp.status}`
+        if (resp.status >= 500) {
+          throw new AiError(`Hosted AI is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503)
+        }
         throw mapError({
           status: resp.status,
-          message: errBody?.error ?? `Proxy returned ${resp.status}`,
+          message: detail,
         })
       }
 
