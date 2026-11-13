@@ -49,8 +49,8 @@ export function DashboardPage() {
 
   if (library.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl">
-        <div className="rounded-3xl border border-forest-400/25 bg-forest p-7 text-white shadow-xl sm:p-10">
+      <div className="dashboard-content mx-auto max-w-3xl">
+        <div className="rounded-3xl border border-forest-400/25 bg-gradient-to-br from-[#0b3d2e] via-[#14503c] to-[#1b6650] p-5 text-white shadow-xl sm:p-10">
           <Chip tone="gold" className="mb-5">
             <Sparkles className="size-3" /> Built for OOU
           </Chip>
@@ -92,7 +92,7 @@ export function DashboardPage() {
           </p>
         </div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <div className="mt-6 grid gap-3 sm:mt-8 sm:grid-cols-3">
           {[
             {
               icon: BookOpen,
@@ -122,7 +122,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="dashboard-content">
       <div className="mb-6">
         <p className="text-sm text-muted">
           {new Date().toLocaleDateString(undefined, {
@@ -141,7 +141,7 @@ export function DashboardPage() {
         </p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
         <StatTile label="Due now" value={dueTotal} tone={dueTotal > 0 ? 'gold' : 'neutral'} />
         <StatTile label="Cards" value={cardTotal} />
         <StatTile label="XP" value={profile?.xp ?? 0} hint="from Card Rush" />
