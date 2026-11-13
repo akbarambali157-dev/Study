@@ -143,14 +143,19 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-  const content =
+  const rawContent =
     responseJson?.content?.[0]?.type === 'text'
       ? responseJson.content[0].text
-      : responseJson?.content ?? JSON.stringify(responseJson)
+      : responseJson?.content
+  const content = typeof rawContent === 'string'
+    ? rawContent
+    : JSON.stringify(rawContent ?? responseJson ?? {})
 
+  const inputTokens = Number(responseJson?.usage?.input_tokens ?? 0)
+  const outputTokens = Number(responseJson?.usage?.output_tokens ?? 0)
   const usage = {
-    input_tokens: responseJson?.usage?.input_tokens ?? 0,
-    output_tokens: responseJson?.usage?.output_tokens ?? 0,
+    input_tokens: Number.isFinite(inputTokens) ? Math.max(0, Math.floor(inputTokens)) : 0,
+    output_tokens: Number.isFinite(outputTokens) ? Math.max(0, Math.floor(outputTokens)) : 0,
   }
 
   // ── Record usage for the logged-in user ─────────────────────────────
