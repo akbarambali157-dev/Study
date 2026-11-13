@@ -16,5 +16,5 @@ export function aiProxyUrl(): string {
   if (!isSupabaseConfigured) {
     throw new Error('Hosted AI is not configured. Add the Supabase URL and anon key, or use your own API key.')
   }
-  return `${supabaseUrl.replace(/\\/$/, '')}/functions/v1/ai-proxy`
+  return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/ai-proxy`
 }
