@@ -3,6 +3,7 @@ import { App } from './App'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { NotFoundPage } from './features/NotFoundPage'
 import { AuthPage } from './features/auth/AuthPage'
+import { ProfileSetupPage } from './features/auth/ProfileSetupPage'
 
 /**
  * Hash routing on purpose: the same build works on GitHub Pages, Netlify and
@@ -22,6 +23,10 @@ export const router = createHashRouter([
       {
         path: 'auth',
         element: <AuthPage />,
+      },
+      {
+        path: 'profile-setup',
+        element: <ProfileSetupPage />,
       },
       {
         path: 'library',
