@@ -95,12 +95,23 @@ export const DEFAULT_SETTINGS: Settings = {
   // and students never need their own API key.
   // Respect the deployment's hosted-AI default on a fresh browser profile.
   // A student can still switch to BYOK in Settings; that choice is persisted.
-  useProxy: import.meta.env.VITE_AI_PROXY === 'true',
+  useProxy: true,
+  providerModeVersion: 1,
 }
 
 export async function getSettings(): Promise<Settings> {
   const found = await db.settings.get('app')
-  if (found) return { ...DEFAULT_SETTINGS, ...found }
+  if (found) {
+    const merged = { ...DEFAULT_SETTINGS, ...found }
+    // Existing browser profiles used BYOK as the default. Move them once to
+    // the newly selected shared BrewKeg provider; later user choices persist.
+    if (found.providerModeVersion !== 1) {
+      merged.useProxy = true
+      merged.providerModeVersion = 1
+      await db.settings.put(merged)
+    }
+    return merged
+  }
   await db.settings.put(DEFAULT_SETTINGS)
   return DEFAULT_SETTINGS
 }
@@ -108,6 +119,7 @@ export async function getSettings(): Promise<Settings> {
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
   const current = await getSettings()
   const next = { ...current, ...patch, id: 'app' as const }
+  if (patch.useProxy !== undefined) next.providerModeVersion = 1
   await db.settings.put(next)
   return next
 }
