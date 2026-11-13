@@ -76,6 +76,28 @@ export async function deleteDocument(id: string): Promise<void> {
   )
 }
 
+/** Remove partial output before retrying generation for the same document. */
+export async function clearGeneratedContent(documentId: string): Promise<void> {
+  const decks = await db.decks.where('documentId').equals(documentId).toArray()
+  await db.transaction(
+    'rw',
+    [db.notes, db.keyPoints, db.orgs, db.decks, db.cards, db.reviews, db.questions, db.attempts],
+    async () => {
+      const cards = await db.cards.where('documentId').equals(documentId).toArray()
+      await db.reviews.bulkDelete(cards.map((card) => card.id))
+      await db.notes.where('documentId').equals(documentId).delete()
+      await db.keyPoints.where('documentId').equals(documentId).delete()
+      await db.orgs.where('documentId').equals(documentId).delete()
+      await db.questions.where('documentId').equals(documentId).delete()
+      await db.cards.where('documentId').equals(documentId).delete()
+      await db.decks.where('documentId').equals(documentId).delete()
+      for (const deck of decks) {
+        await db.attempts.where('deckId').equals(deck.id).delete()
+      }
+    },
+  )
+}
+
 /* ── generated content ───────────────────────────────────────────────── */
 
 export async function saveNote(note: Note): Promise<void> {
