@@ -110,6 +110,41 @@ serve(async (req) => {
     })
   }
 
+  // ── Per-user request limits ──────────────────────────────────────────
+  // Keep the shared provider usable for students while preventing one account
+  // from exhausting the project's pooled API balance.
+  const minuteAgo = new Date(Date.now() - 60_000).toISOString()
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+  const [minuteUsage, dailyUsage] = await Promise.all([
+    supabaseClient
+      .from('ai_usage')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', minuteAgo),
+    supabaseClient
+      .from('ai_usage')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', dayAgo),
+  ])
+  if (minuteUsage.error || dailyUsage.error) {
+    console.error('AI quota check failed')
+    return new Response(JSON.stringify({ error: 'Usage limits are temporarily unavailable. Please try again shortly.' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  if ((minuteUsage.count ?? 0) >= 60) {
+    return new Response(JSON.stringify({ error: 'You have reached the short-term AI request limit. Please wait a minute and try again.' }), {
+      status: 429,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+    })
+  }
+  if ((dailyUsage.count ?? 0) >= 500) {
+    return new Response(JSON.stringify({ error: 'You have reached today’s hosted AI allowance. Please try again tomorrow.' }), {
+      status: 429,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '3600' },
+    })
+  }
+
   // ── Forward to brewkeg.dev ──────────────────────────────────────────
   let brewkegResp: Response
   try {
@@ -118,6 +153,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${brewkegKey}`,
         'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: body.model,
