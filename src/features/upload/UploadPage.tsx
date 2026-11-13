@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { hasAiAccess } from '@/lib/apiKey'
+import { supabase } from '@/lib/supabase'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
@@ -189,6 +190,15 @@ export function UploadPage() {
         toast(settings.useProxy ? 'Configure Supabase and sign in to use the hosted model.' : 'Add your API key in Settings first — it stays in this browser.', 'error')
         return
       }
+      if (settings.useProxy) {
+        const sessionResult = await supabase?.auth.getSession()
+        if (!sessionResult?.data.session) {
+          toast('Sign in or create an account before using the site-provided AI model.', 'error')
+          navigate('/auth')
+          return
+        }
+      }
+
       if (item.pii && !item.piiAcknowledged) {
         toast('Tick the personal-document warning first.', 'error')
         return
