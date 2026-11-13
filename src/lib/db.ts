@@ -55,6 +55,28 @@ export class StudyHubDb extends Dexie {
       settings: 'id',
       pdfBlobs: 'id, savedAt',
     })
+
+    // Demo seeding queries documents by source. Older installations did not
+    // index that field, causing Dexie to throw DataError on the demo button.
+    // Version 2 adds the index without deleting any existing student data.
+    this.version(2).stores({
+      courses: 'id, code, createdAt',
+      documents: 'id, courseId, createdAt, status, source',
+      notes: 'id, documentId',
+      keyPoints: 'id, documentId, position',
+      orgs: 'id, documentId, keyPointId',
+      decks: 'id, documentId',
+      cards: 'id, deckId, documentId',
+      reviews: 'cardId, dueAt',
+      questions: 'id, deckId, documentId',
+      attempts: 'id, deckId, createdAt',
+      inquiries: 'id, createdAt, documentId, kind',
+      gameRuns: 'id, deckId, createdAt',
+      profile: 'id',
+      learningProfile: 'id',
+      settings: 'id',
+      pdfBlobs: 'id, savedAt',
+    })
   }
 }
 
