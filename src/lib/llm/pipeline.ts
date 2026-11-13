@@ -86,6 +86,12 @@ function ensureNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new AiError('Generation stopped.', 'aborted')
 }
 
+function nearestEvidencePage(page: number, evidencePages: number[]): number {
+  return evidencePages.reduce((best, candidate) =>
+    Math.abs(candidate - page) < Math.abs(best - page) ? candidate : best,
+  )
+}
+
 /** Runs tasks with a small concurrency cap — friendlier to rate limits. */
 async function pool<T, R>(
   items: T[],
@@ -208,6 +214,10 @@ export async function generateStudyMaterial(
 
   ensureNotAborted(signal)
 
+  const evidencePages = Array.from(
+    new Set(maps.flatMap((m) => m.keyPoints.map((kp) => clampPage(kp.page, m.chunk.fromPage, m.chunk.toPage)))),
+  ).sort((a, b) => a - b)
+
   const noteId = uid('note')
   const note: Note = {
     id: noteId,
@@ -221,7 +231,9 @@ export async function generateStudyMaterial(
   await saveNote(note)
 
   const keyPoints: KeyPoint[] = reduced.data.keyPoints.map((kp, index) => {
-    const page = clampPage(kp.page, 1, pageCount)
+    const proposedPage = Number.isFinite(kp.page) ? Math.round(kp.page) : evidencePages[0]
+    const hasEvidencePage = evidencePages.includes(proposedPage)
+    const page = hasEvidencePage ? proposedPage : nearestEvidencePage(proposedPage, evidencePages)
     return {
       id: uid('kp'),
       documentId: doc.id,
@@ -231,7 +243,7 @@ export async function generateStudyMaterial(
       body: kp.body,
       example: kp.example,
       page,
-      confidence: Math.min(1, Math.max(0, kp.confidence)),
+      confidence: Math.min(hasEvidencePage ? 1 : 0.25, Math.max(0, kp.confidence)),
       // The snippet is taken from the real page text, never from the model,
       // so what the student checks is what the PDF actually says.
       snippet: findSnippet(pages, page, kp.heading),
@@ -338,7 +350,8 @@ export async function generateStudyMaterial(
       front: raw.front,
       back: raw.back,
       example: raw.example,
-      page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
+      // Cards inherit the evidence page of the key point they test.
+      page: keyPoint.page ?? 1,
       tags: keyPoint.tags,
     })
   }
@@ -459,7 +472,9 @@ export async function askAboutKeyPoint(options: {
 
   return {
     answer: data.answer,
-    page: clampPage(data.page, 1, options.pageCount),
+    // Follow-ups only receive this key point and its note context, so cite the
+    // key point's evidence page rather than trusting an arbitrary model page.
+    page: options.keyPoint.page ?? 1,
     followUps: data.followUps,
     costLabel: formatUsd(tokensToCost(options.model, usage.inputTokens, usage.outputTokens)),
   }
