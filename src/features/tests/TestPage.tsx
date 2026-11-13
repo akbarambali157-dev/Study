@@ -9,7 +9,7 @@ import { CitationChip } from '@/components/ui/CitationChip'
 import { Card, Chip, Progress, Skeleton } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { db } from '@/lib/db'
-import { hasApiKey } from '@/lib/apiKey'
+import { hasAiAccess } from '@/lib/apiKey'
 import { formatUsd } from '@/lib/cost'
 import { useDeck, useSettings } from '@/lib/hooks'
 import { record } from '@/lib/inquiries'
@@ -49,8 +49,8 @@ export function TestPage() {
 
   const start = useCallback(async () => {
     if (!deck || !document) return
-    if (!hasApiKey()) {
-      toast('Add your API key in Settings first.', 'error')
+    if (!hasAiAccess(settings.useProxy ?? false)) {
+      toast(settings.useProxy ? 'Configure Supabase in the deployment settings first.' : 'Add your API key in Settings first.', 'error')
       return
     }
     if (keyPoints.length === 0) {
@@ -89,7 +89,7 @@ export function TestPage() {
       )
       setPhase('setup')
     }
-  }, [deck, document, keyPoints, settings.baseUrl, settings.model])
+  }, [deck, document, keyPoints, settings.baseUrl, settings.model, settings.useProxy])
 
   const finish = useCallback(
     async (finalAnswers: QuizAnswer[]) => {
