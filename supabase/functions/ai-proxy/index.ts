@@ -18,7 +18,7 @@ const BREWKEG_BASE_URL = 'https://brewkeg.dev'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, apikey, x-client-info, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -82,8 +82,8 @@ serve(async (req) => {
     })
   }
 
-  const allowedModels = new Set(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'])
-  if (!body.prompt || !body.model) {
+  const allowedModels = new Set(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5'])
+  if (typeof body.prompt !== 'string' || !body.prompt.trim() || typeof body.model !== 'string') {
     return new Response(JSON.stringify({ error: 'prompt and model required' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -103,7 +103,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-  if (body.prompt.length > 250_000 || (body.system?.length ?? 0) > 30_000) {
+  if ((body.system !== undefined && typeof body.system !== 'string') || body.prompt.length > 250_000 || (body.system?.length ?? 0) > 30_000) {
     return new Response(JSON.stringify({ error: 'prompt exceeds the allowed size' }), {
       status: 413,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -126,6 +126,7 @@ serve(async (req) => {
         messages: [{ role: 'user', content: body.prompt }],
         ...(body.output_config ? { output_config: body.output_config } : {}),
       }),
+      signal: AbortSignal.timeout(90_000),
     })
   } catch {
     return new Response(JSON.stringify({ error: 'could not reach model provider' }), {
@@ -165,7 +166,7 @@ serve(async (req) => {
 
   // ── Record usage for the logged-in user ─────────────────────────────
   try {
-    await supabaseClient.from('ai_usage').insert({
+    const { error: usageError } = await supabaseClient.from('ai_usage').insert({
       user_id: user.id,
       model: body.model,
       input_tokens: usage.input_tokens,
@@ -173,6 +174,7 @@ serve(async (req) => {
       status_code: brewkegResp.status,
       created_at: new Date().toISOString(),
     })
+    if (usageError) console.warn('AI usage tracking failed:', usageError.code)
   } catch {
     // Usage tracking must never break a generation
   }
