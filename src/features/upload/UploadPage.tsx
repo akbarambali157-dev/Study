@@ -77,6 +77,7 @@ export function UploadPage() {
 
   const keyReady = hasAiAccess(settings.useProxy ?? false)
   const info = modelInfo(settings.model)
+  const gatewayBilling = settings.useProxy || Boolean(settings.baseUrl && !settings.baseUrl.includes('api.anthropic.com'))
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -261,10 +262,11 @@ export function UploadPage() {
               : f,
           ),
         )
+        const costSummary = gatewayBilling
+          ? `${result.usage.inputTokens.toLocaleString()} input / ${result.usage.outputTokens.toLocaleString()} output tokens; gateway billing applies`
+          : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
         toast(
-          `${result.keyPointCount} key points, ${result.cardCount} cards — ${formatUsd(
-            result.costUsd,
-          )} for “${doc.title}”.`,
+          `${result.keyPointCount} key points, ${result.cardCount} cards — ${costSummary} for “${doc.title}”.`,
           'success',
         )
         navigate(`/doc/${doc.id}`)
@@ -478,8 +480,8 @@ export function UploadPage() {
               <div>
                 <dt className="text-xs text-muted">Estimated cost</dt>
                 <dd className="tnum font-semibold">
-                  {estimate ? formatUsd(estimate.usd) : '—'}
-                  {estimate ? (
+                  {estimate ? (gatewayBilling ? 'Gateway rates apply' : formatUsd(estimate.usd)) : '—'}
+                  {estimate && !gatewayBilling ? (
                     <span className="ml-1 text-xs font-normal text-muted">
                       ≈{nairaHint(estimate.usd)}
                     </span>
@@ -493,6 +495,9 @@ export function UploadPage() {
                 </dd>
               </div>
             </dl>
+            {estimate && gatewayBilling ? (
+              <p className="mb-3 text-[11px] text-muted">Token counts are estimates. Your configured gateway determines the actual charge.</p>
+            ) : null}
 
             {!keyReady && (
               <p className="mt-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[12px]">
