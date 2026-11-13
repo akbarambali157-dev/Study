@@ -67,6 +67,35 @@ export function createClient(baseUrl?: string): Anthropic {
   })
 }
 
+interface TimedSignal {
+  signal: AbortSignal
+  didTimeout: () => boolean
+  cleanup: () => void
+}
+
+function createTimedSignal(parent?: AbortSignal, timeoutMs = 90_000): TimedSignal {
+  const controller = new AbortController()
+  let timedOut = false
+  const abortFromParent = () => controller.abort(parent?.reason)
+
+  if (parent?.aborted) controller.abort(parent.reason)
+  else parent?.addEventListener('abort', abortFromParent, { once: true })
+
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort(new DOMException('The AI request timed out.', 'TimeoutError'))
+  }, timeoutMs)
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer)
+      parent?.removeEventListener('abort', abortFromParent)
+    },
+  }
+}
+
 export interface StructuredRequest<T> {
   schema: ZodType<T>
   system: string
@@ -102,6 +131,7 @@ async function generateStructuredViaProxy<T>(
       throw new AiError('Generation stopped.', 'aborted')
     }
 
+    const timeout = createTimedSignal(request.signal)
     try {
       // Get the user's JWT so the Edge Function can identify them
       if (!supabase) {
@@ -130,7 +160,7 @@ async function generateStructuredViaProxy<T>(
             effort: request.effort ?? 'medium',
           },
         }),
-        signal: request.signal,
+        signal: timeout.signal,
       })
 
       if (!resp.ok) {
@@ -175,7 +205,9 @@ async function generateStructuredViaProxy<T>(
       }
     } catch (error) {
       lastError = error
-      const mapped = error instanceof AiError ? error : mapError(error)
+      const mapped = timeout.didTimeout()
+        ? new AiError('The model took too long to respond. Try again.', 'network', true)
+        : error instanceof AiError ? error : mapError(error)
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
@@ -183,6 +215,8 @@ async function generateStructuredViaProxy<T>(
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
+    } finally {
+      timeout.cleanup()
     }
   }
 
@@ -213,6 +247,7 @@ export async function generateStructured<T>(
       throw new AiError('Generation stopped.', 'aborted')
     }
 
+    const timeout = createTimedSignal(request.signal)
     try {
       const message = await client.messages.parse(
         {
@@ -225,7 +260,7 @@ export async function generateStructured<T>(
             effort: request.effort ?? 'medium',
           },
         },
-        { signal: request.signal },
+        { signal: timeout.signal },
       )
 
       if (message.stop_reason === 'refusal') {
@@ -253,7 +288,9 @@ export async function generateStructured<T>(
       }
     } catch (error) {
       lastError = error
-      const mapped = mapError(error)
+      const mapped = timeout.didTimeout()
+        ? new AiError('The model took too long to respond. Try again.', 'network', true)
+        : mapError(error)
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
@@ -261,6 +298,8 @@ export async function generateStructured<T>(
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
+    } finally {
+      timeout.cleanup()
     }
   }
 
