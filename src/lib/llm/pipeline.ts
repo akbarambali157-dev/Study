@@ -2,6 +2,7 @@ import { chunkPages, clampPage, findSnippet } from '../chunk'
 import { CHEAP_MODEL, formatUsd, tokensToCost } from '../cost'
 import { findCatalogOrg, isLinkableUrl } from '../organizations'
 import {
+  clearGeneratedContent,
   saveCards,
   saveDeck,
   saveKeyPoints,
@@ -125,6 +126,8 @@ export async function generateStudyMaterial(
     throw new AiError('This document has no readable pages.', 'unknown')
   }
 
+  // A retry for the same document must not leave duplicate partial artifacts.
+  await clearGeneratedContent(doc.id)
   const chunks = chunkPages(pages)
   let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
   let costUsd = 0
