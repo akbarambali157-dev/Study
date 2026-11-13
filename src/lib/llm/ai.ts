@@ -154,9 +154,6 @@ async function generateStructuredViaProxy<T>(
           'unknown',
         )
       }
-      const { data: session } = await supabase.auth.getSession()
-      const token = session?.session?.access_token
-
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) {
         throw new AiError('Your sign-in session could not be checked. Sign in again.', 'auth')
