@@ -105,24 +105,21 @@ export function UploadPage() {
       setFiles((prev) => [...prev, ...toAdd])
       // Kick off extraction for each newly added file.
       for (const item of toAdd) {
-        void extractFile(item.id)
+        void extractFile(item.id, item.file)
       }
     },
     [],
   )
 
   const extractFile = useCallback(
-    async (id: string) => {
+    async (id: string, file: File) => {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === id ? { ...f, phase: { kind: 'reading', done: 0, total: 0 } } : f,
         ),
       )
-      const item = files.find((f) => f.id === id)
-      if (!item) return
-
       try {
-        const result = await extractPdf(item.file, (done, total) => {
+        const result = await extractPdf(file, (done, total) => {
           setFiles((prev) =>
             prev.map((f) =>
               f.id === id
@@ -137,8 +134,8 @@ export function UploadPage() {
               ? {
                   ...f,
                   extracted: result,
-                  title: titleCase(result.title || stripExtension(item.file.name)),
-                  pii: findPiiSignal(item.file.name, result.pages),
+                  title: titleCase(result.title || stripExtension(file.name)),
+                  pii: findPiiSignal(file.name, result.pages),
                   phase: { kind: 'ready' },
                 }
               : f,
@@ -163,7 +160,7 @@ export function UploadPage() {
         )
       }
     },
-    [files],
+    [],
   )
 
   const removeFile = useCallback((id: string) => {
