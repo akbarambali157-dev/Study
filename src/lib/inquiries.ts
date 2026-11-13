@@ -98,6 +98,7 @@ export async function maybeRefreshProfile(options: {
   model: AiModel
   baseUrl?: string
   force?: boolean
+  useProxy?: boolean
 }): Promise<LearningProfile | undefined> {
   const settings = await db.settings.get('app')
   if (settings?.trailEnabled === false) return undefined
@@ -147,6 +148,7 @@ export async function maybeRefreshProfile(options: {
       maxTokens: 2000,
       effort: 'low',
       baseUrl: options.baseUrl,
+      useProxy: options.useProxy,
     })
 
     const profile: LearningProfile = {
