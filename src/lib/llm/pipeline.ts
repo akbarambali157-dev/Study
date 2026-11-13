@@ -85,6 +85,7 @@ function ensureNotAborted(signal?: AbortSignal) {
 }
 
 function nearestEvidencePage(page: number, evidencePages: number[]): number {
+  if (evidencePages.length === 0) return 1
   return evidencePages.reduce((best, candidate) =>
     Math.abs(candidate - page) < Math.abs(best - page) ? candidate : best,
   )
@@ -231,7 +232,7 @@ export async function generateStudyMaterial(
   await saveNote(note)
 
   const keyPoints: KeyPoint[] = reduced.data.keyPoints.map((kp, index) => {
-    const proposedPage = Number.isFinite(kp.page) ? Math.round(kp.page) : evidencePages[0]
+    const proposedPage = Number.isFinite(kp.page) ? Math.round(kp.page) : (evidencePages[0] ?? 1)
     const hasEvidencePage = evidencePages.includes(proposedPage)
     const page = hasEvidencePage ? proposedPage : nearestEvidencePage(proposedPage, evidencePages)
     return {
