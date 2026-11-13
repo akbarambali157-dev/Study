@@ -4,8 +4,9 @@ Turn a lecture PDF into concise notes, key points with worked examples, the
 organizations worth knowing, flashcards, a test, and a learning trail that
 records what you actually went looking for.
 
-Built for students at Olabisi Onabanjo University (OOU). The full plan lives in
-`PLAN.txt`; this file is only how to run it.
+Built for students at Olabisi Onabanjo University (OOU). The full technical
+plan lives in `PLAN.txt`; this README also includes the current product
+roadmap and operating principles.
 
 ---
 
@@ -68,6 +69,128 @@ spent.
   that is where judgement matters.
 - A 40-page handout lands around **$0.24** on Sonnet 5.5 and **under $0.01** on
   Haiku 5.5.
+
+### AI efficiency and token budget policy
+
+Study Hub is designed to deliver useful learning outcomes while consuming as
+few weighted tokens as reasonably possible. Token availability is a budget,
+not a target to spend.
+
+Operating rules:
+
+1. **Haiku first.** Use the least expensive model that meets the quality bar
+   for routine classification, short summaries, simple explanations, and
+   straightforward flashcard or quiz generation.
+2. **Sonnet when justified.** Use Sonnet for tasks that need stronger synthesis,
+   difficult reasoning, detailed notes, or complex document comprehension.
+3. **No automatic expensive escalation.** Do not silently escalate to Opus or
+   another expensive model when a cheaper model struggles. Opus is excluded
+   from ordinary routing unless a future, measured use case justifies it.
+4. **Fable is excluded.** It must not be offered in normal application model
+   selection or automatic routing.
+5. **Cache and reuse carefully.** Reuse stable prompt prefixes and previously
+   extracted document text where supported. Measure cache creation and cache
+   read costs rather than assuming caching is always cheaper.
+6. **Process documents once.** Extract PDF text once, split it into page-aware
+   chunks, and retrieve only relevant passages for follow-up questions instead
+   of resending an entire document.
+7. **Bound generation.** Set task-appropriate output limits, avoid duplicate
+   generation, deduplicate equivalent requests, and use bounded retries.
+8. **Measure actual usage.** Record model, input tokens, output tokens, cache
+   reads/writes where available, request outcome, and weighted usage. Keep
+   provider-reported usage separate from estimates.
+9. **Protect the reserve.** Maintain configurable warnings and limits so
+   nonessential generation can be restricted before the available account
+   balance is exhausted.
+
+The current planning reference is a **55 million weighted-token balance**
+reported on 14 November 2026, with an expected **125 million** allocation in
+the next billing cycle. These are account-specific planning figures, not
+application guarantees; verify the live BrewKeg dashboard before changing
+budgets. The working weights last reported for planning were cache reads 0.1×,
+Haiku 0.75×, Sonnet 1×, Opus 2×, and Fable 3×. Provider rates can change, so
+weights must be configurable and confirmed against the current account rate
+card rather than hardcoded as permanent facts.
+
+The application must also distinguish Study Hub's usage from other activity
+on the same BrewKeg account. A Study Hub budget is a configurable allocation,
+not ownership of the entire account balance.
+
+## Roadmap
+
+The roadmap prioritises a dependable, economical core before adding more
+features. A feature is not considered complete merely because it appears in
+the interface; it must work end to end in the deployed application.
+
+### Version 1.0 — Core reliability (current priority)
+
+- [ ] Repair PDF upload, loading, storage and retrieval.
+- [ ] Verify PDF text extraction, page-aware chunking and indexing.
+- [ ] Ensure uploaded documents can reliably ground AI-generated learning
+  materials and follow-up answers.
+- [ ] Fix Settings → Test Connection so it checks a normal text response and
+  does not depend on strict structured JSON.
+- [ ] Verify hosted BrewKeg access and the optional personal-key flow.
+- [ ] Test notes, key points, organizations, flashcards and quizzes end to end.
+- [ ] Verify authentication, student profiles, saved materials and data
+  isolation.
+- [ ] Confirm the correct commit is deployed and test the live Vercel app.
+
+**Release gate:** A student can sign in, upload a supported PDF, have it
+processed, and use the resulting material in the learning features reliably.
+
+### Version 1.1 — Stability, security and visibility
+
+- [ ] Improve error handling, retries, cancellation and recovery.
+- [ ] Verify Supabase RLS policies and per-student document access.
+- [ ] Add usage logging for AI requests and model/token accounting.
+- [ ] Add configurable per-user request limits and resource alerts.
+- [ ] Add an administrator-only infrastructure and usage overview.
+- [ ] Document the actual Supabase and Vercel plan limits in use and monitor
+  them against current provider dashboards.
+
+### Version 1.2 — Resource optimisation
+
+- [ ] Reuse extracted text and avoid duplicate PDF processing.
+- [ ] Add or improve retrieval so AI receives only relevant document chunks.
+- [ ] Add request deduplication and safe caching where supported.
+- [ ] Tune output limits, chunk sizes and retry policies using measured results.
+- [ ] Add document retention, deletion and per-user storage controls.
+- [ ] Test graceful behaviour when provider quotas or service limits are reached.
+
+### Version 2.0 — Learning experience
+
+- [ ] Complete the dashboard and mobile interface improvements.
+- [ ] Improve navigation, accessibility, dark mode and loading states.
+- [ ] Improve the study planner and learning progress experience.
+- [ ] Refine flashcards, quizzes and Card Rush using student feedback.
+
+### Version 3.0 — Intelligent learning
+
+- [ ] Add a more capable AI study tutor.
+- [ ] Provide personalised study recommendations and progress insights.
+- [ ] Improve past-question practice and examination preparation.
+- [ ] Support cross-document search and more advanced document understanding.
+
+### Version 4.0 — Collaboration and expansion
+
+- [ ] Add study groups and collaborative learning workflows.
+- [ ] Expand educational resource integrations.
+- [ ] Explore broader student and institution support.
+
+### Infrastructure and cost guardrails
+
+The initial deployment should be engineered to operate responsibly within the
+current Supabase and Vercel plans, but provider quotas and plan terms can
+change. Keep limits configurable and verify current allowances in the provider
+dashboards. Do not treat free-tier quotas as guaranteed capacity, and do not
+silently fail when a quota is approached.
+
+Vercel Hobby is intended for personal, non-commercial use. Before operating
+Study Hub as a commercial service, review Vercel's current plan terms and move
+to a suitable plan if required. Supabase storage, database, egress, Edge
+Function and authentication usage must be monitored separately from BrewKeg
+token consumption.
 
 ## Privacy
 
