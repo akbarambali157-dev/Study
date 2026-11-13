@@ -40,6 +40,20 @@ Supabase is optional (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`). Those two
 are public by design and only safe because every table is behind row-level
 security. They are not needed for local mode.
 
+### Hosted AI and deployment environment
+
+- Set `VITE_AI_PROXY=true` to make the site-provided AI mode the default for a
+  new browser profile. Students must sign in through Supabase before using it.
+- The Supabase Edge Function `ai-proxy` reads `BREWKEG_API_KEY` from Supabase
+  Function secrets. Keep that provider key there; never put it in a `VITE_*`
+  variable or a committed file.
+- A Codespaces `.env` file only configures processes running inside that
+  Codespace. It is ignored by Git and is **not** copied to Vercel.
+- Add frontend build variables separately in Vercel → Project → Settings →
+  Environment Variables. Vite embeds `VITE_*` values during the build, so
+  redeploy after changing them. Supabase Edge Function secrets are configured
+  separately in the Supabase project.
+
 ## Models and cost
 
 Pick a model in Settings. The upload screen shows an estimate before anything is
