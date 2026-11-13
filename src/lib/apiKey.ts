@@ -87,3 +87,12 @@ export function looksLikeApiKey(key: string): boolean {
   if (trimmed.startsWith('sk-ant-')) return true
   return /^[A-Za-z0-9._~+/=-]+$/.test(trimmed)
 }
+
+/** Whether the selected AI payment mode has its required client configuration. */
+export function hasAiAccess(useProxy: boolean): boolean {
+  if (!useProxy) return hasApiKey()
+  return Boolean(
+    (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() &&
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim(),
+  )
+}
