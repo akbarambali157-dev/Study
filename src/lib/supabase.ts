@@ -8,7 +8,7 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
 /** Null in local-only mode; callers must handle that state explicitly. */
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, { auth: { flowType: 'pkce' } })
   : null
 
 /** Full URL of the ai-proxy Edge Function. */
