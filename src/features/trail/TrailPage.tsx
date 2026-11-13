@@ -44,6 +44,7 @@ export function TrailPage() {
           model: settings.model,
           baseUrl: settings.baseUrl || undefined,
           force,
+          useProxy: settings.useProxy,
         })
         toast(
           result
