@@ -18,7 +18,7 @@ import { seedDemo } from '@/lib/seed'
 import { touchStreak } from '@/lib/store'
 import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/Button'
-import { EmptyState, StatTile } from '@/components/ui/misc'
+import { EmptyState } from '@/components/ui/misc'
 import { formatRelative } from '@/lib/utils'
 
 export function DashboardPage() {
@@ -209,7 +209,7 @@ export function DashboardPage() {
         </div>
         {library.length ? (
           <div className="recent-grid">
-            {library.slice(0, 4).map(({ doc, deck, dueCount, cardCount }) => (
+            {library.slice(0, 4).map(({ doc, dueCount, cardCount }) => (
               <Link key={doc.id} to={`/doc/${doc.id}`} className="recent-card">
                 <span className="recent-icon"><BookOpen className="size-5" /></span>
                 <span className="recent-content">
