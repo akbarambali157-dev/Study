@@ -11,7 +11,7 @@ import { nowIso } from '@/lib/utils'
 
 export function AuthPage() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'signup' | 'signin'>('signup')
+  const [mode, setMode] = useState<'signup' | 'signin' | 'reset'>('signup')
   const [busy, setBusy] = useState(false)
 
   // OAuth returns to this hash route with a PKCE code in the query string.
@@ -20,7 +20,12 @@ export function AuthPage() {
     if (!supabase) return
     let active = true
     void supabase.auth.getSession().then(async ({ data, error }) => {
-      if (!active || error || !data.session) return
+      if (!active || error) return
+      if (window.location.hash.includes('mode=reset')) {
+        setMode('reset')
+        return
+      }
+      if (!data.session) return
       const existing = await db.profile.get('me')
       if (!active || existing) return
       const metadataName =
@@ -53,12 +58,34 @@ export function AuthPage() {
     }
   }
 
+  const sendPasswordReset = async () => {
+    if (!supabase) return
+    const email = (document.getElementById('email') as HTMLInputElement | null)?.value.trim() ?? ''
+    if (!email) {
+      toast('Enter your email address first.', 'error')
+      return
+    }
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}${window.location.pathname}#/auth?mode=reset`,
+      })
+      if (error) throw error
+      toast('Password reset email sent. Follow its link to choose a new password.', 'success')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Password reset could not be started.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = event.currentTarget
     const displayName = (form.elements.namedItem('displayName') as HTMLInputElement | null)?.value.trim() ?? ''
     const email = (form.elements.namedItem('email') as HTMLInputElement | null)?.value.trim() ?? ''
     const password = (form.elements.namedItem('password') as HTMLInputElement | null)?.value ?? ''
+    const passwordConfirm = (form.elements.namedItem('passwordConfirm') as HTMLInputElement | null)?.value ?? ''
     const faculty = (form.elements.namedItem('faculty') as HTMLInputElement | null)?.value.trim() ?? ''
     const department = (form.elements.namedItem('department') as HTMLInputElement | null)?.value.trim() ?? ''
     const level = (form.elements.namedItem('level') as HTMLInputElement | null)?.value.trim() ?? ''
@@ -70,6 +97,18 @@ export function AuthPage() {
 
     setBusy(true)
     try {
+      if (mode === 'reset') {
+        if (!supabase) throw new Error('Password reset is unavailable in local-only mode.')
+        if (password.length < 8) throw new Error('Use a password with at least 8 characters.')
+        if (password !== passwordConfirm) throw new Error('The passwords do not match.')
+        const { error } = await supabase.auth.updateUser({ password })
+        if (error) throw error
+        await supabase.auth.signOut()
+        setMode('signin')
+        toast('Password updated. Sign in with your new password.', 'success')
+        return
+      }
+
       if (mode === 'signup') {
         if (supabase) {
           const { data, error } = await supabase.auth.signUp({
@@ -143,21 +182,25 @@ export function AuthPage() {
             ? 'Create your local profile'
             : mode === 'signup'
               ? 'Create your account'
-              : 'Sign in'
+              : mode === 'reset'
+                ? 'Set a new password'
+                : 'Sign in'
         }
         subtitle={
           !supabase
             ? 'Your study profile stays on this device. Online sign-in and hosted AI need Supabase configuration.'
             : mode === 'signup'
               ? 'Create an account to use the site-provided AI model.'
-              : 'Sign in to continue using your account.'
+              : mode === 'reset'
+                ? 'Choose a new password for your Study Hub account.'
+                : 'Sign in to continue using your account.'
         }
         back={{ to: '/', label: 'Back' }}
       />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="p-5 shadow-lg shadow-forest/5 sm:p-6">
-          {supabase ? (
+          {supabase && mode !== 'reset' ? (
             <>
               <button
                 type="button"
@@ -237,6 +280,29 @@ export function AuthPage() {
                 />
               </div>
             </>
+          ) : mode === 'reset' ? (
+            <>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="New password (at least 8 characters)"
+                minLength={8}
+                required
+                autoComplete="new-password"
+                className="h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400"
+              />
+              <input
+                id="passwordConfirm"
+                name="passwordConfirm"
+                type="password"
+                placeholder="Confirm new password"
+                minLength={8}
+                required
+                autoComplete="new-password"
+                className="mt-3 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400"
+              />
+            </>
           ) : (
             <>
               <input
@@ -296,10 +362,10 @@ export function AuthPage() {
             className="mt-4 w-full"
             icon={mode === 'signup' ? <User className="size-4" /> : <Lock className="size-4" />}
           >
-            {busy ? 'Working…' : !supabase ? 'Save local profile' : mode === 'signup' ? 'Create account' : 'Sign in'}
+            {busy ? 'Working…' : !supabase ? 'Save local profile' : mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Update password' : 'Sign in'}
           </Button>
 
-          {supabase ? (
+          {supabase && mode !== 'reset' ? (
             <p className="mt-4 text-center text-xs text-muted">
               {mode === 'signup' ? 'Already have an account?' : "Don't have an account yet?"}{' '}
               <button
@@ -310,6 +376,16 @@ export function AuthPage() {
                 {mode === 'signup' ? 'Sign in instead' : 'Create account'}
               </button>
             </p>
+          ) : null}
+          {supabase && mode === 'signin' ? (
+            <button type="button" onClick={() => void sendPasswordReset()} disabled={busy} className="mt-3 w-full text-center text-xs font-medium text-forest-400 underline hover:text-gold dark:text-gold">
+              Forgot password?
+            </button>
+          ) : null}
+          {supabase && mode === 'reset' ? (
+            <button type="button" onClick={() => setMode('signin')} className="mt-3 w-full text-center text-xs font-medium text-forest-400 underline hover:text-gold dark:text-gold">
+              Back to sign in
+            </button>
           ) : null}
         </Card>
 
