@@ -292,7 +292,8 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 
           {/* ── AI connection test ───────────────────────────────────────── */}
           {(useProxy || storedKey) && (
-            <div className="mt-4 border-t border-line pt-4">
+            {!useProxy ? (
+          <div className="mt-4 border-t border-line pt-4">
               <label className="text-xs font-medium uppercase tracking-wide text-muted">
                 Test the model connection
               </label>
@@ -353,6 +354,11 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
               standard API.
             </p>
           </div>
+          ) : (
+            <p className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
+              Hosted mode uses the site-configured gateway. This base URL is only used when you bring your own API key.
+            </p>
+          )}
         </Card>
       </section>
 
@@ -394,6 +400,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
             )
           })}
         </div>
+        <p className="mt-2 text-[11px] text-muted">Cost examples use Anthropic list rates. BrewKeg and other gateways apply their own billing rates.</p>
       </section>
 
       {/* ── preferences ───────────────────────────────────────────────── */}
