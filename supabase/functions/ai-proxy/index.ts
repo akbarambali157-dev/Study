@@ -119,10 +119,12 @@ serve(async (req) => {
     supabaseClient
       .from('ai_usage')
       .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
       .gte('created_at', minuteAgo),
     supabaseClient
       .from('ai_usage')
       .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
       .gte('created_at', dayAgo),
   ])
   if (minuteUsage.error || dailyUsage.error) {
