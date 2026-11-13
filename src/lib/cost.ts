@@ -1,6 +1,9 @@
 import { estimatePdfTokens } from './chunk'
 import type { AiModel } from './types'
 
+/** Default low-cost model used for the document-mapping stage. */
+export const CHEAP_MODEL: AiModel = 'claude-haiku-5-5'
+
 export interface ModelInfo {
   id: AiModel
   label: string
@@ -54,15 +57,18 @@ export function estimateGenerationCost(pages: string[], model: AiModel): CostEst
   const bodyTokens = estimatePdfTokens(pages)
   const chunkCount = Math.max(1, Math.ceil(bodyTokens / 5_000))
 
-  // Map stage re-sends each chunk plus a prompt; reduce/orgs/cards work from
-  // compact summaries.
-  const inputTokens = Math.round(bodyTokens * 1.15 + chunkCount * 1_200 + 6_000)
-  const outputTokens = Math.round(bodyTokens * 0.42 + 4_000)
+  // The map stage runs on Haiku; synthesis and learning assets use the
+  // student's selected model. Keep the estimate aligned with that split.
+  const mapInputTokens = Math.round(bodyTokens * 1.0 + chunkCount * 1_200)
+  const reasoningInputTokens = Math.round(bodyTokens * 0.15 + 6_000)
+  const mapOutputTokens = Math.round(bodyTokens * 0.12)
+  const reasoningOutputTokens = Math.round(bodyTokens * 0.30 + 4_000)
 
-  const info = modelInfo(model)
+  const inputTokens = mapInputTokens + reasoningInputTokens
+  const outputTokens = mapOutputTokens + reasoningOutputTokens
   const usd =
-    (inputTokens / 1_000_000) * info.inputPerMTok +
-    (outputTokens / 1_000_000) * info.outputPerMTok
+    tokensToCost(CHEAP_MODEL, mapInputTokens, mapOutputTokens) +
+    tokensToCost(model, reasoningInputTokens, reasoningOutputTokens)
 
   return { inputTokens, outputTokens, usd }
 }
