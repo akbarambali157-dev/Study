@@ -71,7 +71,9 @@ export const DEFAULT_SETTINGS: Settings = {
   baseUrl: import.meta.env.VITE_AI_BASE_URL || undefined,
   // When true, the site provides the model via the Supabase Edge Function
   // and students never need their own API key.
-  useProxy: false,
+  // Respect the deployment's hosted-AI default on a fresh browser profile.
+  // A student can still switch to BYOK in Settings; that choice is persisted.
+  useProxy: import.meta.env.VITE_AI_PROXY === 'true',
 }
 
 export async function getSettings(): Promise<Settings> {
