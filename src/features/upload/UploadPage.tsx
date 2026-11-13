@@ -250,7 +250,7 @@ export function UploadPage() {
           ? `${result.usage.inputTokens.toLocaleString()} input / ${result.usage.outputTokens.toLocaleString()} output tokens; gateway billing applies`
           : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
         toast(
-          `${result.keyPointCount} key points, ${result.cardCount} cards — ${costSummary} for “${doc.title}”.`,
+          `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${doc.title}”.`,
           'success',
         )
         navigate(`/doc/${doc.id}`)
