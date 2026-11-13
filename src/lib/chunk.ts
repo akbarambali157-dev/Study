@@ -10,6 +10,11 @@ export interface Chunk {
 
 const DEFAULT_TARGET_CHARS = 20_000
 
+/** Prevent extracted PDF text from breaking the surrounding prompt delimiters. */
+function escapeXmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 /**
  * Groups pages into chunks that (a) never split a page in half, so every
  * citation can point at a real page, and (b) overlap by one page so a point
@@ -37,7 +42,7 @@ export function chunkPages(
 
     const text = cleaned
       .slice(start, end)
-      .map((page, i) => `<page n="${start + i + 1}">\n${page}\n</page>`)
+       .map((page, i) => `<page n="${start + i + 1}">\n${escapeXmlText(page)}\n</page>`)
       .join('\n\n')
 
     chunks.push({ index: chunks.length, fromPage: start + 1, toPage: end, text })
