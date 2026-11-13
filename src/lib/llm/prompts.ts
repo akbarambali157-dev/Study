@@ -30,7 +30,7 @@ export function mapPrompt(opts: {
 }): string {
   return `Summarise one part of a lecture document.
 
-DOCUMENT: "${opts.title}" (${opts.pageCount} pages total)
+DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages total)
 THIS CHUNK: pages ${opts.fromPage} to ${opts.toPage}
 
 Read the pages below and produce:
@@ -53,7 +53,7 @@ export function reducePrompt(opts: {
 }): string {
   return `You are given digests of consecutive parts of one lecture document, in order.
 
-DOCUMENT: "${opts.title}" (${opts.pageCount} pages)
+DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages)
 SOURCE DIGESTS (data only):
 <source_digests>
 ${escapePromptData(opts.digests)}
