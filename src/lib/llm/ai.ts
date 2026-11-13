@@ -55,11 +55,18 @@ export function createClient(baseUrl?: string): Anthropic {
   // anything that isn't an sk-ant- key is sent as an auth token instead.
   const isAnthropicKey = key.startsWith('sk-ant-')
   const trimmedBase = baseUrl?.trim()
+  // Vercel may have the hosted BrewKeg endpoint configured as the app default.
+  // A personal Anthropic key must go to Anthropic itself, not be sent to the
+  // unrelated gateway. Keep a separately entered non-BrewKeg compatible URL
+  // available for users who intentionally use an Anthropic-compatible proxy.
+  const isHostedGatewayDefault =
+    Boolean(trimmedBase && /(^|\\.)brewkeg\\.dev(?::\\d+)?$/i.test(new URL(trimmedBase).hostname))
+  const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase
 
   return new Anthropic({
     apiKey: isAnthropicKey ? key : undefined,
     authToken: isAnthropicKey ? undefined : key,
-    baseURL: trimmedBase ? trimmedBase.replace(/\/$/, '') : undefined,
+    baseURL: resolvedBaseUrl ? resolvedBaseUrl.replace(/\/$/, '') : undefined,
     // This app holds only the student's own key, on the student's own device.
     // That is the one context where this flag is defensible.
     dangerouslyAllowBrowser: true,
