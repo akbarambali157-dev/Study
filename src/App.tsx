@@ -85,7 +85,7 @@ export function App() {
   }, [navigate])
 
   return (
-    <div className="flex min-h-full flex-col bg-app text-body">
+    <div className="app-backdrop flex min-h-full flex-col text-body">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-forest focus:px-4 focus:py-2 focus:text-white"
@@ -94,7 +94,7 @@ export function App() {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-line bg-app/90 backdrop-blur-md surface-elevated">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-3 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-2xl bg-gradient-to-br from-forest to-forest-500 font-display text-[15px] font-bold text-white shadow-sm">
               O
@@ -146,7 +146,7 @@ export function App() {
         </div>
       </header>
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pb-16">
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8">
         <Outlet />
       </main>
 
