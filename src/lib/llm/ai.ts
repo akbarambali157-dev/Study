@@ -157,11 +157,25 @@ async function generateStructuredViaProxy<T>(
       const { data: session } = await supabase.auth.getSession()
       const token = session?.session?.access_token
 
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        throw new AiError('Your sign-in session could not be checked. Sign in again.', 'auth')
+      }
+      const token = sessionData.session?.access_token
+      if (!token) {
+        throw new AiError('You need to sign in to use the model.', 'auth')
+      }
+      const publicKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim()
+      if (!publicKey) {
+        throw new AiError('Hosted AI is not configured. The Supabase public key is missing.', 'unknown')
+      }
+
       const resp = await fetch(aiProxyUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          apikey: publicKey,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           system: request.system,
@@ -180,7 +194,7 @@ async function generateStructuredViaProxy<T>(
       if (!resp.ok) {
         const errBody = await resp.json().catch(() => null)
         if (resp.status === 401) {
-          throw new AiError('You need to sign in to use the model.', 'auth')
+          throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth')
         }
         throw mapError({
           status: resp.status,
