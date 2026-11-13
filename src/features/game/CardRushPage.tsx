@@ -50,6 +50,7 @@ export function CardRushPage() {
   const [asked, setAsked] = useState(0)
   const [round, setRound] = useState<Round | null>(null)
   const [chosen, setChosen] = useState<number | null>(null)
+  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [lastRun, setLastRun] = useState<GameRun | null>(null)
 
   const startedAt = useRef(0)
@@ -69,6 +70,7 @@ export function CardRushPage() {
       const pick = pool[Math.floor(Math.random() * pool.length)]
       setRound(makeRound(pick, pool))
       setChosen(null)
+      setFeedback(null)
       locked.current = false
     },
     [],
@@ -113,6 +115,7 @@ export function CardRushPage() {
     setCorrect(0)
     setAsked(0)
     setLastRun(null)
+    setFeedback(null)
     setRemaining(RUN_MS)
     startedAt.current = Date.now()
     deadline.current = Date.now() + RUN_MS
@@ -143,6 +146,7 @@ export function CardRushPage() {
       setChosen(index)
       setAsked((n) => n + 1)
       const right = index === round.answerIndex
+      setFeedback(right ? 'correct' : 'wrong')
 
       if (right) {
         const nextCombo = combo + 1
@@ -333,7 +337,7 @@ export function CardRushPage() {
             </Chip>
           ) : null}
           <Chip tone={danger ? 'clay' : 'neutral'}>
-            <span className="tnum">{seconds.toFixed(1)}s</span>
+            <span className={cn("tnum", danger ? "rush-timer-danger inline-block font-bold" : "")}>{seconds.toFixed(1)}s</span>
           </Chip>
         </div>
       </div>
@@ -348,7 +352,7 @@ export function CardRushPage() {
       {/* Keyed on the round so each card animates in exactly once, rather than
           re-mounting on every clock tick. */}
       {round ? (
-        <Card key={`${round.card.id}-${asked}`} className="animate-card-enter">
+        <Card key={`${round.card.id}-${asked}`} className={cn("animate-card-enter transition-shadow duration-300", feedback === "correct" ? "rush-feedback-correct" : feedback === "wrong" ? "rush-feedback-wrong" : "")}>
           <div className="mb-1 flex items-center justify-between">
             <span className="tnum text-[11px] font-semibold uppercase tracking-wide text-muted">
               Score {score}
@@ -374,7 +378,7 @@ export function CardRushPage() {
                   onClick={() => answer(index)}
                   disabled={chosen !== null}
                   className={cn(
-                    'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left text-[14px] leading-snug transition',
+                    'flex min-h-12 items-start gap-2.5 rounded-xl border px-3 py-3 text-left text-[14px] leading-snug transition duration-200 active:scale-[.99]',
                     'disabled:cursor-default',
                     revealed && isAnswer
                       ? 'border-forest-400 bg-forest-400/10 font-semibold'
@@ -393,10 +397,24 @@ export function CardRushPage() {
             })}
           </div>
 
-          {chosen !== null && chosen !== round.answerIndex ? (
-            <p className="mt-3 text-[12px] text-muted">
-              Correct answer highlighted. It will come back around.
-            </p>
+          {feedback ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className={cn(
+                'rush-feedback mt-4 flex items-center gap-2 rounded-xl px-3 py-3 text-[13px] font-semibold',
+                feedback === 'correct'
+                  ? 'border border-forest-400/30 bg-forest-400/10 text-forest-400 dark:text-mint'
+                  : 'border border-clay/30 bg-clay-soft/60 text-clay dark:bg-clay/15 dark:text-[#ffad98]',
+              )}
+            >
+              <span className="text-base" aria-hidden="true">{feedback === 'correct' ? '✦' : '↻'}</span>
+              <span>
+                {feedback === 'correct'
+                  ? `Correct! +${100 * combo} points${combo >= 2 ? ` · ${combo}× combo` : ''} · 1.5 seconds added`
+                  : 'Not quite — the correct answer is highlighted. Keep going!'}
+              </span>
+            </div>
           ) : null}
         </Card>
       ) : (
