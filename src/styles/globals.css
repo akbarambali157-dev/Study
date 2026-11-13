@@ -15,13 +15,13 @@
 }
 
 .dark {
-  --bg: #0a100e;
-  --surface: #121a15;
-  --surface-2: #1b2620;
-  --surface-3: #26332c;
-  --text: #e9f1ec;
-  --muted: #a3b0a7;
-  --line: #2a3830;
+  --bg: #09120f;
+  --surface: #111d17;
+  --surface-2: #1a2a21;
+  --surface-3: #263a2e;
+  --text: #edf5ef;
+  --muted: #aabbb0;
+  --line: #304338;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px -10px rgb(0 0 0 / 0.45);
   --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4), 0 4px 12px -2px rgb(0 0 0 / 0.25);
 }
@@ -405,3 +405,24 @@
     animation: none !important;
   }
 }
+
+/* Study Hub visual refresh */
+.app-backdrop{min-height:100dvh;background-color:var(--bg);background-image:radial-gradient(ellipse at 8% 0%,rgb(27 102 80/.10),transparent 34rem),radial-gradient(ellipse at 94% 12%,rgb(242 179 61/.08),transparent 28rem),linear-gradient(180deg,rgb(255 255 255/.16),transparent 32rem)}
+.dark .app-backdrop{background-image:radial-gradient(ellipse at 8% 0%,rgb(44 122 91/.19),transparent 34rem),radial-gradient(ellipse at 94% 12%,rgb(242 179 61/.07),transparent 28rem),linear-gradient(180deg,rgb(255 255 255/.018),transparent 32rem)}
+.dashboard-content{width:100%;min-width:0;animation:dashboard-arrive 420ms cubic-bezier(.2,.8,.2,1) both}
+.dashboard-content>*{min-width:0}
+.dashboard-content .stat-card{min-width:0;border-radius:1.15rem}
+.dashboard-content a,.dashboard-content button{-webkit-tap-highlight-color:transparent}
+.surface-elevated{backdrop-filter:blur(14px)}
+.dark .surface-elevated{background:color-mix(in srgb,var(--surface) 94%,transparent);border-color:color-mix(in srgb,var(--line) 82%,white 4%)}
+@keyframes dashboard-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes rush-correct{0%{transform:scale(.985);box-shadow:0 0 0 0 rgb(44 122 91/0)}45%{transform:scale(1.012);box-shadow:0 0 0 7px rgb(44 122 91/.12)}100%{transform:scale(1);box-shadow:0 0 0 0 rgb(44 122 91/0)}}
+@keyframes rush-wrong{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+@keyframes rush-feedback{from{opacity:0;transform:translateY(7px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.rush-feedback{animation:rush-feedback 220ms ease-out both}
+.rush-feedback-correct{animation:rush-correct 420ms ease-out}
+.rush-feedback-wrong{animation:rush-wrong 300ms ease-in-out}
+.rush-timer-danger{animation:timer-pulse 850ms ease-in-out infinite}
+@keyframes timer-pulse{50%{transform:scale(1.045);filter:saturate(1.35)}}
+@media(max-width:380px){.dashboard-content .stat-card{padding:.75rem}.dashboard-content h1{overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){.dashboard-content,.rush-feedback,.rush-feedback-correct,.rush-feedback-wrong,.rush-timer-danger{animation:none!important}}
