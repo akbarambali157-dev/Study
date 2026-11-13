@@ -27,7 +27,11 @@ export function AuthPage() {
       }
       if (!data.session) return
       const existing = await db.profile.get('me')
-      if (!active || existing) return
+      if (!active) return
+      if (existing) {
+        navigate('/')
+        return
+      }
       const metadataName =
         typeof data.session.user.user_metadata?.full_name === 'string'
           ? data.session.user.user_metadata.full_name
