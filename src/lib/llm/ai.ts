@@ -138,11 +138,10 @@ async function generateStructuredViaProxy<T>(
         if (resp.status === 401) {
           throw new AiError('You need to sign in to use the model.', 'auth')
         }
-        throw new AiError(
-          errBody?.error ?? `Proxy returned ${resp.status}`,
-          'unknown',
-          resp.status >= 500,
-        )
+        throw mapError({
+          status: resp.status,
+          message: errBody?.error ?? `Proxy returned ${resp.status}`,
+        })
       }
 
       const { content, usage } = (await resp.json()) as {
@@ -150,8 +149,15 @@ async function generateStructuredViaProxy<T>(
         usage: { input_tokens: number; output_tokens: number }
       }
 
-      // Validate with the same zod schema as the direct path
-      const parsed = request.schema.safeParse(JSON.parse(content))
+      // Validate with the same zod schema as the direct path. Malformed JSON
+      // is a schema failure, so the bounded repair retry can run.
+      let decoded: unknown
+      try {
+        decoded = JSON.parse(content)
+      } catch {
+        throw new AiError('The model returned malformed structured data.', 'schema', true)
+      }
+      const parsed = request.schema.safeParse(decoded)
       if (!parsed.success) {
         throw new AiError(
           'The response did not match the expected shape.',
