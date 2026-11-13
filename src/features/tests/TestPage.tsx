@@ -49,28 +49,38 @@ export function TestPage() {
 
   const start = useCallback(async () => {
     if (!deck || !document) return
-    if (!hasAiAccess(settings.useProxy ?? false)) {
-      toast(settings.useProxy ? 'Configure Supabase in the deployment settings first.' : 'Add your API key in Settings first.', 'error')
-      return
-    }
-    if (keyPoints.length === 0) {
-      toast('This document has no key points to test on.', 'error')
-      return
-    }
-
     setError(null)
     setPhase('generating')
     try {
-      const result = await generateTestForDeck({
-        deck,
-        documentId: document.id,
-        keyPoints,
-        pageCount: document.pageCount,
-        model: settings.model,
-        baseUrl: settings.baseUrl || undefined,
-        useProxy: settings.useProxy,
-      })
-      setQuestions(result.questions)
+      const savedQuestions = await db.questions.where('deckId').equals(deck.id).toArray()
+      let questionsToUse = savedQuestions
+      let generatedCost = 0
+
+      if (questionsToUse.length < 4) {
+        if (!hasAiAccess(settings.useProxy ?? false)) {
+          toast(settings.useProxy ? 'Configure Supabase in the deployment settings first.' : 'Add your API key in Settings first.', 'error')
+          setPhase('setup')
+          return
+        }
+        if (keyPoints.length === 0) {
+          toast('This document has no key points to test on.', 'error')
+          setPhase('setup')
+          return
+        }
+        const result = await generateTestForDeck({
+          deck,
+          documentId: document.id,
+          keyPoints,
+          pageCount: document.pageCount,
+          model: settings.model,
+          baseUrl: settings.baseUrl || undefined,
+          useProxy: settings.useProxy,
+        })
+        questionsToUse = result.questions
+        generatedCost = result.costUsd
+      }
+
+      setQuestions(questionsToUse)
       setIndex(0)
       setChosen(null)
       setAnswers([])
@@ -78,7 +88,9 @@ export function TestPage() {
       setReviewing(false)
       setStartedAt(Date.now())
       setPhase('running')
-      toast(`${result.questions.length} questions — ${formatUsd(result.costUsd)}.`, 'success')
+      toast(generatedCost > 0
+        ? `${questionsToUse.length} questions generated — ${formatUsd(generatedCost)}.`
+        : `${questionsToUse.length} saved questions ready.`, 'success')
     } catch (err) {
       setError(
         redactSecrets(
@@ -250,8 +262,7 @@ export function TestPage() {
           </div>
 
           <p className="mt-3 text-xs text-muted">
-            New questions are written for each test, from this document&apos;s{' '}
-            {keyPoints.length} key points.
+            Questions are generated from this document&apos;s {keyPoints.length} key points and saved for repeat practice.
           </p>
 
           {error ? (
