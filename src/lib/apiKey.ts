@@ -1,6 +1,6 @@
 /**
- * The Anthropic API key never leaves this browser and is never sent anywhere
- * except api.anthropic.com.
+ * A BYOK credential stays in this browser and is sent only to the AI endpoint
+ * configured in Settings. Never log it or include it in an error message.
  *
  * Default storage is sessionStorage: it dies with the tab, so a shared lab
  * machine does not keep a usable key. "Remember on this device" upgrades it to
