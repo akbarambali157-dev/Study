@@ -42,8 +42,10 @@ security. They are not needed for local mode.
 
 ### Hosted AI and deployment environment
 
-- Set `VITE_AI_PROXY=true` to make the site-provided AI mode the default for a
-  new browser profile. Students must sign in through Supabase before using it.
+- BrewKeg is the shared AI provider by default. Students do not need personal
+  API keys. They must sign in through Supabase before using hosted AI. Existing
+  browser profiles are migrated once to this shared-provider default; a student
+  can still deliberately switch to BYOK in Settings.
 - The Supabase Edge Function `ai-proxy` reads `BREWKEG_API_KEY` from Supabase
   Function secrets. Keep that provider key there; never put it in a `VITE_*`
   variable or a committed file.
