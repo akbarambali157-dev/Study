@@ -58,6 +58,7 @@ type FilePhase =
 
 type QueuedFile = {
   id: string
+  documentId?: string
   file: File
   extracted: ExtractedPdf | null
   title: string
@@ -168,23 +169,6 @@ export function UploadPage() {
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }, [])
 
-  const resetFile = useCallback((id: string) => {
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              extracted: null,
-              title: '',
-              phase: { kind: 'idle' },
-              pii: null,
-              piiAcknowledged: false,
-            }
-          : f,
-      ),
-    )
-  }, [])
-
   // ── per-file title & PII ────────────────────────────────────────────────
 
   const setFileTitle = useCallback((id: string, value: string) => {
@@ -211,7 +195,7 @@ export function UploadPage() {
       }
 
       const doc: DocumentRec = {
-        id: uid('doc'),
+        id: item.documentId ?? uid('doc'),
         title: item.title.trim() || stripExtension(item.file.name),
         fileName: item.file.name,
         pageCount: item.extracted.pageCount,
@@ -230,7 +214,7 @@ export function UploadPage() {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === id
-            ? { ...f, phase: { kind: 'running', stage: 'map' } }
+            ? { ...f, documentId: doc.id, phase: { kind: 'running', stage: 'map' } }
             : f,
         ),
       )
@@ -382,7 +366,7 @@ export function UploadPage() {
             </p>
           </div>
           <div className="flex shrink-0 gap-1.5">
-            {!busy && item.phase.kind !== 'done' && item.phase.kind !== 'error' ? (
+            {!busy && item.phase.kind !== 'done' ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -391,14 +375,20 @@ export function UploadPage() {
                 aria-label={`Remove ${item.file.name}`}
               />
             ) : null}
-            {!busy && item.phase.kind === 'idle' ? (
+            {!busy && item.phase.kind === 'error' ? (
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => resetFile(item.id)}
-                icon={<X className="size-3.5" />}
-                aria-label={`Reset ${item.file.name}`}
-              />
+                variant="secondary"
+                onClick={() => {
+                  if (item.extracted) {
+                    setFiles((prev) => prev.map((f) => f.id === item.id ? { ...f, phase: { kind: 'ready' } } : f))
+                  } else {
+                    void extractFile(item.id, item.file)
+                  }
+                }}
+              >
+                Retry
+              </Button>
             ) : null}
             {busy && item.phase.kind === 'running' ? (
               <Button
