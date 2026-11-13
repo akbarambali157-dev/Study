@@ -9,6 +9,7 @@ import { sleep } from '../utils'
 export type AiErrorCode =
   | 'missing-key'
   | 'auth'
+  | 'model-unavailable'
   | 'rate-limit'
   | 'overloaded'
   | 'network'
@@ -103,6 +104,12 @@ async function generateStructuredViaProxy<T>(
 
     try {
       // Get the user's JWT so the Edge Function can identify them
+      if (!supabase) {
+        throw new AiError(
+          'Hosted AI is not configured. Add the Supabase URL and anon key, or use your own API key.',
+          'unknown',
+        )
+      }
       const { data: session } = await supabase.auth.getSession()
       const token = session?.session?.access_token
 
@@ -118,6 +125,10 @@ async function generateStructuredViaProxy<T>(
           model: request.model,
           max_tokens: request.maxTokens ?? 8000,
           effort: request.effort ?? 'medium',
+          output_config: {
+            format: zodOutputFormat(request.schema),
+            effort: request.effort ?? 'medium',
+          },
         }),
         signal: request.signal,
       })
@@ -281,6 +292,9 @@ function mapError(error: unknown): AiError {
   }
   if (status && status >= 500) {
     return new AiError('The model service had a problem. Try again shortly.', 'overloaded', true)
+  }
+  if ((status === 400 || status === 404) && /model.{0,30}(not found|unknown|unsupported|unavailable)|(?:not found|unknown|unsupported).{0,30}model/i.test(message)) {
+    return new AiError('The selected model is not available on this provider.', 'model-unavailable')
   }
   if (status === 400) {
     return new AiError(
