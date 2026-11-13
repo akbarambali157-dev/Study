@@ -23,7 +23,7 @@ import {
   maskKey,
   saveApiKey,
 } from '@/lib/apiKey'
-import { formatUsd, MODELS } from '@/lib/cost'
+import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
 import { downloadFile } from '@/lib/export'
@@ -391,7 +391,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
                     {active ? <Check className="size-4 text-forest-400" /> : null}
                   </span>
                   <span className="tnum text-[12px] text-muted">
-                    ≈{formatUsd(estimateFor40Pages(model.inputPerMTok, model.outputPerMTok))} per
+                    ≈{formatUsd(estimateFor40Pages(model.id))} per
                     handout
                   </span>
                 </div>
@@ -542,11 +542,8 @@ function ToggleRow({
   )
 }
 
-/** Matches the estimate printed on the upload screen, for comparison shopping. */
-function estimateFor40Pages(inputPerMTok: number, outputPerMTok: number): number {
-  const inputTokens = 46_000
-  const outputTokens = 15_000
-  return (
-    (inputTokens / 1_000_000) * inputPerMTok + (outputTokens / 1_000_000) * outputPerMTok
-  )
+/** Uses the same staged model mix as the upload cost preview. */
+function estimateFor40Pages(model: Parameters<typeof estimateGenerationCost>[1]): number {
+  const samplePages = Array.from({ length: 40 }, () => 'x'.repeat(2_500))
+  return estimateGenerationCost(samplePages, model).usd
 }
