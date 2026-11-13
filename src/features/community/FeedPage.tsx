@@ -259,7 +259,7 @@ export function FeedPage() {
         reporter_id: userId, target_type: 'post', target_id: postId, reason: reason.trim().slice(0, 500),
       })
       if (error) throw error
-      toast('Report submitted for review. Thank you.', 'success')
+      toast('Your report has been recorded. Thank you for flagging this.', 'success')
     } catch (error) {
       toast(error instanceof Error ? error.message : 'The report could not be submitted.', 'error')
     }
