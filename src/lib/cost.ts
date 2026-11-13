@@ -2,7 +2,7 @@ import { estimatePdfTokens } from './chunk'
 import type { AiModel } from './types'
 
 /** Default low-cost model used for the document-mapping stage. */
-export const CHEAP_MODEL: AiModel = 'claude-haiku-5-5'
+export const CHEAP_MODEL: AiModel = 'claude-haiku-4-5'
 
 export interface ModelInfo {
   id: AiModel
@@ -28,8 +28,8 @@ export const MODELS: ModelInfo[] = [
     note: 'Good notes at about half the price. A sensible default.',
   },
   {
-    id: 'claude-haiku-5-5',
-    label: 'Haiku 5.5',
+    id: 'claude-haiku-4-5',
+    label: 'Haiku 4.5',
     inputPerMTok: 0.1,
     outputPerMTok: 0.5,
     note: 'Cheapest by far. Fine for well-formatted slides, thinner on nuance.',
