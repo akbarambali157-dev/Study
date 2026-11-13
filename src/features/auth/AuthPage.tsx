@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Lock, ShieldCheck, User } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
@@ -14,13 +14,36 @@ export function AuthPage() {
   const [mode, setMode] = useState<'signup' | 'signin'>('signup')
   const [busy, setBusy] = useState(false)
 
+  // OAuth returns to this hash route with a PKCE code in the query string.
+  // Supabase exchanges it during getSession(); create a local profile once.
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    void supabase.auth.getSession().then(async ({ data, error }) => {
+      if (!active || error || !data.session) return
+      const existing = await db.profile.get('me')
+      if (!active || existing) return
+      const metadataName =
+        typeof data.session.user.user_metadata?.full_name === 'string'
+          ? data.session.user.user_metadata.full_name
+          : typeof data.session.user.user_metadata?.name === 'string'
+            ? data.session.user.user_metadata.name
+            : data.session.user.email?.split('@')[0] ?? 'Student'
+      await saveProfile(metadataName, '', '', '')
+      if (active) navigate('/')
+    }).catch(() => {
+      // Normal email/password flows can briefly have no OAuth callback to process.
+    })
+    return () => { active = false }
+  }, [navigate])
+
   const signInWithGoogle = async () => {
     if (!supabase) return
     setBusy(true)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: `${window.location.origin}${window.location.pathname}#/auth` },
       })
       if (error) throw error
     } catch (err) {
