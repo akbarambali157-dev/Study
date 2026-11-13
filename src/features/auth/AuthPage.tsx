@@ -28,17 +28,30 @@ export function AuthPage() {
       if (!data.session) return
       const existing = await db.profile.get('me')
       if (!active) return
-      if (existing) {
-        navigate('/')
-        return
-      }
       const metadataName =
         typeof data.session.user.user_metadata?.full_name === 'string'
           ? data.session.user.user_metadata.full_name
           : typeof data.session.user.user_metadata?.name === 'string'
             ? data.session.user.user_metadata.name
-            : data.session.user.email?.split('@')[0] ?? 'Student'
-      await saveProfile(metadataName, '', '', '')
+            : typeof data.session.user.user_metadata?.display_name === 'string'
+              ? data.session.user.user_metadata.display_name
+              : data.session.user.email?.split('@')[0] ?? 'Student'
+      const profile = existing ?? {
+        id: 'me',
+        displayName: metadataName,
+        xp: 0,
+        streakDays: 0,
+      }
+      const incomplete = !profile.displayName || profile.displayName === 'Student' ||
+        !profile.faculty || !profile.department || !profile.level
+      if (incomplete) {
+        await db.profile.put({
+          ...profile,
+          displayName: profile.displayName === 'Student' ? metadataName : profile.displayName,
+        })
+        if (active) navigate('/profile-setup')
+        return
+      }
       if (active) navigate('/')
     }).catch(() => {
       // Normal email/password flows can briefly have no OAuth callback to process.
@@ -165,6 +178,11 @@ export function AuthPage() {
           })
         } else {
           await saveProfile(name, faculty, department, level)
+        }
+        const saved = await db.profile.get('me')
+        if (!saved?.faculty || !saved.department || !saved.level) {
+          navigate('/profile-setup')
+          return
         }
         toast('Welcome back.', 'success')
       }
