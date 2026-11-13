@@ -1,0 +1,17 @@
+.community-banner {
+  background:
+    radial-gradient(ellipse at 85% 10%, rgb(56 189 248 / .22), transparent 34%),
+    radial-gradient(ellipse at 8% 100%, rgb(129 140 248 / .30), transparent 48%),
+    linear-gradient(125deg, #171747, #302b86 62%, #3730a3);
+  box-shadow: 0 22px 58px -34px rgb(30 27 100 / .72);
+}
+.community-post { transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.community-post:hover { border-color: color-mix(in srgb, #818cf8 36%, var(--line)); box-shadow: var(--shadow); }
+.community-toolbar { position: sticky; top: 4.5rem; z-index: 10; padding: .5rem 0; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(14px); }
+.dark .community-toolbar { background: color-mix(in srgb, var(--bg) 88%, transparent); }
+@media (max-width: 380px) {
+  .community-post { padding: .85rem; }
+  .community-post h2 { overflow-wrap: anywhere; }
+  .community-toolbar { top: 4rem; }
+}
+@media (prefers-reduced-motion: reduce) { .community-post { transition: none; } }
