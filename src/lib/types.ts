@@ -247,4 +247,6 @@ export interface Settings {
    * The browser never touches the API key; students don't bring their own.
    */
   useProxy?: boolean
+  /** One-time migration marker for the shared-provider default. */
+  providerModeVersion?: number
 }
