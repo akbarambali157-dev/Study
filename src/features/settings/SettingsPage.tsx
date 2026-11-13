@@ -364,8 +364,9 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
               </Button>
             </div>
             <p className="mt-1.5 text-[12px] text-muted">
-              Only needed if you use an Anthropic-compatible gateway. Leave it empty for the
-              standard API.
+              Leave this empty for a personal Anthropic key (sk-ant-…). For a gateway-issued
+              token, enter that provider’s Anthropic-compatible API base URL here. The key and
+              endpoint must belong to the same provider.
             </p>
           </div>
           ) : (
