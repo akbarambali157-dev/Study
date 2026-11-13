@@ -137,9 +137,14 @@ serve(async (req) => {
   // ── Parse response ──────────────────────────────────────────────────
   const responseJson = await brewkegResp.json().catch(() => null)
   if (!brewkegResp.ok) {
-    const providerMessage = responseJson?.error?.message ?? responseJson?.message ?? 'The model provider rejected the request.'
+    const upstreamAuthFailure = brewkegResp.status === 401 || brewkegResp.status === 403
+    const providerMessage = upstreamAuthFailure
+      ? 'The hosted AI provider rejected its server-side credential. The site administrator needs to check the proxy secret.'
+      : responseJson?.error?.message ?? responseJson?.message ?? 'The model provider rejected the request.'
     return new Response(JSON.stringify({ error: String(providerMessage).slice(0, 300) }), {
-      status: brewkegResp.status,
+      // Reserve 401 for the user's Supabase session; provider-key failures are
+      // gateway failures and must not tell the student to sign in again.
+      status: upstreamAuthFailure ? 502 : brewkegResp.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
