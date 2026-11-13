@@ -32,63 +32,88 @@ export async function extractPdf(
   file: File,
   onProgress?: (page: number, total: number) => void,
 ): Promise<ExtractedPdf> {
+  if (file.size === 0) {
+    throw new PdfError('This PDF file is empty. Choose a different file.', 'empty')
+  }
+  if (file.size > 30 * 1024 * 1024) {
+    throw new PdfError('This PDF is larger than 30 MB. Compress it or split it into smaller files, then try again.', 'toolarge')
+  }
+
   const buffer = await file.arrayBuffer()
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    isEvalSupported: false,
+    useWorkerFetch: false,
+  })
 
-  // pdf.js v6 tears down through the loading task, not the document proxy.
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) })
-
-  let doc: pdfjs.PDFDocumentProxy
   try {
-    doc = await loadingTask.promise
-  } catch (error) {
-    const name = (error as { name?: string })?.name ?? ''
-    if (name === 'PasswordException') {
-      throw new PdfError('This PDF is password-protected. Remove the password, then try again.', 'encrypted')
+    let doc: pdfjs.PDFDocumentProxy
+    try {
+      doc = await loadingTask.promise
+    } catch (error) {
+      const name = (error as { name?: string })?.name ?? ''
+      if (name === 'PasswordException') {
+        throw new PdfError('This PDF is password-protected. Remove the password, then try again.', 'encrypted')
+      }
+      const detail = error instanceof Error ? error.message : ''
+      throw new PdfError(
+        detail ? `PDF reader could not open this file: ${detail.slice(0, 180)}` : 'This file could not be read as a PDF. It may be damaged.',
+        'corrupt',
+      )
     }
-    throw new PdfError('This file could not be read as a PDF. It may be damaged.', 'corrupt')
-  }
 
-  if (doc.numPages > MAX_PAGES) {
-    throw new PdfError(
-      `This PDF has ${doc.numPages} pages. The limit is ${MAX_PAGES}, because a document this long would cost a lot to process and lose focus.`,
-      'toolarge',
-    )
-  }
+    if (!doc.numPages) {
+      throw new PdfError('This PDF contains no pages.', 'empty')
+    }
+    if (doc.numPages > MAX_PAGES) {
+      throw new PdfError(
+        `This PDF has ${doc.numPages} pages. The limit is ${MAX_PAGES}, because a document this long would cost a lot to process and lose focus.`,
+        'toolarge',
+      )
+    }
 
-  const pages: string[] = []
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i)
-    const content = await page.getTextContent()
-    pages.push(itemsToText(content.items))
-    page.cleanup()
-    onProgress?.(i, doc.numPages)
-  }
+    const pages: string[] = []
+    for (let i = 1; i <= doc.numPages; i++) {
+      try {
+        const page = await doc.getPage(i)
+        const content = await page.getTextContent()
+        pages.push(itemsToText(content.items))
+        page.cleanup()
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : 'Unknown page-reading error.'
+        throw new PdfError(`Could not read page ${i}: ${detail.slice(0, 160)}`, 'corrupt')
+      }
+      onProgress?.(i, doc.numPages)
+    }
 
-  const metadata = await doc.getMetadata().catch(() => null)
-  const meta = metadata?.info as { Title?: string } | undefined
-  await loadingTask.destroy()
+    const metadata = await doc.getMetadata().catch(() => null)
+    const meta = metadata?.info as { Title?: string } | undefined
 
-  const emptyPages = pages.filter((p) => p.replace(/\s/g, '').length < 40).length
-  const emptyRatio = pages.length ? emptyPages / pages.length : 1
+    const emptyPages = pages.filter((p) => p.replace(/\\s/g, '').length < 40).length
+    const emptyRatio = pages.length ? emptyPages / pages.length : 1
 
-  if (pages.every((p) => p.trim().length === 0)) {
-    throw new PdfError(
-      'There is no selectable text in this PDF — it looks like a scan or a picture of a page. Reading images is not supported yet.',
-      'scanned',
-    )
-  }
-  if (emptyRatio > 0.7) {
-    throw new PdfError(
-      'Most pages in this PDF have no selectable text. It is probably a scan, so notes built from it would be guesswork.',
-      'scanned',
-    )
-  }
+    if (pages.every((p) => p.trim().length === 0)) {
+      throw new PdfError(
+        'There is no selectable text in this PDF — it looks like a scan or a picture of a page. Image-only PDF reading is not supported yet.',
+        'scanned',
+      )
+    }
+    if (emptyRatio > 0.7) {
+      throw new PdfError(
+        'Most pages in this PDF have no selectable text. It is probably a scan, so notes built from it would be guesswork.',
+        'scanned',
+      )
+    }
 
-  return {
-    pages,
-    pageCount: doc.numPages,
-    emptyRatio,
-    title: meta?.Title?.trim() || undefined,
+    return {
+      pages,
+      pageCount: doc.numPages,
+      emptyRatio,
+      title: meta?.Title?.trim() || undefined,
+    }
+  } finally {
+    // Always release the worker, including when one page fails to parse.
+    await loadingTask.destroy().catch(() => undefined)
   }
 }
 
