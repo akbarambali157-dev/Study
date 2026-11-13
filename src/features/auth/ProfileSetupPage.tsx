@@ -89,7 +89,7 @@ export function ProfileSetupPage() {
     <div className="mx-auto max-w-2xl py-2 sm:py-6">
       <PageHeading
         title="Set up your student profile"
-        subtitle="A few details help Study Hub organise your courses and tailor your study space."
+        subtitle="Add your academic details once. You can review or change them later from Settings."
         back={{ to: '/', label: 'Back' }}
       />
       <Card className="p-5 shadow-lg shadow-forest/5 sm:p-7">
