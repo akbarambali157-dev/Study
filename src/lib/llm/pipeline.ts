@@ -58,6 +58,7 @@ export interface GenerationResult {
   deckId: string
   keyPointCount: number
   cardCount: number
+  questionCount: number
   orgCount: number
 }
 
@@ -373,6 +374,44 @@ export async function generateStudyMaterial(
   await saveDeck(deck)
   await saveCards(cards)
 
+  // ── quiz: generate the first test as part of the upload pipeline ───────
+  onStage?.('quiz')
+  const quizResult = await generateStructured({
+    schema: QuizSchema,
+    system: SYSTEM_BASE,
+    prompt: quizPrompt({ keyPoints: keyPointListing, pageCount, count: 8 }),
+    model,
+    maxTokens: 8000,
+    effort: 'medium',
+    baseUrl,
+    signal,
+    useProxy,
+  })
+  usage = addUsage(usage, quizResult.usage)
+  costUsd += tokensToCost(model, quizResult.usage.inputTokens, quizResult.usage.outputTokens)
+
+  const questions: QuizQuestion[] = []
+  for (const raw of quizResult.data.questions) {
+    const keyPoint = keyPoints[raw.keyPointIndex]
+    if (!keyPoint || raw.options.length !== 4) continue
+    questions.push({
+      id: uid('q'),
+      deckId,
+      documentId: doc.id,
+      keyPointId: keyPoint.id,
+      stem: raw.stem,
+      options: raw.options,
+      answerIndex: raw.answerIndex,
+      explanation: raw.explanation,
+      page: keyPoint.page ?? 1,
+    })
+  }
+
+  if (questions.length === 0) {
+    throw new AiError('The model did not return usable test questions. Try generating again.', 'schema')
+  }
+  await saveQuestions(questions)
+
   return {
     usage,
     costUsd,
@@ -380,6 +419,7 @@ export async function generateStudyMaterial(
     deckId,
     keyPointCount: keyPoints.length,
     cardCount: cards.length,
+    questionCount: questions.length,
     orgCount,
   }
 }
