@@ -57,7 +57,22 @@ serve(async (req) => {
   }
 
   // ── Parse request ───────────────────────────────────────────────────
-  let body: { system?: string; prompt?: string; model?: string; max_tokens?: number; effort?: string }
+  const declaredLength = Number(req.headers.get('content-length') ?? 0)
+  if (declaredLength > 300_000) {
+    return new Response(JSON.stringify({ error: 'request too large' }), {
+      status: 413,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  let body: {
+    system?: string
+    prompt?: string
+    model?: string
+    max_tokens?: number
+    effort?: string
+    output_config?: Record<string, unknown>
+  }
   try {
     body = await req.json()
   } catch {
@@ -67,9 +82,30 @@ serve(async (req) => {
     })
   }
 
+  const allowedModels = new Set(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'])
   if (!body.prompt || !body.model) {
     return new Response(JSON.stringify({ error: 'prompt and model required' }), {
       status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (!allowedModels.has(body.model)) {
+    return new Response(JSON.stringify({ error: 'selected model is not allowed' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const maxTokens = Number(body.max_tokens ?? 8000)
+  if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 12_000) {
+    return new Response(JSON.stringify({ error: 'max_tokens must be between 1 and 12000' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  if (body.prompt.length > 250_000 || (body.system?.length ?? 0) > 30_000) {
+    return new Response(JSON.stringify({ error: 'prompt exceeds the allowed size' }), {
+      status: 413,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
@@ -85,9 +121,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: body.model,
-        max_tokens: body.max_tokens ?? 8000,
+        max_tokens: maxTokens,
         system: body.system ?? '',
         messages: [{ role: 'user', content: body.prompt }],
+        ...(body.output_config ? { output_config: body.output_config } : {}),
       }),
     })
   } catch {
@@ -99,14 +136,31 @@ serve(async (req) => {
 
   // ── Parse response ──────────────────────────────────────────────────
   const responseJson = await brewkegResp.json().catch(() => null)
-  const content =
+  if (!brewkegResp.ok) {
+    const upstreamAuthFailure = brewkegResp.status === 401 || brewkegResp.status === 403
+    const providerMessage = upstreamAuthFailure
+      ? 'The hosted AI provider rejected its server-side credential. The site administrator needs to check the proxy secret.'
+      : responseJson?.error?.message ?? responseJson?.message ?? 'The model provider rejected the request.'
+    return new Response(JSON.stringify({ error: String(providerMessage).slice(0, 300) }), {
+      // Reserve 401 for the user's Supabase session; provider-key failures are
+      // gateway failures and must not tell the student to sign in again.
+      status: upstreamAuthFailure ? 502 : brewkegResp.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const rawContent =
     responseJson?.content?.[0]?.type === 'text'
       ? responseJson.content[0].text
-      : responseJson?.content ?? JSON.stringify(responseJson)
+      : responseJson?.content
+  const content = typeof rawContent === 'string'
+    ? rawContent
+    : JSON.stringify(rawContent ?? responseJson ?? {})
 
+  const inputTokens = Number(responseJson?.usage?.input_tokens ?? 0)
+  const outputTokens = Number(responseJson?.usage?.output_tokens ?? 0)
   const usage = {
-    input_tokens: responseJson?.usage?.input_tokens ?? 0,
-    output_tokens: responseJson?.usage?.output_tokens ?? 0,
+    input_tokens: Number.isFinite(inputTokens) ? Math.max(0, Math.floor(inputTokens)) : 0,
+    output_tokens: Number.isFinite(outputTokens) ? Math.max(0, Math.floor(outputTokens)) : 0,
   }
 
   // ── Record usage for the logged-in user ─────────────────────────────

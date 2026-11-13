@@ -9,6 +9,7 @@ import { sleep } from '../utils'
 export type AiErrorCode =
   | 'missing-key'
   | 'auth'
+  | 'model-unavailable'
   | 'rate-limit'
   | 'overloaded'
   | 'network'
@@ -66,6 +67,35 @@ export function createClient(baseUrl?: string): Anthropic {
   })
 }
 
+interface TimedSignal {
+  signal: AbortSignal
+  didTimeout: () => boolean
+  cleanup: () => void
+}
+
+function createTimedSignal(parent?: AbortSignal, timeoutMs = 90_000): TimedSignal {
+  const controller = new AbortController()
+  let timedOut = false
+  const abortFromParent = () => controller.abort(parent?.reason)
+
+  if (parent?.aborted) controller.abort(parent.reason)
+  else parent?.addEventListener('abort', abortFromParent, { once: true })
+
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort(new DOMException('The AI request timed out.', 'TimeoutError'))
+  }, timeoutMs)
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer)
+      parent?.removeEventListener('abort', abortFromParent)
+    },
+  }
+}
+
 export interface StructuredRequest<T> {
   schema: ZodType<T>
   system: string
@@ -101,8 +131,15 @@ async function generateStructuredViaProxy<T>(
       throw new AiError('Generation stopped.', 'aborted')
     }
 
+    const timeout = createTimedSignal(request.signal)
     try {
       // Get the user's JWT so the Edge Function can identify them
+      if (!supabase) {
+        throw new AiError(
+          'Hosted AI is not configured. Add the Supabase URL and anon key, or use your own API key.',
+          'unknown',
+        )
+      }
       const { data: session } = await supabase.auth.getSession()
       const token = session?.session?.access_token
 
@@ -118,8 +155,12 @@ async function generateStructuredViaProxy<T>(
           model: request.model,
           max_tokens: request.maxTokens ?? 8000,
           effort: request.effort ?? 'medium',
+          output_config: {
+            format: zodOutputFormat(request.schema),
+            effort: request.effort ?? 'medium',
+          },
         }),
-        signal: request.signal,
+        signal: timeout.signal,
       })
 
       if (!resp.ok) {
@@ -127,11 +168,10 @@ async function generateStructuredViaProxy<T>(
         if (resp.status === 401) {
           throw new AiError('You need to sign in to use the model.', 'auth')
         }
-        throw new AiError(
-          errBody?.error ?? `Proxy returned ${resp.status}`,
-          'unknown',
-          resp.status >= 500,
-        )
+        throw mapError({
+          status: resp.status,
+          message: errBody?.error ?? `Proxy returned ${resp.status}`,
+        })
       }
 
       const { content, usage } = (await resp.json()) as {
@@ -139,8 +179,15 @@ async function generateStructuredViaProxy<T>(
         usage: { input_tokens: number; output_tokens: number }
       }
 
-      // Validate with the same zod schema as the direct path
-      const parsed = request.schema.safeParse(JSON.parse(content))
+      // Validate with the same zod schema as the direct path. Malformed JSON
+      // is a schema failure, so the bounded repair retry can run.
+      let decoded: unknown
+      try {
+        decoded = JSON.parse(content)
+      } catch {
+        throw new AiError('The model returned malformed structured data.', 'schema', true)
+      }
+      const parsed = request.schema.safeParse(decoded)
       if (!parsed.success) {
         throw new AiError(
           'The response did not match the expected shape.',
@@ -158,7 +205,9 @@ async function generateStructuredViaProxy<T>(
       }
     } catch (error) {
       lastError = error
-      const mapped = error instanceof AiError ? error : mapError(error)
+      const mapped = timeout.didTimeout()
+        ? new AiError('The model took too long to respond. Try again.', 'network', true)
+        : error instanceof AiError ? error : mapError(error)
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
@@ -166,6 +215,8 @@ async function generateStructuredViaProxy<T>(
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
+    } finally {
+      timeout.cleanup()
     }
   }
 
@@ -196,6 +247,7 @@ export async function generateStructured<T>(
       throw new AiError('Generation stopped.', 'aborted')
     }
 
+    const timeout = createTimedSignal(request.signal)
     try {
       const message = await client.messages.parse(
         {
@@ -208,7 +260,7 @@ export async function generateStructured<T>(
             effort: request.effort ?? 'medium',
           },
         },
-        { signal: request.signal },
+        { signal: timeout.signal },
       )
 
       if (message.stop_reason === 'refusal') {
@@ -236,7 +288,9 @@ export async function generateStructured<T>(
       }
     } catch (error) {
       lastError = error
-      const mapped = mapError(error)
+      const mapped = timeout.didTimeout()
+        ? new AiError('The model took too long to respond. Try again.', 'network', true)
+        : mapError(error)
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
@@ -244,6 +298,8 @@ export async function generateStructured<T>(
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
+    } finally {
+      timeout.cleanup()
     }
   }
 
@@ -281,6 +337,9 @@ function mapError(error: unknown): AiError {
   }
   if (status && status >= 500) {
     return new AiError('The model service had a problem. Try again shortly.', 'overloaded', true)
+  }
+  if ((status === 400 || status === 404) && /model.{0,30}(not found|unknown|unsupported|unavailable)|(?:not found|unknown|unsupported).{0,30}model/i.test(message)) {
+    return new AiError('The selected model is not available on this provider.', 'model-unavailable')
   }
   if (status === 400) {
     return new AiError(

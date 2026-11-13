@@ -1,7 +1,8 @@
 import { chunkPages, clampPage, findSnippet } from '../chunk'
-import { formatUsd, tokensToCost } from '../cost'
+import { CHEAP_MODEL, formatUsd, tokensToCost } from '../cost'
 import { findCatalogOrg, isLinkableUrl } from '../organizations'
 import {
+  clearGeneratedContent,
   saveCards,
   saveDeck,
   saveKeyPoints,
@@ -57,11 +58,9 @@ export interface GenerationResult {
   deckId: string
   keyPointCount: number
   cardCount: number
+  questionCount: number
   orgCount: number
 }
-
-/** The bulk-reading stage runs here; everything with judgement uses `model`. */
-export const CHEAP_MODEL: AiModel = 'claude-haiku-5-5'
 
 export interface PipelineOptions {
   doc: DocumentRec
@@ -84,6 +83,13 @@ function addUsage(a: AiUsage, b: AiUsage): AiUsage {
 
 function ensureNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new AiError('Generation stopped.', 'aborted')
+}
+
+function nearestEvidencePage(page: number, evidencePages: number[]): number {
+  if (evidencePages.length === 0) return 1
+  return evidencePages.reduce((best, candidate) =>
+    Math.abs(candidate - page) < Math.abs(best - page) ? candidate : best,
+  )
 }
 
 /** Runs tasks with a small concurrency cap — friendlier to rate limits. */
@@ -122,8 +128,11 @@ export async function generateStudyMaterial(
     throw new AiError('This document has no readable pages.', 'unknown')
   }
 
+  // A retry for the same document must not leave duplicate partial artifacts.
+  await clearGeneratedContent(doc.id)
   const chunks = chunkPages(pages)
   let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
+  let costUsd = 0
 
   // ── map: one call per chunk ────────────────────────────────────────────
   // This is the stage that sends the whole document, so it runs on the cheapest
@@ -156,24 +165,27 @@ export async function generateStudyMaterial(
       })
 
     let result
+    let usedModel = mapModel
     try {
       result = await call(mapModel)
     } catch (error) {
-      // An endpoint that does not carry the cheap model should cost one retry,
-      // not the whole run. A student's stop request is never retried.
+      // Fall back only when the provider explicitly rejects this model. Network,
+      // authentication and rate-limit errors must not trigger a second paid call.
       if (error instanceof AiError && error.code === 'aborted') throw error
-      if (mapModel === model) throw error
+      if (!(error instanceof AiError) || error.code !== 'model-unavailable' || mapModel === model) throw error
+      usedModel = model
       result = await call(model)
     }
 
     const { data, usage: chunkUsage } = result
-    usage = addUsage(usage, chunkUsage)
     mapped += 1
     onStage?.('map', `${mapped} of ${chunks.length}`)
 
-    return { chunk, ...data }
+    return { chunk, ...data, usage: chunkUsage, usedModel }
   })
 
+  usage = addUsage(usage, maps.reduce((total, item) => addUsage(total, item.usage), { inputTokens: 0, outputTokens: 0 }))
+  costUsd += maps.reduce((total, item) => total + tokensToCost(item.usedModel, item.usage.inputTokens, item.usage.outputTokens), 0)
   ensureNotAborted(signal)
 
   const digests = maps
@@ -200,8 +212,13 @@ export async function generateStudyMaterial(
     useProxy,
   })
   usage = addUsage(usage, reduced.usage)
+  costUsd += tokensToCost(model, reduced.usage.inputTokens, reduced.usage.outputTokens)
 
   ensureNotAborted(signal)
+
+  const evidencePages = Array.from(
+    new Set(maps.flatMap((m) => m.keyPoints.map((kp) => clampPage(kp.page, m.chunk.fromPage, m.chunk.toPage)))),
+  ).sort((a, b) => a - b)
 
   const noteId = uid('note')
   const note: Note = {
@@ -216,7 +233,9 @@ export async function generateStudyMaterial(
   await saveNote(note)
 
   const keyPoints: KeyPoint[] = reduced.data.keyPoints.map((kp, index) => {
-    const page = clampPage(kp.page, 1, pageCount)
+    const proposedPage = Number.isFinite(kp.page) ? Math.round(kp.page) : (evidencePages[0] ?? 1)
+    const hasEvidencePage = evidencePages.includes(proposedPage)
+    const page = hasEvidencePage ? proposedPage : nearestEvidencePage(proposedPage, evidencePages)
     return {
       id: uid('kp'),
       documentId: doc.id,
@@ -226,7 +245,7 @@ export async function generateStudyMaterial(
       body: kp.body,
       example: kp.example,
       page,
-      confidence: Math.min(1, Math.max(0, kp.confidence)),
+      confidence: Math.min(hasEvidencePage ? 1 : 0.25, Math.max(0, kp.confidence)),
       // The snippet is taken from the real page text, never from the model,
       // so what the student checks is what the PDF actually says.
       snippet: findSnippet(pages, page, kp.heading),
@@ -255,6 +274,7 @@ export async function generateStudyMaterial(
       useProxy,
     })
     usage = addUsage(usage, orgResult.usage)
+    costUsd += tokensToCost(model, orgResult.usage.inputTokens, orgResult.usage.outputTokens)
 
     const orgs: Org[] = []
 
@@ -317,6 +337,7 @@ export async function generateStudyMaterial(
     useProxy,
   })
   usage = addUsage(usage, cardResult.usage)
+  costUsd += tokensToCost(model, cardResult.usage.inputTokens, cardResult.usage.outputTokens)
 
   const deckId = uid('deck')
   const cards: Card[] = []
@@ -331,7 +352,8 @@ export async function generateStudyMaterial(
       front: raw.front,
       back: raw.back,
       example: raw.example,
-      page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
+      // Cards inherit the evidence page of the key point they test.
+      page: keyPoint.page ?? 1,
       tags: keyPoint.tags,
     })
   }
@@ -352,13 +374,52 @@ export async function generateStudyMaterial(
   await saveDeck(deck)
   await saveCards(cards)
 
+  // ── quiz: generate the first test as part of the upload pipeline ───────
+  onStage?.('quiz')
+  const quizResult = await generateStructured({
+    schema: QuizSchema,
+    system: SYSTEM_BASE,
+    prompt: quizPrompt({ keyPoints: keyPointListing, pageCount, count: 8 }),
+    model,
+    maxTokens: 8000,
+    effort: 'medium',
+    baseUrl,
+    signal,
+    useProxy,
+  })
+  usage = addUsage(usage, quizResult.usage)
+  costUsd += tokensToCost(model, quizResult.usage.inputTokens, quizResult.usage.outputTokens)
+
+  const questions: QuizQuestion[] = []
+  for (const raw of quizResult.data.questions) {
+    const keyPoint = keyPoints[raw.keyPointIndex]
+    if (!keyPoint || raw.options.length !== 4) continue
+    questions.push({
+      id: uid('q'),
+      deckId,
+      documentId: doc.id,
+      keyPointId: keyPoint.id,
+      stem: raw.stem,
+      options: raw.options,
+      answerIndex: raw.answerIndex,
+      explanation: raw.explanation,
+      page: keyPoint.page ?? 1,
+    })
+  }
+
+  if (questions.length === 0) {
+    throw new AiError('The model did not return usable test questions. Try generating again.', 'schema')
+  }
+  await saveQuestions(questions)
+
   return {
     usage,
-    costUsd: tokensToCost(model, usage.inputTokens, usage.outputTokens),
+    costUsd,
     noteId,
     deckId,
     keyPointCount: keyPoints.length,
     cardCount: cards.length,
+    questionCount: questions.length,
     orgCount,
   }
 }
@@ -452,7 +513,9 @@ export async function askAboutKeyPoint(options: {
 
   return {
     answer: data.answer,
-    page: clampPage(data.page, 1, options.pageCount),
+    // Follow-ups only receive this key point and its note context, so cite the
+    // key point's evidence page rather than trusting an arbitrary model page.
+    page: options.keyPoint.page ?? 1,
     followUps: data.followUps,
     costLabel: formatUsd(tokensToCost(options.model, usage.inputTokens, usage.outputTokens)),
   }

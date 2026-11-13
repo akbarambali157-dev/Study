@@ -23,7 +23,7 @@ import {
   maskKey,
   saveApiKey,
 } from '@/lib/apiKey'
-import { formatUsd, MODELS } from '@/lib/cost'
+import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
 import { downloadFile } from '@/lib/export'
@@ -325,6 +325,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
             </div>
           )}
 
+          {!useProxy ? (
           <div className="mt-4 border-t border-line pt-4">
             <label className="text-xs font-medium uppercase tracking-wide text-muted">
               API base URL (optional)
@@ -353,6 +354,11 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
               standard API.
             </p>
           </div>
+          ) : (
+            <p className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
+              Hosted mode uses the site-configured gateway. This base URL is only used when you bring your own API key.
+            </p>
+          )}
         </Card>
       </section>
 
@@ -385,7 +391,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
                     {active ? <Check className="size-4 text-forest-400" /> : null}
                   </span>
                   <span className="tnum text-[12px] text-muted">
-                    ≈{formatUsd(estimateFor40Pages(model.inputPerMTok, model.outputPerMTok))} per
+                    ≈{formatUsd(estimateFor40Pages(model.id))} per
                     handout
                   </span>
                 </div>
@@ -394,6 +400,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
             )
           })}
         </div>
+        <p className="mt-2 text-[11px] text-muted">Cost examples use Anthropic list rates. BrewKeg and other gateways apply their own billing rates.</p>
       </section>
 
       {/* ── preferences ───────────────────────────────────────────────── */}
@@ -535,11 +542,8 @@ function ToggleRow({
   )
 }
 
-/** Matches the estimate printed on the upload screen, for comparison shopping. */
-function estimateFor40Pages(inputPerMTok: number, outputPerMTok: number): number {
-  const inputTokens = 46_000
-  const outputTokens = 15_000
-  return (
-    (inputTokens / 1_000_000) * inputPerMTok + (outputTokens / 1_000_000) * outputPerMTok
-  )
+/** Uses the same staged model mix as the upload cost preview. */
+function estimateFor40Pages(model: Parameters<typeof estimateGenerationCost>[1]): number {
+  const samplePages = Array.from({ length: 40 }, () => 'x'.repeat(2_500))
+  return estimateGenerationCost(samplePages, model).usd
 }

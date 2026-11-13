@@ -1,27 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? ''
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. These are public, non-secret values safe to ship in the bundle.',
-  )
-}
+/** Supabase is optional: BYOK + IndexedDB mode must boot without it. */
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
-/**
- * Supabase client for auth + Edge Function calls.
- *
- * VITE_* variables are intentional here: the Supabase URL and anon key are
- * public by design. The brewkeg.dev API key stays server-side in the Edge
- * Function and never becomes a VITE variable.
- */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+/** Null in local-only mode; callers must handle that state explicitly. */
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
-/**
- * Full URL of the ai-proxy Edge Function, e.g.
- * https://<project-ref>.supabase.co/functions/v1/ai-proxy
- */
+/** Full URL of the ai-proxy Edge Function. */
 export function aiProxyUrl(): string {
+  if (!isSupabaseConfigured) {
+    throw new Error('Hosted AI is not configured. Add the Supabase URL and anon key, or use your own API key.')
+  }
   return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/ai-proxy`
 }

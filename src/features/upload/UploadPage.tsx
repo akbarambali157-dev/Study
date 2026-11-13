@@ -15,13 +15,13 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { hasApiKey } from '@/lib/apiKey'
+import { hasAiAccess } from '@/lib/apiKey'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
 import { generateStudyMaterial, STAGE_LABEL, type Stage } from '@/lib/llm/pipeline'
 import { cachePdfBlob, extractPdf, MAX_PAGES, PdfError, type ExtractedPdf } from '@/lib/pdf'
-import { saveDocument, touchStreak } from '@/lib/store'
+import { clearGeneratedContent, saveDocument, touchStreak } from '@/lib/store'
 import type { DocumentRec } from '@/lib/types'
 import { nowIso, stripExtension, titleCase, uid } from '@/lib/utils'
 
@@ -58,6 +58,7 @@ type FilePhase =
 
 type QueuedFile = {
   id: string
+  documentId?: string
   file: File
   extracted: ExtractedPdf | null
   title: string
@@ -75,8 +76,9 @@ export function UploadPage() {
   const [files, setFiles] = useState<QueuedFile[]>([])
   const [dragging, setDragging] = useState(false)
 
-  const keyReady = hasApiKey()
+  const keyReady = hasAiAccess(settings.useProxy ?? false)
   const info = modelInfo(settings.model)
+  const gatewayBilling = settings.useProxy || Boolean(settings.baseUrl && !settings.baseUrl.includes('api.anthropic.com'))
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -105,24 +107,21 @@ export function UploadPage() {
       setFiles((prev) => [...prev, ...toAdd])
       // Kick off extraction for each newly added file.
       for (const item of toAdd) {
-        void extractFile(item.id)
+        void extractFile(item.id, item.file)
       }
     },
     [],
   )
 
   const extractFile = useCallback(
-    async (id: string) => {
+    async (id: string, file: File) => {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === id ? { ...f, phase: { kind: 'reading', done: 0, total: 0 } } : f,
         ),
       )
-      const item = files.find((f) => f.id === id)
-      if (!item) return
-
       try {
-        const result = await extractPdf(item.file, (done, total) => {
+        const result = await extractPdf(file, (done, total) => {
           setFiles((prev) =>
             prev.map((f) =>
               f.id === id
@@ -137,8 +136,8 @@ export function UploadPage() {
               ? {
                   ...f,
                   extracted: result,
-                  title: titleCase(result.title || stripExtension(item.file.name)),
-                  pii: findPiiSignal(item.file.name, result.pages),
+                  title: titleCase(result.title || stripExtension(file.name)),
+                  pii: findPiiSignal(file.name, result.pages),
                   phase: { kind: 'ready' },
                 }
               : f,
@@ -163,28 +162,11 @@ export function UploadPage() {
         )
       }
     },
-    [files],
+    [],
   )
 
   const removeFile = useCallback((id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id))
-  }, [])
-
-  const resetFile = useCallback((id: string) => {
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              extracted: null,
-              title: '',
-              phase: { kind: 'idle' },
-              pii: null,
-              piiAcknowledged: false,
-            }
-          : f,
-      ),
-    )
   }, [])
 
   // ── per-file title & PII ────────────────────────────────────────────────
@@ -204,7 +186,7 @@ export function UploadPage() {
       const item = files.find((f) => f.id === id)
       if (!item || !item.extracted) return
       if (!keyReady) {
-        toast('Add your API key in Settings first — it stays in this browser.', 'error')
+        toast(settings.useProxy ? 'Configure Supabase and sign in to use the hosted model.' : 'Add your API key in Settings first — it stays in this browser.', 'error')
         return
       }
       if (item.pii && !item.piiAcknowledged) {
@@ -213,7 +195,7 @@ export function UploadPage() {
       }
 
       const doc: DocumentRec = {
-        id: uid('doc'),
+        id: item.documentId ?? uid('doc'),
         title: item.title.trim() || stripExtension(item.file.name),
         fileName: item.file.name,
         pageCount: item.extracted.pageCount,
@@ -232,7 +214,7 @@ export function UploadPage() {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === id
-            ? { ...f, phase: { kind: 'running', stage: 'map' } }
+            ? { ...f, documentId: doc.id, phase: { kind: 'running', stage: 'map' } }
             : f,
         ),
       )
@@ -264,15 +246,17 @@ export function UploadPage() {
               : f,
           ),
         )
+        const costSummary = gatewayBilling
+          ? `${result.usage.inputTokens.toLocaleString()} input / ${result.usage.outputTokens.toLocaleString()} output tokens; gateway billing applies`
+          : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
         toast(
-          `${result.keyPointCount} key points, ${result.cardCount} cards — ${formatUsd(
-            result.costUsd,
-          )} for “${doc.title}”.`,
+          `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${doc.title}”.`,
           'success',
         )
         navigate(`/doc/${doc.id}`)
       } catch (err) {
         const stopped = controller.signal.aborted
+        await clearGeneratedContent(doc.id)
         await saveDocument({ ...doc, status: stopped ? 'extracting' : 'failed' })
         if (stopped) {
           setFiles((prev) =>
@@ -300,7 +284,7 @@ export function UploadPage() {
         abortRef.current = null
       }
     },
-    [files, keyReady, navigate, settings.baseUrl, settings.model],
+    [files, keyReady, navigate, settings.baseUrl, settings.model, settings.useProxy],
   )
 
   const runAll = useCallback(async () => {
@@ -383,7 +367,7 @@ export function UploadPage() {
             </p>
           </div>
           <div className="flex shrink-0 gap-1.5">
-            {!busy && item.phase.kind !== 'done' && item.phase.kind !== 'error' ? (
+            {!busy && item.phase.kind !== 'done' ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -392,14 +376,20 @@ export function UploadPage() {
                 aria-label={`Remove ${item.file.name}`}
               />
             ) : null}
-            {!busy && item.phase.kind === 'idle' ? (
+            {!busy && item.phase.kind === 'error' ? (
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => resetFile(item.id)}
-                icon={<X className="size-3.5" />}
-                aria-label={`Reset ${item.file.name}`}
-              />
+                variant="secondary"
+                onClick={() => {
+                  if (item.extracted) {
+                    setFiles((prev) => prev.map((f) => f.id === item.id ? { ...f, phase: { kind: 'ready' } } : f))
+                  } else {
+                    void extractFile(item.id, item.file)
+                  }
+                }}
+              >
+                Retry
+              </Button>
             ) : null}
             {busy && item.phase.kind === 'running' ? (
               <Button
@@ -481,8 +471,8 @@ export function UploadPage() {
               <div>
                 <dt className="text-xs text-muted">Estimated cost</dt>
                 <dd className="tnum font-semibold">
-                  {estimate ? formatUsd(estimate.usd) : '—'}
-                  {estimate ? (
+                  {estimate ? (gatewayBilling ? 'Gateway rates apply' : formatUsd(estimate.usd)) : '—'}
+                  {estimate && !gatewayBilling ? (
                     <span className="ml-1 text-xs font-normal text-muted">
                       ≈{nairaHint(estimate.usd)}
                     </span>
@@ -496,14 +486,14 @@ export function UploadPage() {
                 </dd>
               </div>
             </dl>
+            {estimate && gatewayBilling ? (
+              <p className="mb-3 text-[11px] text-muted">Token counts are estimates. Your configured gateway determines the actual charge.</p>
+            ) : null}
 
             {!keyReady && (
               <p className="mt-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[12px]">
-                You need your own API key first.{' '}
-                <Link to="/settings" className="font-semibold underline">
-                  Add it in Settings
-                </Link>{' '}
-                — it stays in this browser.
+                {settings.useProxy ? 'Hosted AI needs Supabase configured. Check Settings.' : <>You need your own API key first.{' '}
+                <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>{' '}— it stays in this browser.</>}
               </p>
             )}
 
@@ -669,11 +659,8 @@ export function UploadPage() {
 
       {!keyReady && files.length === 0 && (
         <p className="mt-6 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[13px]">
-          You need your own API key first.{' '}
-          <Link to="/settings" className="font-semibold underline">
-            Add it in Settings
-          </Link>{' '}
-          — it is stored in this browser and never sent anywhere except the API.
+          {settings.useProxy ? 'Hosted AI needs Supabase configured. Check Settings.' : <>You need your own API key first.{' '}
+          <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>{' '}— it is stored in this browser and never sent anywhere except the API.</>}
         </p>
       )}
 

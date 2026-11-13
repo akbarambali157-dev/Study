@@ -44,6 +44,7 @@ export function TrailPage() {
           model: settings.model,
           baseUrl: settings.baseUrl || undefined,
           force,
+          useProxy: settings.useProxy,
         })
         toast(
           result
@@ -57,7 +58,7 @@ export function TrailPage() {
         setBusy(false)
       }
     },
-    [settings.baseUrl, settings.model],
+    [settings.baseUrl, settings.model, settings.useProxy],
   )
 
   const exportTrail = () => {
