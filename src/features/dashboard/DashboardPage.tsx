@@ -77,10 +77,18 @@ export function DashboardPage() {
             >
               {seeding ? 'Setting up…' : 'Try the demo deck'}
             </Button>
+            <Button
+              size="lg"
+              onClick={() => navigate('/auth')}
+              variant="secondary"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+            >
+              Sign in / create profile
+            </Button>
           </div>
           <p className="mt-4 text-xs text-mint/60">
-            The demo needs no account and no API key. Uploading a real PDF needs your own
-            Anthropic key, added in Settings — it never leaves this browser.
+            The demo needs no account or API key. For real PDFs, sign in to use the
+            site-provided AI model, or add your own compatible API key in Settings.
           </p>
         </div>
 
