@@ -208,6 +208,8 @@ export interface Profile {
   faculty?: string
   department?: string
   level?: string
+  programme?: string
+  matricNo?: string
   xp: number
   streakDays: number
   lastActive?: string
