@@ -15,7 +15,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { hasApiKey } from '@/lib/apiKey'
+import { hasAiAccess } from '@/lib/apiKey'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
@@ -75,7 +75,7 @@ export function UploadPage() {
   const [files, setFiles] = useState<QueuedFile[]>([])
   const [dragging, setDragging] = useState(false)
 
-  const keyReady = hasApiKey()
+  const keyReady = hasAiAccess(settings.useProxy ?? false)
   const info = modelInfo(settings.model)
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export function UploadPage() {
       const item = files.find((f) => f.id === id)
       if (!item || !item.extracted) return
       if (!keyReady) {
-        toast('Add your API key in Settings first — it stays in this browser.', 'error')
+        toast(settings.useProxy ? 'Configure Supabase and sign in to use the hosted model.' : 'Add your API key in Settings first — it stays in this browser.', 'error')
         return
       }
       if (item.pii && !item.piiAcknowledged) {
@@ -300,7 +300,7 @@ export function UploadPage() {
         abortRef.current = null
       }
     },
-    [files, keyReady, navigate, settings.baseUrl, settings.model],
+    [files, keyReady, navigate, settings.baseUrl, settings.model, settings.useProxy],
   )
 
   const runAll = useCallback(async () => {
@@ -499,11 +499,8 @@ export function UploadPage() {
 
             {!keyReady && (
               <p className="mt-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[12px]">
-                You need your own API key first.{' '}
-                <Link to="/settings" className="font-semibold underline">
-                  Add it in Settings
-                </Link>{' '}
-                — it stays in this browser.
+                {settings.useProxy ? 'Hosted AI needs Supabase configured. Check Settings.' : <>You need your own API key first.{' '}
+                <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>{' '}— it stays in this browser.</>}
               </p>
             )}
 
@@ -669,11 +666,8 @@ export function UploadPage() {
 
       {!keyReady && files.length === 0 && (
         <p className="mt-6 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[13px]">
-          You need your own API key first.{' '}
-          <Link to="/settings" className="font-semibold underline">
-            Add it in Settings
-          </Link>{' '}
-          — it is stored in this browser and never sent anywhere except the API.
+          {settings.useProxy ? 'Hosted AI needs Supabase configured. Check Settings.' : <>You need your own API key first.{' '}
+          <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>{' '}— it is stored in this browser and never sent anywhere except the API.</>}
         </p>
       )}
 
