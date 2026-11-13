@@ -33,7 +33,7 @@ export class StudyHubDb extends Dexie {
   profile!: Table<Profile, string>
   learningProfile!: Table<LearningProfile, string>
   settings!: Table<Settings, string>
-  pdfBlobs!: Table<{ id: string; savedAt: string }, string>
+  pdfBlobs!: Table<{ id: string; blob: Blob; savedAt: number }, string>
 
   constructor() {
     super('oou-study-hub')
