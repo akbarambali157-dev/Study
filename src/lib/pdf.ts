@@ -88,7 +88,7 @@ export async function extractPdf(
     const metadata = await doc.getMetadata().catch(() => null)
     const meta = metadata?.info as { Title?: string } | undefined
 
-    const emptyPages = pages.filter((p) => p.replace(/\\s/g, '').length < 40).length
+    const emptyPages = pages.filter((p) => p.replace(/\s/g, '').length < 40).length
     const emptyRatio = pages.length ? emptyPages / pages.length : 1
 
     if (pages.every((p) => p.trim().length === 0)) {
