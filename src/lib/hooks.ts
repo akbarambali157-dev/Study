@@ -63,15 +63,17 @@ export function useProfile() {
   // "Readwrite transaction in liveQuery context".
   const live = useLiveQuery(() => getProfile(), [], null)
 
-  // Ensure a profile exists outside the liveQuery context (this writes to the DB).
+  // Do not create a placeholder profile on the authentication route. The
+  // OAuth callback must be able to distinguish a new student from a completed
+  // profile; creating "Student" here used to skip first-run setup entirely.
   useEffect(() => {
+    const hashPath = window.location.hash.split('?')[0]
+    if (hashPath.endsWith('/auth') || hashPath.endsWith('/profile-setup')) return
     let mounted = true
     ensureProfile().then((p) => {
       if (mounted) setProfile(p)
     })
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [])
 
   return live ?? profile ?? null
