@@ -1,5 +1,5 @@
 import { chunkPages, clampPage, findSnippet } from '../chunk'
-import { formatUsd, tokensToCost } from '../cost'
+import { CHEAP_MODEL, formatUsd, tokensToCost } from '../cost'
 import { findCatalogOrg, isLinkableUrl } from '../organizations'
 import {
   saveCards,
@@ -59,9 +59,6 @@ export interface GenerationResult {
   cardCount: number
   orgCount: number
 }
-
-/** The bulk-reading stage runs here; everything with judgement uses `model`. */
-export const CHEAP_MODEL: AiModel = 'claude-haiku-5-5'
 
 export interface PipelineOptions {
   doc: DocumentRec
