@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, DEFAULT_SETTINGS, ensureProfile, getProfile } from './db'
+import { db, DEFAULT_SETTINGS, ensureProfile, getProfile, getSettings } from './db'
 import { getReviews, libraryOverview } from './store'
 import type {
   Card,
@@ -49,6 +49,10 @@ const EMPTY_DOCUMENT_CONTENT: DocumentContent = {
 const EMPTY_DECK: DeckBundle = { cards: [], reviews: new Map() }
 
 export function useSettings() {
+  // Run the one-time migration outside Dexie's read-only liveQuery context.
+  useEffect(() => {
+    void getSettings()
+  }, [])
   return useLiveQuery(() => db.settings.get('app'), [], DEFAULT_SETTINGS) ?? DEFAULT_SETTINGS
 }
 
