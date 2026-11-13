@@ -1,6 +1,6 @@
 # OOU Study Hub
 
-Turn a lecture PDF into short notes, key points with worked examples, the
+Turn a lecture PDF into concise notes, key points with worked examples, the
 organizations worth knowing, flashcards, a test, and a learning trail that
 records what you actually went looking for.
 
