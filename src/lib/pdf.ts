@@ -42,7 +42,6 @@ export async function extractPdf(
   const buffer = await file.arrayBuffer()
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
-    isEvalSupported: false,
     useWorkerFetch: false,
   })
 
