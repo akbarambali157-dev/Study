@@ -1,0 +1,129 @@
+/* Study Hub visual system refresh — layered, atmospheric, accessible. */
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef0fa;
+  --surface-3: #e2e6f5;
+  --text: #171a35;
+  --muted: #69708c;
+  --line: #dfe3f0;
+  --shadow: 0 2px 8px rgb(27 31 69 / .045), 0 18px 48px -30px rgb(37 47 108 / .20);
+  --shadow-card: 0 1px 3px rgb(27 31 69 / .055), 0 8px 24px -16px rgb(37 47 108 / .18);
+}
+.dark {
+  --bg: #090d1d;
+  --surface: #11182d;
+  --surface-2: #18223c;
+  --surface-3: #222e4d;
+  --text: #f0f2ff;
+  --muted: #a0aac8;
+  --line: #293653;
+  --shadow: 0 2px 8px rgb(0 0 0 / .22), 0 20px 60px -30px rgb(0 0 0 / .55);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / .25), 0 10px 30px -18px rgb(0 0 0 / .45);
+}
+@theme {
+  --color-forest: #3730a3;
+  --color-forest-600: #3730a3;
+  --color-forest-500: #4f46e5;
+  --color-forest-400: #6366f1;
+  --color-mint: #dbeafe;
+  --color-gold: #f5b942;
+  --color-gold-soft: #fff0c2;
+  --color-gold-strong: #b7791f;
+  --color-clay: #c25455;
+  --color-clay-soft: #fce4e4;
+  --color-ink: #171a35;
+  --color-paper: #f5f6fb;
+}
+.dark { color-scheme: dark; }
+.app-backdrop {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse 60rem 36rem at -12% -12%, rgb(99 102 241 / .15), transparent 68%),
+    radial-gradient(ellipse 48rem 32rem at 108% 5%, rgb(14 165 233 / .11), transparent 66%),
+    radial-gradient(ellipse 48rem 34rem at 55% 108%, rgb(168 85 247 / .075), transparent 72%),
+    linear-gradient(180deg, #f9faff 0%, var(--bg) 54%, #f0f2fa 100%);
+}
+.app-backdrop::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  opacity: .26;
+  background-image: radial-gradient(rgb(77 85 150 / .18) .7px, transparent .7px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, black, transparent 82%);
+}
+.dark .app-backdrop {
+  background:
+    radial-gradient(ellipse 60rem 36rem at -12% -12%, rgb(99 102 241 / .22), transparent 68%),
+    radial-gradient(ellipse 48rem 32rem at 108% 5%, rgb(14 165 233 / .14), transparent 66%),
+    radial-gradient(ellipse 48rem 34rem at 55% 108%, rgb(168 85 247 / .10), transparent 72%),
+    linear-gradient(180deg, #0d1329 0%, var(--bg) 54%, #0b1021 100%);
+}
+.dark .app-backdrop::before { opacity: .16; background-image: radial-gradient(rgb(183 193 255 / .24) .7px, transparent .7px); }
+header.sticky {
+  background: color-mix(in srgb, var(--surface) 84%, transparent) !important;
+  border-color: color-mix(in srgb, var(--line) 80%, transparent) !important;
+  box-shadow: 0 8px 32px -24px rgb(28 37 92 / .35);
+  backdrop-filter: blur(20px) saturate(150%);
+}
+.surface-elevated, .card-surface {
+  border-color: color-mix(in srgb, var(--line) 88%, #818cf8 12%);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+}
+.card-surface:hover, .surface-elevated:hover {
+  border-color: color-mix(in srgb, var(--color-forest-400) 46%, var(--line));
+  box-shadow: var(--shadow);
+}
+.dashboard-content { animation: hub-enter .42s cubic-bezier(.2,.8,.2,1) both; }
+.welcome-stage, .overview-primary {
+  background:
+    radial-gradient(ellipse at 82% 12%, rgb(56 189 248 / .24), transparent 34%),
+    radial-gradient(ellipse at 8% 100%, rgb(129 140 248 / .36), transparent 45%),
+    linear-gradient(128deg, #171747 0%, #29256e 54%, #3730a3 100%);
+  box-shadow: 0 28px 72px -38px rgb(30 27 100 / .75);
+}
+.welcome-stage::after, .overview-primary::after {
+  border-color: rgb(224 231 255 / .18);
+  box-shadow: 0 0 0 2.8rem rgb(224 231 255 / .035), 0 0 0 5.6rem rgb(224 231 255 / .022);
+}
+.welcome-copy .eyebrow, .eyebrow-light { color: #f9cf78; }
+.feature-icon, .metric-icon, .recent-icon, .next-step-icon {
+  background: linear-gradient(145deg, #eef0ff, #e0e7ff);
+  color: #4338ca;
+}
+.dark .feature-icon, .dark .metric-icon, .dark .recent-icon, .dark .next-step-icon {
+  background: linear-gradient(145deg, #252d55, #1c2948);
+  color: #c7d2fe;
+}
+.metric-icon-gold { background: #fff3d6; color: #9a670e; }
+.metric-icon-clay { background: #fce9e9; color: #a33f48; }
+.dark .metric-icon-gold { background: #44351d; color: #f7cf79; }
+.dark .metric-icon-clay { background: #44252d; color: #f6b6bd; }
+.intro-feature, .metric-panel, .recent-card, .continue-card, .next-step-panel {
+  border-color: color-mix(in srgb, var(--line) 84%, #818cf8 16%);
+  box-shadow: var(--shadow-card);
+}
+.intro-feature, .metric-panel, .recent-card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.intro-feature:hover, .metric-panel:hover, .recent-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-forest-400) 40%, var(--line));
+  box-shadow: var(--shadow);
+}
+button, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline-color: #818cf8; }
+::selection { background: #c7d2fe; color: #1e1b4b; }
+@keyframes hub-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) {
+  .welcome-stage { border-radius: 1.35rem; }
+  .app-backdrop::before { background-size: 30px 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-content { animation: none; }
+  .intro-feature, .metric-panel, .recent-card { transition: none; }
+}
