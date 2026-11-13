@@ -57,7 +57,22 @@ serve(async (req) => {
   }
 
   // ── Parse request ───────────────────────────────────────────────────
-  let body: { system?: string; prompt?: string; model?: string; max_tokens?: number; effort?: string }
+  const declaredLength = Number(req.headers.get('content-length') ?? 0)
+  if (declaredLength > 300_000) {
+    return new Response(JSON.stringify({ error: 'request too large' }), {
+      status: 413,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  let body: {
+    system?: string
+    prompt?: string
+    model?: string
+    max_tokens?: number
+    effort?: string
+    output_config?: Record<string, unknown>
+  }
   try {
     body = await req.json()
   } catch {
@@ -67,9 +82,23 @@ serve(async (req) => {
     })
   }
 
+  const allowedModels = new Set(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'])
   if (!body.prompt || !body.model) {
     return new Response(JSON.stringify({ error: 'prompt and model required' }), {
       status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (!allowedModels.has(body.model)) {
+    return new Response(JSON.stringify({ error: 'selected model is not allowed' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  if (body.prompt.length > 250_000 || (body.system?.length ?? 0) > 30_000) {
+    return new Response(JSON.stringify({ error: 'prompt exceeds the allowed size' }), {
+      status: 413,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
@@ -88,6 +117,7 @@ serve(async (req) => {
         max_tokens: body.max_tokens ?? 8000,
         system: body.system ?? '',
         messages: [{ role: 'user', content: body.prompt }],
+        ...(body.output_config ? { output_config: body.output_config } : {}),
       }),
     })
   } catch {
@@ -99,6 +129,13 @@ serve(async (req) => {
 
   // ── Parse response ──────────────────────────────────────────────────
   const responseJson = await brewkegResp.json().catch(() => null)
+  if (!brewkegResp.ok) {
+    const providerMessage = responseJson?.error?.message ?? responseJson?.message ?? 'The model provider rejected the request.'
+    return new Response(JSON.stringify({ error: String(providerMessage).slice(0, 300) }), {
+      status: brewkegResp.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
   const content =
     responseJson?.content?.[0]?.type === 'text'
       ? responseJson.content[0].text
