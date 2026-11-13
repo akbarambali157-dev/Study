@@ -59,8 +59,15 @@ export function createClient(baseUrl?: string): Anthropic {
   // A personal Anthropic key must go to Anthropic itself, not be sent to the
   // unrelated gateway. Keep a separately entered non-BrewKeg compatible URL
   // available for users who intentionally use an Anthropic-compatible proxy.
-  const isHostedGatewayDefault =
-    Boolean(trimmedBase && /(^|\\.)brewkeg\\.dev(?::\\d+)?$/i.test(new URL(trimmedBase).hostname))
+  let isHostedGatewayDefault = false
+  if (trimmedBase) {
+    try {
+      isHostedGatewayDefault = new URL(trimmedBase).hostname === 'brewkeg.dev' ||
+        new URL(trimmedBase).hostname.endsWith('.brewkeg.dev')
+    } catch {
+      // Let the SDK return the normal, actionable invalid-URL error below.
+    }
+  }
   const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase
 
   return new Anthropic({
