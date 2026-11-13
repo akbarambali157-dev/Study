@@ -1,4 +1,5 @@
 import { db } from './db'
+import { deleteDocument } from './store'
 import { freshReview } from './srs'
 import type { Card, Deck, DocumentRec, KeyPoint, Note, Org, QuizQuestion } from './types'
 import { uid } from './utils'
@@ -304,9 +305,26 @@ const QUESTIONS: {
 
 export async function seedDemo(): Promise<string> {
   const existing = await db.documents.where('source').equals('demo').first()
-  if (existing) return existing.id
+  if (existing) {
+    const [note, deck] = await Promise.all([
+      db.notes.where('documentId').equals(existing.id).first(),
+      db.decks.where('documentId').equals(existing.id).first(),
+    ])
+    const [keyPoints, cards, questions] = deck
+      ? await Promise.all([
+          db.keyPoints.where('documentId').equals(existing.id).count(),
+          db.cards.where('deckId').equals(deck.id).count(),
+          db.questions.where('deckId').equals(deck.id).count(),
+        ])
+      : [0, 0, 0]
 
-  const documentId = uid('doc')
+    // Repair an older/partially seeded demo instead of navigating to an empty
+    // document. Keep its document ID so existing links remain stable.
+    if (note && deck && keyPoints > 0 && cards > 0 && questions > 0) return existing.id
+    await deleteDocument(existing.id)
+  }
+
+  const documentId = existing?.id ?? uid('doc')
   const noteId = uid('note')
   const deckId = uid('deck')
   const now = new Date().toISOString()
