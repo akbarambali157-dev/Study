@@ -41,7 +41,7 @@ export function SettingsPage() {
   const [storedKey, setStoredKey] = useState<string | null>(null)
   const [persist, setPersist] = useState(false)
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
-  const [useProxy, setUseProxy] = useState(settings.useProxy ?? false)
+  const [useProxy, setUseProxy] = useState(settings.useProxy ?? true)
   const [confirmWipe, setConfirmWipe] = useState(false)
 const [testingAI, setTestingAI] = useState(false)
 const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
@@ -56,7 +56,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
   }, [settings.baseUrl])
 
   useEffect(() => {
-    setUseProxy(settings.useProxy ?? false)
+    setUseProxy(settings.useProxy ?? true)
   }, [settings.useProxy])
 
   const saveUseProxy = async (checked: boolean) => {
@@ -182,7 +182,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Settings" subtitle="Your key, your model, your data." />
+      <PageHeading title="Settings" subtitle="Shared AI provider, your model and your data." />
 
       {/* ── API key ────────────────────────────────────────────────────── */}
       <section className="mb-6">
@@ -218,8 +218,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
               {useProxy ? (
                 <>
                   <p className="text-[13px] leading-relaxed text-muted">
-                    Model is provided by the site. Nothing to paste — upload a PDF
-                    and generate notes, cards and tests right away.
+                    BrewKeg is the shared provider. You do not need a personal API key. Sign in to your Study Hub account, then upload a PDF to generate notes, cards and tests.
                   </p>
                   <Button
                     size="sm"
@@ -265,8 +264,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
               ) : (
                 <>
                   <p className="text-[13px] leading-relaxed text-muted">
-                    Add your own API key. It is stored in this browser and sent only to the
-                    API — there is no server here to hold it.
+                    Optional: use a personal API key instead of the shared BrewKeg provider. It stays in this browser and is sent directly to your chosen API endpoint.
                   </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <input
