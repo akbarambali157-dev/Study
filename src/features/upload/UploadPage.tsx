@@ -21,7 +21,7 @@ import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
 import { generateStudyMaterial, STAGE_LABEL, type Stage } from '@/lib/llm/pipeline'
 import { cachePdfBlob, extractPdf, MAX_PAGES, PdfError, type ExtractedPdf } from '@/lib/pdf'
-import { saveDocument, touchStreak } from '@/lib/store'
+import { clearGeneratedContent, saveDocument, touchStreak } from '@/lib/store'
 import type { DocumentRec } from '@/lib/types'
 import { nowIso, stripExtension, titleCase, uid } from '@/lib/utils'
 
@@ -256,6 +256,7 @@ export function UploadPage() {
         navigate(`/doc/${doc.id}`)
       } catch (err) {
         const stopped = controller.signal.aborted
+        await clearGeneratedContent(doc.id)
         await saveDocument({ ...doc, status: stopped ? 'extracting' : 'failed' })
         if (stopped) {
           setFiles((prev) =>
