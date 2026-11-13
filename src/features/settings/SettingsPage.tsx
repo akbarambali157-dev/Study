@@ -292,8 +292,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 
           {/* ── AI connection test ───────────────────────────────────────── */}
           {(useProxy || storedKey) && (
-            {!useProxy ? (
-          <div className="mt-4 border-t border-line pt-4">
+            <div className="mt-4 border-t border-line pt-4">
               <label className="text-xs font-medium uppercase tracking-wide text-muted">
                 Test the model connection
               </label>
@@ -326,6 +325,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
             </div>
           )}
 
+          {!useProxy ? (
           <div className="mt-4 border-t border-line pt-4">
             <label className="text-xs font-medium uppercase tracking-wide text-muted">
               API base URL (optional)
