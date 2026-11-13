@@ -57,7 +57,7 @@ export function TrailPage() {
         setBusy(false)
       }
     },
-    [settings.baseUrl, settings.model],
+    [settings.baseUrl, settings.model, settings.useProxy],
   )
 
   const exportTrail = () => {
