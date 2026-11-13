@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Check,
   Download,
@@ -36,6 +37,7 @@ const TestSchema = z.object({ ok: z.string() })
 
 export function SettingsPage() {
   const settings = useSettings()
+  const navigate = useNavigate()
 
   const [keyInput, setKeyInput] = useState('')
   const [storedKey, setStoredKey] = useState<string | null>(null)
@@ -220,6 +222,14 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
                   <p className="text-[13px] leading-relaxed text-muted">
                     BrewKeg is the shared provider. You do not need a personal API key. Sign in to your Study Hub account, then upload a PDF to generate notes, cards and tests.
                   </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-3 mr-2"
+                    onClick={() => navigate('/auth')}
+                  >
+                    Sign in / create account
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
