@@ -185,6 +185,15 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading title="Settings" subtitle="Shared AI provider, your model and your data." />
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Student account</h2>
+            <p className="mt-1 text-[13px] text-muted">Update your name, faculty, department, level and programme details.</p>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button>
+        </div>
+      </Card>
 
       {/* ── API key ────────────────────────────────────────────────────── */}
       <section className="mb-6">
