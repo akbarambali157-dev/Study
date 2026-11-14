@@ -149,7 +149,7 @@ async function uploadPdfResumable(
 }
 
 
-let pendingSync: Promise<{ synced: number; skipped: number; failed: number }> | null = null
+type PendingSyncResult = { synced: number; skipped: number; failed: number; reason?: 'offline' | 'configuration' | 'signed-out' }\nlet pendingSync: Promise<PendingSyncResult> | null = null
 
 /**
  * Upload private PDFs saved on this device when the student explicitly asks.
@@ -160,7 +160,7 @@ let pendingSync: Promise<{ synced: number; skipped: number; failed: number }> | 
  * Generated notes/cards remain local-first; this only syncs the private
  * original PDF and its extracted page index.
  */
-export function syncPendingDocuments(documentId?: string): Promise<{ synced: number; skipped: number; failed: number }> {
+export function syncPendingDocuments(documentId?: string): Promise<PendingSyncResult> {
   if (pendingSync) return pendingSync
   pendingSync = (async () => {
     const result = { synced: 0, skipped: 0, failed: 0 }
