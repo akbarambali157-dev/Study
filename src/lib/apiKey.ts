@@ -10,7 +10,7 @@ if (typeof window !== 'undefined') {
 export function looksLikeApiKey(key: string): boolean {
   const trimmed = key.trim()
   if (trimmed.length < 24 || trimmed.length > 500 || /\s/.test(trimmed)) return false
-  return /^[A-Za-z0-9._~+/=-]+$/.test(trimmed)
+  return /^[A-Za-z0-9._~+/=-]+$/.test(trimmed) && (trimmed.startsWith('sk-ant-') || trimmed.startsWith('bk_live_'))
 }
 
 /** Both hosted and private account-backed AI modes require Supabase auth. */
