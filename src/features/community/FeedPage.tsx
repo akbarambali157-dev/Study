@@ -267,7 +267,7 @@ export function FeedPage() {
 
   if (!supabase) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="hub-community-page mx-auto max-w-3xl">
         <PageHeading title="Research community" subtitle="Share ideas, exchange feedback and find people to explore questions with." />
         <Card className="p-6">
           <h2 className="font-semibold">Community connection is not configured</h2>
@@ -279,7 +279,7 @@ export function FeedPage() {
 
   if (!userId && !loading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="hub-community-page mx-auto max-w-3xl">
         <PageHeading title="Research community" subtitle="Share ideas, exchange feedback and find people to explore questions with." />
         <Card className="p-6 text-center">
           <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-500"><Users className="size-7" /></span>
@@ -292,7 +292,7 @@ export function FeedPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="hub-community-page mx-auto max-w-5xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeading title="Research community" subtitle="Ideas become stronger when people think together." />
         <Button onClick={() => setComposerOpen((open) => !open)} icon={composerOpen ? <X className="size-4" /> : <Plus className="size-4" />}>
@@ -300,7 +300,7 @@ export function FeedPage() {
         </Button>
       </div>
 
-      <section className="community-banner mb-5 overflow-hidden rounded-2xl p-5 text-white sm:p-7">
+      <section className="community-banner hub-community-hero mb-5 overflow-hidden rounded-3xl p-5 text-white sm:p-7">
         <div className="flex items-start gap-3">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-white/20 bg-white/10"><Sparkles className="size-5 text-amber-200" /></span>
           <div>
@@ -312,7 +312,7 @@ export function FeedPage() {
       </section>
 
       {composerOpen ? (
-        <Card className="mb-5 p-4 sm:p-5">
+        <Card className="hub-community-composer mb-5 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div><h2 className="font-semibold">Create a research post</h2><p className="text-xs text-muted">Your post will be visible to signed-in Study Hub members.</p></div>
             <Chip tone="green">Community post</Chip>
@@ -346,7 +346,7 @@ export function FeedPage() {
         </Card>
       ) : null}
 
-      <div className="community-toolbar mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="community-toolbar hub-community-toolbar mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter research posts">
           {FILTERS.map((item) => (
             <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${filter === item.value ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-line bg-surface text-muted hover:border-indigo-300 hover:text-body'}`}>
