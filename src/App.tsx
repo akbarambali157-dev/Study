@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
@@ -18,10 +18,11 @@ import {
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/shortcuts'
-import { ShortcutsSheet } from '@/components/ShortcutsSheet'
 import { Toaster } from '@/components/ui/toast'
 import { IconButton } from '@/components/ui/Button'
 import { applyPwaUpdate, checkForPwaUpdate } from '@/lib/pwa'
+
+const ShortcutsSheet = lazy(() => import('@/components/ShortcutsSheet').then((module) => ({ default: module.ShortcutsSheet })))
 
 const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
@@ -215,7 +216,7 @@ export function App() {
           </details>
         </div>
       </nav>
-      <ShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {shortcutsOpen ? <Suspense fallback={null}><ShortcutsSheet open onClose={() => setShortcutsOpen(false)} /></Suspense> : null}
       <Toaster />
     </div>
   )
