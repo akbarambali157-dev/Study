@@ -50,7 +50,7 @@ export function DashboardPage() {
 
   if (library.length === 0) {
     return (
-      <div className="dashboard-content mx-auto max-w-6xl">
+      <div className="dashboard-content hub-dashboard mx-auto max-w-6xl">
         <section className="welcome-stage">
           <div className="welcome-copy">
             <p className="eyebrow"><Sparkles className="size-3.5" /> YOUR PERSONAL STUDY SPACE</p>
@@ -115,8 +115,8 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="dashboard-content mx-auto max-w-6xl">
-      <section className="dashboard-heading">
+    <div className="dashboard-content hub-dashboard mx-auto max-w-6xl">
+      <section className="dashboard-heading hub-dashboard-heading">
         <div>
           <p className="eyebrow">YOUR LEARNING OVERVIEW</p>
           <h1>Good to see you back.</h1>
@@ -174,7 +174,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="dashboard-section">
+      <section className="dashboard-section hub-dashboard-section">
         <div className="section-heading">
           <div><p className="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h2>Continue learning</h2></div>
           <Link to="/library" className="section-link">View library <ArrowRight className="size-4" /></Link>
@@ -202,7 +202,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section className="dashboard-section">
+      <section className="dashboard-section hub-dashboard-section">
         <div className="section-heading">
           <div><p className="eyebrow">YOUR MATERIALS</p><h2>Recently added</h2></div>
           <Link to="/library" className="section-link">All materials <ArrowRight className="size-4" /></Link>
