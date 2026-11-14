@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, DEFAULT_SETTINGS, ensureProfile, getProfile, getSettings } from './db'
-import { getReviews, libraryOverview } from './store'
+import { libraryOverview } from './store'
 import type {
   Card,
   CardReview,
@@ -119,7 +119,14 @@ export function useDeck(deckId: string | undefined): DeckBundle {
       if (!deckId) return EMPTY_DECK
       const deck = await db.decks.get(deckId)
       const cards = await db.cards.where('deckId').equals(deckId).toArray()
-      const reviews = await getReviews()
+      const reviewRows = cards.length
+        ? await db.reviews.bulkGet(cards.map((card) => card.id))
+        : []
+      const reviews = new Map(
+        reviewRows
+          .filter((review): review is CardReview => Boolean(review))
+          .map((review) => [review.cardId, review]),
+      )
       const document = deck ? await db.documents.get(deck.documentId) : undefined
       return { deck, cards, reviews, document }
     },
@@ -154,10 +161,7 @@ export function useAttempts(deckId?: string) {
 
 export function useGameRuns(limit = 10) {
   return useLiveQuery(
-    async () => {
-      const rows = await db.gameRuns.toArray()
-      return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
-    },
+    () => db.gameRuns.orderBy('createdAt').reverse().limit(limit).toArray(),
     [limit],
     [],
   )
