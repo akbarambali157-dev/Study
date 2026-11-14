@@ -172,12 +172,11 @@ export async function libraryOverview() {
   // which could create a large temporary memory spike on budget phones.
   for (const deck of decks) {
     const cardIds = await db.cards.where('deckId').equals(deck.id).primaryKeys()
-    const reviews = cardIds.length
-      ? await db.reviews.where('cardId').anyOf(cardIds).toArray()
+    const notDueIds = cardIds.length
+      ? await db.reviews.where('cardId').anyOf(cardIds)
+          .filter((review) => review.dueAt > now).primaryKeys()
       : []
-    const notDue = new Set(
-      reviews.filter((review) => review.dueAt > now).map((review) => review.cardId),
-    )
+    const notDue = new Set(notDueIds.map(String))
     statsByDeck.set(deck.id, {
       cardCount: cardIds.length,
       // Cards without a review, due today or overdue all count as due.
