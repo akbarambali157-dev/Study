@@ -40,6 +40,13 @@ export async function registerCurrentDeviceForPush(applicationServerKey: string)
   })
 }
 
+export async function getCurrentDevicePushEndpoint(): Promise<string | null> {
+  if (!supportsWebPush()) return null
+  const registration = await navigator.serviceWorker.ready
+  const subscription = await registration.pushManager.getSubscription()
+  return subscription?.endpoint ?? null
+}
+
 export async function removeCurrentDevicePushSubscription(): Promise<string | null> {
   if (!supportsWebPush()) return null
   const registration = await navigator.serviceWorker.ready
