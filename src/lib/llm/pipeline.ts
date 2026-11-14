@@ -54,6 +54,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 export interface GenerationResult {
   usage: AiUsage
   costUsd: number
+  title: string
   noteId: string
   deckId: string
   keyPointCount: number
@@ -418,6 +419,7 @@ export async function generateStudyMaterial(
   return {
     usage,
     costUsd,
+    title: note.title,
     noteId,
     deckId,
     keyPointCount: keyPoints.length,
