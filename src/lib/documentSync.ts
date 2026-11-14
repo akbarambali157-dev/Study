@@ -137,6 +137,7 @@ async function uploadPdfResumably(
       offset = nextOffset
     } catch (error) {
       if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error
+      if (error instanceof DocumentSyncError && !error.retryable) throw error
       const retry = retryDelays.shift()
       if (retry === undefined) throw error
       await wait(retry)
