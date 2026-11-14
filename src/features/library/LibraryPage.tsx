@@ -235,6 +235,7 @@ function CloudDocuments() {
   const navigate = useNavigate()
   const library = useLibrary()
   const [rows, setRows] = useState<CloudDocumentSummary[]>([])
+  const [ownerId, setOwnerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -244,7 +245,8 @@ function CloudDocuments() {
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser()
       if (authError) throw authError
-      if (!auth.user) { setRows([]); setLoading(false); return }
+      if (!auth.user) { setOwnerId(null); setRows([]); setLoading(false); return }
+      setOwnerId(auth.user.id)
       setRows(await listCloudDocuments())
       setError('')
     } catch (err) {
@@ -253,7 +255,7 @@ function CloudDocuments() {
   }
 
   useEffect(() => { void load() }, [])
-  const localIds = new Set(library.map((item) => item.doc.remoteId).filter((id): id is string => Boolean(id)))
+  const localIds = new Set(library.filter((item) => item.doc.remoteOwnerId === ownerId).map((item) => item.doc.remoteId).filter((id): id is string => Boolean(id)))
   const available = rows.filter((row) => !localIds.has(row.id))
 
   const restore = async (row: CloudDocumentSummary) => {
