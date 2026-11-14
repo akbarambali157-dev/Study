@@ -228,6 +228,7 @@ export function UploadPage() {
       await cachePdfBlob(savedDoc.id, item.file)
 
       const controller = new AbortController()
+      let currentStage: Stage = 'extract'
       abortRef.current = controller
       setFiles((prev) => prev.map((f) => f.id === id
         ? { ...f, documentId: savedDoc.id, phase: { kind: 'running', stage: 'extract', detail: 'Preparing your private document copy' } }
@@ -267,6 +268,7 @@ export function UploadPage() {
           signal: controller.signal,
           useProxy: settings.useProxy,
           onStage: (stage, detail) => {
+            currentStage = stage
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === id
@@ -316,7 +318,7 @@ export function UploadPage() {
         setFiles((prev) =>
           prev.map((f) =>
             f.id === id
-              ? { ...f, phase: { kind: 'error', message: redactSecrets(message), errorDiagnostic: err instanceof AiError ? `${err.diagnosticId} · ${err.code}${err.requestId ? ` · request ${err.requestId}` : ''}` : `AI-UNKNOWN · ${err instanceof Error ? err.name : 'unknown'}` } }
+              ? { ...f, phase: { kind: 'error', message: redactSecrets(message), errorDiagnostic: err instanceof AiError ? `${err.diagnosticId} · stage ${currentStage} · ${err.code}${err.requestId ? ` · request ${err.requestId}` : ''}` : `AI-UNKNOWN · stage ${currentStage} · ${err instanceof Error ? err.name : 'unknown'}` } }
               : f,
           ),
         )

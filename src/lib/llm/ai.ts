@@ -195,7 +195,7 @@ async function generateStructuredViaProxy<T>(
       if (!resp.ok) {
         const errBody = await resp.json().catch(() => null)
         if (resp.status === 401) {
-          throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth')
+          throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth', false, errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined)
         }
         const detail = typeof errBody?.error === 'string' ? errBody.error : `Proxy returned ${resp.status}`
         const mapped = resp.status >= 500

@@ -110,11 +110,19 @@ export async function uploadDocumentToCloud(file: File, document: DocumentRec): 
 
     return { remoteId, storagePath, syncStatus: 'indexed' }
   } catch (error) {
-    // Preserve the binary and metadata on retryable indexing errors. A later
-    // retry can safely upsert the same object and rebuild the page index.
-    await supabase.from('study_documents')
-      .update({ status: 'failed', error_message: error instanceof Error ? error.message.slice(0, 240) : 'Indexing failed', updated_at: new Date().toISOString() })
-      .eq('id', remoteId).eq('owner_id', userId)
+    if (isRetry) {
+      // Keep the existing remote reference so the next retry can rebuild the
+      // index against the same private object.
+      await supabase.from('study_documents')
+        .update({ status: 'failed', error_message: error instanceof Error ? error.message.slice(0, 240) : 'Indexing failed', updated_at: new Date().toISOString() })
+        .eq('id', remoteId).eq('owner_id', userId)
+    } else {
+      // A first-time failure cannot return its generated remote ID to the
+      // caller, so roll back the object and metadata instead of orphaning them.
+      await supabase.from('study_document_pages').delete().eq('document_id', remoteId).eq('owner_id', userId)
+      await supabase.from('study_documents').delete().eq('id', remoteId).eq('owner_id', userId)
+      await supabase.storage.from(BUCKET).remove([storagePath])
+    }
     throw error
   }
 }

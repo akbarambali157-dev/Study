@@ -43,6 +43,7 @@ export function SettingsPage() {
   const [confirmWipe, setConfirmWipe] = useState(false)
 const [testingAI, setTestingAI] = useState(false)
 const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
+const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   useEffect(() => {
     setStoredKey(getApiKey())
@@ -75,6 +76,7 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
     }
     setTestingAI(true)
     setAiTestResult(null)
+    setAiTestDiagnostic(null)
     try {
       const model=settings.model
       const {text:reply,usage}=await generateText({system:'You are checking whether the Study Hub AI connection is available. Reply with one short plain-text confirmation.',prompt:'Reply: Study Hub connection OK',model,maxTokens:32,baseUrl:settings.baseUrl||undefined,useProxy})
@@ -88,7 +90,11 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
     } catch (err) {
       setAiTestResult('fail')
       const message = err instanceof Error ? redactSecrets(err.message) : 'Unknown provider error.'
-      toast(`AI test failed: ${message}`, 'error')
+      const diagnostic = err instanceof AiError
+        ? `${err.diagnosticId} · ${err.code}${err.requestId ? ` · request ${err.requestId}` : ''}`
+        : `AI-TEST-UNKNOWN · ${err instanceof Error ? err.name : 'unknown'}`
+      setAiTestDiagnostic(diagnostic)
+      toast(`AI test failed: ${message} [${diagnostic}]`, 'error')
     } finally {
       setTestingAI(false)
     }
@@ -330,9 +336,14 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
                 {aiTestResult === 'ok' ? (
                   <Chip tone="green">Connection OK — the model replied.</Chip>
                 ) : aiTestResult === 'fail' ? (
-                  <Chip tone="clay">Test failed. Check the key or proxy setting.</Chip>
+                  <Chip tone="clay">Test failed. Check the diagnostic below.</Chip>
                 ) : null}
               </div>
+              {aiTestDiagnostic ? (
+                <p className="mt-2 rounded-lg border border-clay/30 bg-clay/5 px-3 py-2 font-mono text-[11px] text-muted">
+                  Diagnostic: {aiTestDiagnostic}
+                </p>
+              ) : null}
               <p className="mt-1.5 text-[12px] text-muted">
                 Sends a single test prompt to the current model. Uses a few tokens
                 and shows you exactly whether the AI is reachable before you upload a PDF.
