@@ -37,7 +37,7 @@ export function SettingsPage() {
   const [credentialLoading, setCredentialLoading] = useState(true)
   const [accountEmail, setAccountEmail] = useState('')
   const [accountName, setAccountName] = useState('')
-  const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
+  const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? 'https://api.anthropic.com')
   const [useProxy, setUseProxy] = useState(settings.useProxy ?? true)
   const [confirmWipe, setConfirmWipe] = useState(false)
 const [testingAI, setTestingAI] = useState(false)
@@ -62,10 +62,6 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
     void checkCredential().catch(() => { if (active) setCredentialLoading(false) })
     return () => { active = false }
   }, [])
-
-  useEffect(() => {
-    setBaseUrl(settings.baseUrl ?? '')
-  }, [settings.baseUrl])
 
   useEffect(() => {
     setUseProxy(settings.useProxy ?? true)
@@ -373,40 +369,11 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
             </div>
           )}
 
-          {!useProxy ? (
-          <div className="mt-4 border-t border-line pt-4">
-            <label className="text-xs font-medium uppercase tracking-wide text-muted">
-              API base URL (optional)
-            </label>
-            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-              <input
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://api.anthropic.com"
-                spellCheck={false}
-                className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 font-mono text-[12px] outline-none focus:border-forest-400"
-              />
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={async () => {
-                  await saveSettings({ baseUrl: baseUrl.trim() || undefined })
-                  toast('Saved.', 'success')
-                }}
-              >
-                Save
-              </Button>
-            </div>
-            <p className="mt-1.5 text-[12px] text-muted">
-              Leave this empty for a personal Anthropic key (sk-ant-…). For a gateway-issued
-              token, enter the HTTPS Anthropic-compatible BrewKeg endpoint here. Only Anthropic and BrewKeg endpoints are accepted by the secure proxy.
-            </p>
+          <div className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
+            <p className="font-semibold text-body">Provider endpoint</p>
+            <p className="mt-1">{useProxy ? 'https://brewkeg.dev (site-managed)' : credentialConfigured ? baseUrl : 'Selected automatically when you save your key'}</p>
+            <p className="mt-1">Personal credentials are restricted to the official Anthropic API or the configured BrewKeg endpoint. The endpoint is saved alongside your encrypted account credential and cannot be changed to an arbitrary URL.</p>
           </div>
-          ) : (
-            <p className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
-              Hosted mode uses the site-configured gateway. This base URL is only used when you bring your own API key.
-            </p>
-          )}
         </Card>
       </section>
 
