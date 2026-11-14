@@ -50,6 +50,7 @@ export function TestPage() {
   const [startedAt, setStartedAt] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
   const [reviewing, setReviewing] = useState(false)
 
   const current = questions[index]
