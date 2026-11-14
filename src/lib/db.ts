@@ -102,6 +102,28 @@ export class StudyHubDb extends Dexie {
       studyTasks: 'id, dueAt, completed, kind, createdAt',
       studyGoals: 'id, createdAt, updatedAt',
     })
+
+    // Version 4 indexes remote document IDs for constant-time cloud restore deduplication.
+    this.version(4).stores({
+      courses: 'id, code, createdAt',
+      documents: 'id, courseId, createdAt, status, source, remoteId, syncStatus',
+      notes: 'id, documentId',
+      keyPoints: 'id, documentId, position',
+      orgs: 'id, documentId, keyPointId',
+      decks: 'id, documentId',
+      cards: 'id, deckId, documentId',
+      reviews: 'cardId, dueAt',
+      questions: 'id, deckId, documentId',
+      attempts: 'id, deckId, createdAt',
+      inquiries: 'id, createdAt, documentId, kind',
+      gameRuns: 'id, deckId, createdAt',
+      profile: 'id',
+      learningProfile: 'id',
+      settings: 'id',
+      pdfBlobs: 'id, savedAt',
+      studyTasks: 'id, dueAt, completed, kind, createdAt',
+      studyGoals: 'id, createdAt, updatedAt',
+    })
   }
 }
 
