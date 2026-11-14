@@ -516,10 +516,12 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
         </Card>
       </section>
 
+      <p className="mb-2 text-center text-[11px] text-muted">
+        Study Hub {__APP_VERSION__} · Build {__BUILD_ID__}
+      </p>
       <p className="mt-6 flex items-start gap-1.5 text-[12px] text-muted">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-        Built for Olabisi Onabanjo University students. Your key, your documents and your
-        trail stay in your browser.
+        Built for Olabisi Onabanjo University students. Your personal key and learning trail stay in this browser. Signed-in PDFs are stored in private account storage; extracted text is sent to your selected AI provider only when you generate study materials.
         <Sparkles className="mt-0.5 size-3.5 shrink-0 text-gold" />
       </p>
     </div>

@@ -1007,3 +1007,59 @@ A Vercel deployment marked READY proves the deployment completed; it does not pr
 Never expose API keys or service-role credentials in frontend code, commits, screenshots, logs or analytics. Never ask the user to paste private keys into chat.
 
 **Immediate next action:** audit and reproduce the PDF upload/processing failure and both AI credential-mode failures; identify root causes, fix them and pass their acceptance tests before moving on to the visual redesign and new interaction features.
+
+
+---
+
+## 22. Implementation progress ledger — 14 November 2026
+
+This ledger records what has actually been changed and checked. It does not convert untested behaviour into a completed release.
+
+### v1.0 — Reliable foundation
+
+**Implemented**
+- Added a private Supabase Storage bucket named `study-documents`, restricted to PDF files and a 30 MB object limit.
+- Added `study_documents` metadata and `study_document_pages` page-text records.
+- Added owner-scoped RLS policies for document metadata, page text and Storage objects.
+- Added a generated full-text search vector and GIN index over extracted page text.
+- Added signed-in PDF upload and page-indexing integration. The browser still retains its local IndexedDB copy for offline page citations; unauthenticated BYOK-only use remains local-only.
+- Changed Settings connection testing to a small plain-text request instead of strict JSON.
+- Added response normalisation for common Anthropic and OpenAI-compatible provider envelopes; empty/unsupported successful responses are rejected.
+- Added tolerant structured JSON extraction and removed automatic repeat attempts for deterministic schema failures.
+- Normalised a trailing `/v1` from a BYOK Anthropic-compatible base URL.
+- Fixed profile onboarding to prefer the sign-up `display_name` metadata and prefill the account email read-only.
+
+**Still to validate**
+- A real signed-in PDF upload on iPhone and Android, including Storage object, metadata row and page index.
+- Cross-account access denial using two real authenticated accounts.
+- A deployed hosted/public AI connection test and a separate private BYOK connection test with a valid user-configured credential.
+- Actual generation from an uploaded PDF and source-grounding checks.
+- OCR remains unsupported; scanned/image-only PDFs should continue to show an explicit limitation rather than fabricated text.
+- Full PDF deletion/cleanup UI and cross-device document restoration are not yet complete.
+
+### v1.1 — Mobile/PWA foundation
+
+**Implemented**
+- Switched the PWA from immediate auto-update to a user-controlled update prompt.
+- Added update checks on app focus/foreground return.
+- Added an explicit “Update” action so the user can decide when to reload.
+- Removed the manifest's forced portrait orientation.
+- Added app version/build identifiers and surfaced them in Settings.
+
+**Still to validate**
+- Install the updated PWA on a real iPhone Home Screen and Android device.
+- Deploy a later build and verify the installed app detects it, offers the update and changes its build identifier after applying it.
+- Verify update behaviour while offline, during an upload and with unsaved work.
+- Verify iPhone push support separately; push subscriptions and delivery are not part of this implementation batch.
+
+### Automated and infrastructure validation
+
+- GitHub Actions CI run **92** for commit `aeec2369eabadca4b18631e9e6c1875c5dfcf66b`: dependency install, TypeScript check and production build all passed.
+- Vercel production deployment for that commit: **READY**; deployment ID `dpl_3Mqm8ciwxRDwajbcq1oPhqBipdcQ`; aliases assigned, including `study-platform-delta.vercel.app`.
+- Supabase Edge Function `ai-proxy`: version **6**, ACTIVE, JWT verification enabled.
+- Supabase Storage bucket `study-documents`: verified private, PDF-only, 30 MB limit.
+- Supabase metadata/page tables: verified present with RLS enabled.
+- Owner-only table and Storage policies: verified present.
+- Supabase security advisor currently reports one separate warning: leaked-password protection is disabled. This is an Auth dashboard setting, not a PDF/AI code failure; enable it in Supabase Auth security settings.
+
+**Release status:** v1.0 and v1.1 are in progress, not fully released. CI/build and deployment pass, but real-account provider tests and real-device PWA/PDF tests remain mandatory before either version can be marked complete.
