@@ -115,19 +115,6 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // The VAPID public key is intentionally public; only the private key and
-  // dispatch token remain in Vault.
-  if (body.action === "public-key") {
-    try {
-      const keys = await webpush.importVapidKeys(config.vapid_jwks);
-      const publicKey = await webpush.exportApplicationServerKey(keys);
-      return json(200, { publicKey });
-    } catch (error) {
-      console.error("VAPID public key export failed", { name: error instanceof Error ? error.name : "unknown" });
-      return json(503, { error: "Push registration is not configured." });
-    }
-  }
-
   const supplied = req.headers.get("Authorization") ?? "";
   if (supplied !== `Bearer ${config.dispatch_token}`) return json(401, { error: "Unauthorized." });
   const notificationId = typeof body.notification_id === "string" ? body.notification_id : "";
@@ -146,7 +133,8 @@ Deno.serve(async (req: Request) => {
   if (!subscriptions?.length) return json(200, { delivered: 0, reason: "no_subscriptions" });
 
   const category = categoryForType[String(notification.notification_type)] ?? null;
-  if (prefs?.pause_all === true || (category && prefs?.[category] === false) || isQuietNow(prefs ?? {})) {
+  const isSelfTest = notification.notification_type === "push_test";
+  if (!isSelfTest && (prefs?.pause_all === true || (category && prefs?.[category] === false) || isQuietNow(prefs ?? {}))) {
     return json(200, { delivered: 0, reason: "notification_preferences" });
   }
 
@@ -174,15 +162,8 @@ Deno.serve(async (req: Request) => {
   let failed = 0;
 
   for (const subscription of subscriptions) {
-    const { data: prior } = await admin.from("push_delivery_log").select("status")
-      .eq("notification_id", notificationId).eq("subscription_id", subscription.id).maybeSingle();
-    if (prior?.status === "sent") continue;
-
     if (subscription.expiration_time && new Date(subscription.expiration_time).getTime() <= Date.now()) {
       await admin.from("push_subscriptions").delete().eq("id", subscription.id).eq("user_id", notification.user_id);
-      await admin.from("push_delivery_log").upsert({
-        notification_id: notificationId, subscription_id: subscription.id, status: "expired", attempted_at: new Date().toISOString(),
-      }, { onConflict: "notification_id,subscription_id" });
       expired++;
       continue;
     }
@@ -195,6 +176,17 @@ Deno.serve(async (req: Request) => {
       continue;
     }
 
+    const { data: claimed, error: claimError } = await admin.rpc("claim_push_delivery", {
+      p_notification_id: notificationId,
+      p_subscription_id: subscription.id,
+    });
+    if (claimError) {
+      console.error("Push delivery claim failed", { notificationId, subscriptionId: subscription.id, code: claimError.code });
+      failed++;
+      continue;
+    }
+    if (claimed !== true) continue;
+
     try {
       const subscriber = applicationServer.subscribe({
         endpoint: subscription.endpoint,
@@ -205,26 +197,23 @@ Deno.serve(async (req: Request) => {
         urgency: webpush.Urgency.Normal,
         topic: notificationId.replace(/-/g, "").slice(0, 32),
       });
-      await admin.from("push_delivery_log").upsert({
-        notification_id: notificationId, subscription_id: subscription.id, status: "sent", attempted_at: new Date().toISOString(),
-      }, { onConflict: "notification_id,subscription_id" });
+      const { error: sentLogError } = await admin.from("push_delivery_log").update({
+        status: "sent", attempted_at: new Date().toISOString(), error_code: null,
+      }).eq("notification_id", notificationId).eq("subscription_id", subscription.id);
+      if (sentLogError) console.error("Push sent status could not be recorded", { notificationId, subscriptionId: subscription.id, code: sentLogError.code });
       delivered++;
     } catch (error) {
       const gone = typeof (error as { isGone?: unknown })?.isGone === "function" &&
         (error as { isGone: () => boolean }).isGone();
       if (gone) {
         await admin.from("push_subscriptions").delete().eq("id", subscription.id).eq("user_id", notification.user_id);
-        await admin.from("push_delivery_log").upsert({
-          notification_id: notificationId, subscription_id: subscription.id, status: "expired",
-          attempted_at: new Date().toISOString(), error_code: "PUSH_ENDPOINT_GONE",
-        }, { onConflict: "notification_id,subscription_id" });
         expired++;
       } else {
         console.warn("Push delivery failed", { notificationId, subscriptionId: subscription.id, name: error instanceof Error ? error.name : "unknown" });
-        await admin.from("push_delivery_log").upsert({
-          notification_id: notificationId, subscription_id: subscription.id, status: "failed",
-          attempted_at: new Date().toISOString(), error_code: "PUSH_SEND_FAILED",
-        }, { onConflict: "notification_id,subscription_id" });
+        const { error: failedLogError } = await admin.from("push_delivery_log").update({
+          status: "failed", attempted_at: new Date().toISOString(), error_code: "PUSH_SEND_FAILED",
+        }).eq("notification_id", notificationId).eq("subscription_id", subscription.id);
+        if (failedLogError) console.error("Push failure status could not be recorded", { notificationId, subscriptionId: subscription.id, code: failedLogError.code });
         failed++;
       }
     }
