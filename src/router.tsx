@@ -74,6 +74,9 @@ export const router = createHashRouter([
           Component: (await import('./features/settings/SettingsPage')).SettingsPage,
         }),
       },
+      { path: 'messages', lazy: async () => ({ Component: (await import('./features/messages/MessagesPage')).MessagesPage }) },
+      { path: 'messages/:id', lazy: async () => ({ Component: (await import('./features/messages/MessagesPage')).MessagesPage }) },
+      { path: 'notifications', lazy: async () => ({ Component: (await import('./features/notifications/NotificationsPage')).NotificationsPage }) },
       {
         path: 'shared/:encoded',
         lazy: async () => ({
