@@ -1,4 +1,6 @@
 import { db } from './db'
+import { deleteRemoteDocument } from './documentSync'
+import { supabase } from './supabase'
 import { schedule, freshReview, type Grade } from './srs'
 import type {
   AiModel,
@@ -43,24 +45,31 @@ export async function getDocument(id: string): Promise<DocumentRec | undefined> 
   return db.documents.get(id)
 }
 
-export async function deleteDocument(id: string): Promise<void> {
+export async function deleteDocument(id: string): Promise<boolean> {
+  const document = await db.documents.get(id)
   const decks = await db.decks.where('documentId').equals(id).toArray()
   const deckIds = decks.map((d) => d.id)
+  let ownerId = document?.remoteOwnerId
+  if (document?.remoteId && !ownerId && supabase) {
+    const { data } = await supabase.auth.getUser()
+    ownerId = data.user?.id
+  }
+
   await db.transaction(
     'rw',
     [
-      db.documents,
-      db.notes,
-      db.keyPoints,
-      db.orgs,
-      db.decks,
-      db.cards,
-      db.reviews,
-      db.questions,
-      db.attempts,
-      db.pdfBlobs,
+      db.documents, db.notes, db.keyPoints, db.orgs, db.decks, db.cards,
+      db.reviews, db.questions, db.attempts, db.pdfBlobs, db.pendingCloudDeletions,
     ],
     async () => {
+      if (document?.remoteId && ownerId) {
+        await db.pendingCloudDeletions.put({
+          id: document.remoteId,
+          ownerId,
+          storagePath: document.storagePath ?? '',
+          queuedAt: Date.now(),
+        })
+      }
       await db.documents.delete(id)
       await db.pdfBlobs.delete(id)
       await db.notes.where('documentId').equals(id).delete()
@@ -71,11 +80,24 @@ export async function deleteDocument(id: string): Promise<void> {
       await db.reviews.bulkDelete(cards.map((c) => c.id))
       await db.cards.where('documentId').equals(id).delete()
       await db.decks.where('documentId').equals(id).delete()
-      for (const deckId of deckIds) {
-        await db.attempts.where('deckId').equals(deckId).delete()
-      }
+      for (const deckId of deckIds) await db.attempts.where('deckId').equals(deckId).delete()
     },
   )
+
+  if (document?.remoteId && ownerId && typeof navigator !== 'undefined' && navigator.onLine) {
+    try {
+      const deleted = await deleteRemoteDocument({
+        remoteId: document.remoteId,
+        storagePath: document.storagePath,
+        ownerId,
+      })
+      if (deleted) await db.pendingCloudDeletions.delete(document.remoteId)
+    } catch {
+      // Keep the durable queue entry; reconnect will retry the private object,
+      // extracted page index and metadata cleanup for the same owner account.
+    }
+  }
+  return Boolean(document?.remoteId && await db.pendingCloudDeletions.get(document.remoteId))
 }
 
 /** Remove partial output before retrying generation for the same document. */
