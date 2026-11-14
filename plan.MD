@@ -1102,3 +1102,69 @@ This ledger records what has actually been changed and checked. It does not conv
 - Worker cleanup failures cannot overwrite the original extraction failure.
 - User-facing diagnostics include stage and original exception class; they do not include file contents.
 - The exact TypeError root cause remains unconfirmed until the next real-device diagnostic is observed.
+
+
+---
+
+## 17. Implementation and release audit — 14 November 2026
+
+This ledger records repository and deployment evidence. A code path is not release-complete until its acceptance tests have passed.
+
+### Version 1.0 — Reliable foundation
+
+**Implemented**
+- PDF extraction, private cloud storage and page indexing.
+- AI generation pipeline, structured response validation and hosted AI proxy.
+- AI usage accounting, request quotas and administrator controls.
+- Authentication and account-backed academic profile persistence.
+- Learning library, flashcards, tests and learning trail.
+
+**Remaining release gates**
+- Validate a real upload through storage, page indexing, generation and reopen on iOS Safari and Android Chrome.
+- Verify failed cloud sync leaves local BYOK processing usable.
+- Verify account isolation with two independent student accounts.
+- Verify cloud document restoration on a second device and deletion from storage plus page index.
+- Run hosted AI and BYOK connection/generation tests separately.
+- Confirm PDF.js compatibility on supported iOS Safari versions; pdfjs-dist 6 currently checks for Iterator Helpers and rejects browsers that lack them.
+- Enable Supabase leaked-password protection in Auth settings.
+- Complete a real-device backup/export and account logout test.
+
+### Version 1.1 — Mobile/PWA foundation
+
+**Implemented**
+- Vite PWA plugin with generated manifest, app-shell precache and controlled update flow.
+- 192px/512px icons and Apple touch icon asset.
+- Safe-area-aware mobile navigation.
+- Standalone display metadata and installation guidance for iPhone/iPad and Android.
+- Account-owned notification preference records and preference controls.
+
+**Remaining release gates**
+- Install and launch on a physical iPhone and Android device.
+- Verify offline shell, offline local study data and reconnect behaviour.
+- Verify update prompt while a student has unsaved work.
+- Complete push subscription UX and end-to-end push delivery. Subscription/preference schema is provisioned, but a server-side sender and VAPID credentials are not configured.
+- Confirm account-specific caches are cleared on logout/account switch.
+
+### Version 1.2 — Learning experience
+
+**Implemented**
+- Flashcard review scheduling and local review history.
+- Quiz attempt history.
+- Card Rush and local XP/streak tracking.
+- Public-material saving and Rush progress.
+- Local-first study planner with tasks, learning goals and recent test results.
+- Planner tasks and goals included in local JSON export.
+
+**Remaining release gates**
+- Add server-backed, tamper-resistant XP ledger before presenting XP as a trusted account-wide record or introducing leaderboards.
+- Add topic-level mastery calculations and visual trend history.
+- Add planner-to-document linking and recurring revision scheduling.
+- Validate planner, review and quiz flows on phone-sized screens and across browser restarts.
+- Add automated unit tests for scheduling, scoring, date handling and progress calculations.
+
+### Known product and security limitations
+- Planner and learning progress remain device-local unless explicitly synced; browser storage is not a cross-device backup.
+- BYOK keys are stored in the browser by design; they are not a server-side secrets vault.
+- Academic profiles default to private; public discovery is not implemented.
+- Notification preferences are stored, but push subscriptions and push delivery are not yet active.
+- Supabase security advisor currently reports leaked-password protection disabled.
