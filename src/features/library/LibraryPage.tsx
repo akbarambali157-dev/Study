@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useLibrary } from '@/lib/hooks'
+import { deleteCloudDocument, listCloudDocuments, restoreCloudDocument, type CloudDocumentSummary } from '@/lib/documentSync'
 import { deleteDocument } from '@/lib/store'
 import { record } from '@/lib/inquiries'
 import { PageHeading } from '@/components/PageShell'
@@ -69,7 +70,13 @@ export function LibraryPage() {
   }, [query])
 
   const remove = async (id: string, title: string) => {
-    if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too.`)) return
+    const target = library.find((item) => item.doc.id === id)?.doc
+    if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too${target?.remoteId ? ' and its private cloud PDF and page index will also be deleted' : ''}.`)) return
+    if (target?.remoteId) {
+      if (!navigator.onLine) { toast('Connect to the internet before deleting the private cloud copy. Nothing has been deleted.', 'info'); return }
+      try { await deleteCloudDocument(target.remoteId) }
+      catch (error) { toast(error instanceof Error ? error.message : 'The cloud copy could not be deleted. Your local study set is unchanged.', 'error'); return }
+    }
     await deleteDocument(id)
     toast('Deleted.', 'success')
   }
@@ -222,9 +229,61 @@ export function LibraryPage() {
           ) : null}
         </>
       )}
+      <CloudDocuments />
       <SavedPublicMaterials />
     </div>
   )
+}
+
+
+function CloudDocuments() {
+  const navigate = useNavigate()
+  const library = useLibrary()
+  const [rows, setRows] = useState<CloudDocumentSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [restoring, setRestoring] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    if (!supabase) { setLoading(false); return }
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (!auth.user) { setRows([]); setLoading(false); return }
+      setRows(await listCloudDocuments())
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cloud documents could not be loaded.')
+    } finally { setLoading(false) }
+  }
+
+  useEffect(() => { void load() }, [])
+  const localIds = new Set(library.map((item) => item.doc.remoteId).filter((id): id is string => Boolean(id)))
+  const available = rows.filter((row) => !localIds.has(row.id))
+
+  const restore = async (row: CloudDocumentSummary) => {
+    if (restoring) return
+    if (!navigator.onLine) { toast('Connect to the internet before restoring a cloud document.', 'info'); return }
+    setRestoring(row.id)
+    try {
+      const id = await restoreCloudDocument(row.id)
+      toast('Private PDF and extracted page text restored to this device. Generate notes and cards again if needed.', 'success')
+      navigate(`/doc/${id}`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'This cloud document could not be restored.', 'error')
+    } finally { setRestoring(null) }
+  }
+
+  if (!supabase) return null
+  return <section className="mt-8">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 className="font-display text-lg font-semibold">Private cloud documents</h2><p className="mt-1 text-xs text-muted">Restore source PDFs and extracted page text from your account on another device.</p></div><Button size="sm" variant="secondary" onClick={() => void load()} disabled={loading}>Refresh</Button></div>
+    {loading ? <Card className="p-4 text-sm text-muted">Checking your cloud library…</Card>
+      : error ? <Card className="p-4 text-sm text-muted">{error}</Card>
+      : !rows.length ? <Card className="p-4 text-sm text-muted">No private cloud PDFs are synced to this account yet. Use “Sync PDF” on a local document to create a cloud copy.</Card>
+      : !available.length ? <Card className="p-4 text-sm text-muted">All your cloud PDFs are already available on this device.</Card>
+      : <div className="space-y-2">{available.map((row) => <Card key={row.id} className="flex flex-wrap items-center justify-between gap-3 p-3"><div className="min-w-0"><p className="truncate text-sm font-semibold">{row.title}</p><p className="mt-1 text-[11px] text-muted">{row.page_count} pages · {Math.ceil(row.size_bytes / 1048576)} MB · {new Date(row.created_at).toLocaleDateString()}</p></div><Button size="sm" variant="secondary" disabled={restoring !== null} onClick={() => void restore(row)}>{restoring === row.id ? 'Restoring…' : 'Restore to device'}</Button></Card>)}</div>}
+    <p className="mt-2 text-[11px] text-muted">This restores the original PDF and its extracted page text. Notes, flashcards, quiz attempts and planner data are still device-local unless separately exported or shared.</p>
+  </section>
 }
 
 type SavedMaterial = {
