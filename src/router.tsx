@@ -2,12 +2,11 @@ import { createHashRouter } from 'react-router-dom'
 import { App } from './App'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { NotFoundPage } from './features/NotFoundPage'
-import { AuthPage } from './features/auth/AuthPage'
-import { ProfileSetupPage } from './features/auth/ProfileSetupPage'
 
 /**
  * Hash routing keeps this static build portable across Vercel and GitHub Pages.
- * Heavy document and game routes are loaded only when a student opens them.
+ * Feature routes are split so authentication, community, document and game
+ * code is downloaded only when a student opens that part of the app.
  */
 export const router = createHashRouter([
   {
@@ -15,11 +14,11 @@ export const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: 'auth', element: <AuthPage /> },
+      { path: 'auth', lazy: async () => ({ Component: (await import('./features/auth/AuthPage')).AuthPage }) },
       { path: 'admin', lazy: async () => ({ Component: (await import('./features/admin/AdminPage')).AdminPage }) },
       { path: 'discover', lazy: async () => ({ Component: (await import('./features/discover/DiscoverPage')).DiscoverPage }) },
       { path: 'discover/:id/quiz', lazy: async () => ({ Component: (await import('./features/discover/PublicMaterialQuizPage')).PublicMaterialQuizPage }) },
-      { path: 'profile-setup', element: <ProfileSetupPage /> },
+      { path: 'profile-setup', lazy: async () => ({ Component: (await import('./features/auth/ProfileSetupPage')).ProfileSetupPage }) },
       { path: 'planner', lazy: async () => ({ Component: (await import('./features/planner/PlannerPage')).PlannerPage }) },
       { path: 'install', lazy: async () => ({ Component: (await import('./features/install/InstallPage')).InstallPage }) },
       {
