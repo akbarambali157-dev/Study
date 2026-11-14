@@ -1,5 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import type Anthropic from '@anthropic-ai/sdk'
 import type { ZodType } from 'zod'
 import { getApiKey } from '../apiKey'
 import { aiProxyUrl, supabase } from '../supabase'
@@ -46,7 +45,7 @@ export function redactSecrets(text: string): string {
     .replace(/sb_[a-z]+_[A-Za-z0-9_-]{8,}/g, 'sb_•••')
 }
 
-export function createClient(baseUrl?: string): Anthropic {
+export async function createClient(baseUrl?: string): Promise<Anthropic> {
   const key = getApiKey()
   if (!key) {
     throw new AiError(
@@ -74,7 +73,10 @@ export function createClient(baseUrl?: string): Anthropic {
   }
   const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase?.replace(/\/v1\/?$/, '').replace(/\/$/, '')
 
-  return new Anthropic({
+  // Keep the provider SDK out of the initial mobile bundle. BYOK users load it
+  // only when they make their first direct-provider request.
+  const { default: AnthropicClient } = await import('@anthropic-ai/sdk')
+  return new AnthropicClient({
     apiKey: isAnthropicKey ? key : undefined,
     authToken: isAnthropicKey ? undefined : key,
     baseURL: resolvedBaseUrl ? resolvedBaseUrl.replace(/\/$/, '') : undefined,
@@ -173,6 +175,7 @@ async function generateStructuredViaProxy<T>(
         throw new AiError('Hosted AI is not configured. The Supabase public key is missing.', 'unknown')
       }
 
+      const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
       const resp = await fetch(aiProxyUrl(), {
         method: 'POST',
         headers: {
@@ -284,7 +287,6 @@ export async function generateStructured<T>(
     return generateStructuredViaProxy(request)
   }
 
-  const client = createClient(request.baseUrl)
   const attempts = 2
   let lastError: unknown
 
@@ -295,6 +297,8 @@ export async function generateStructured<T>(
 
     const timeout = createTimedSignal(request.signal)
     try {
+      const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
+      const client = await createClient(request.baseUrl)
       const message = await client.messages.parse(
         {
           model: request.model,
@@ -386,7 +390,8 @@ export async function generateText(request:TextRequest):Promise<{text:string;usa
    if(!text)throw new AiError('The provider returned an empty response.','schema')
    return {text,usage:{inputTokens:Number(payload?.usage?.input_tokens??payload?.usage?.prompt_tokens??0),outputTokens:Number(payload?.usage?.output_tokens??payload?.usage?.completion_tokens??0)}}
   }
-  const message=await createClient(request.baseUrl).messages.create({model:request.model,max_tokens:request.maxTokens??32,system:request.system,messages:[{role:'user',content:request.prompt}]},{signal:timeout.signal})
+  const client = await createClient(request.baseUrl)
+  const message=await client.messages.create({model:request.model,max_tokens:request.maxTokens??32,system:request.system,messages:[{role:'user',content:request.prompt}]},{signal:timeout.signal})
   const text=extractText(message.content)
   if(!text)throw new AiError('The provider returned an empty response.','schema')
   return {text,usage:{inputTokens:message.usage?.input_tokens??0,outputTokens:message.usage?.output_tokens??0}}
