@@ -164,11 +164,11 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
   if (pendingSync) return pendingSync
   pendingSync = (async () => {
     const result = { synced: 0, skipped: 0, failed: 0 }
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return result
-    if (!supabase) return result
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return { ...result, reason: 'offline' }
+    if (!supabase) return { ...result, reason: 'configuration' }
 
     const { data, error } = await supabase.auth.getSession()
-    if (error || !data.session) return result
+    if (error || !data.session) return { ...result, reason: 'signed-out' }
 
     const documents = await (await import('./db')).db.documents
       .where('source').equals('upload').toArray()
