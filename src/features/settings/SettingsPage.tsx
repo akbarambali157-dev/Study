@@ -15,13 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import {
-  clearApiKey,
-  getApiKey,
-  hasApiKey,
-  isPersisted,
   looksLikeApiKey,
-  maskKey,
-  saveApiKey,
 } from '@/lib/apiKey'
 import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
@@ -39,8 +33,8 @@ export function SettingsPage() {
   const navigate = useNavigate()
 
   const [keyInput, setKeyInput] = useState('')
-  const [storedKey, setStoredKey] = useState<string | null>(null)
-  const [persist, setPersist] = useState(false)
+  const [credentialConfigured, setCredentialConfigured] = useState(false)
+  const [credentialLoading, setCredentialLoading] = useState(true)
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
   const [useProxy, setUseProxy] = useState(settings.useProxy ?? true)
   const [confirmWipe, setConfirmWipe] = useState(false)
@@ -49,8 +43,19 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   useEffect(() => {
-    setStoredKey(getApiKey())
-    setPersist(isPersisted())
+    let active = true
+    const checkCredential = async () => {
+      if (!supabase) { setCredentialLoading(false); return }
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) { setCredentialLoading(false); return }
+      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'status' } })
+      if (!active) return
+      if (error) toast('Private-key status could not be checked. Sign in again or retry.', 'error')
+      else setCredentialConfigured(data?.configured === true)
+      setCredentialLoading(false)
+    }
+    void checkCredential().catch(() => { if (active) setCredentialLoading(false) })
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
@@ -72,8 +77,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
   }
 
   const testAI = useCallback(async () => {
-    const hasKey = hasApiKey()
-    if (!useProxy && !hasKey) {
+    if (!useProxy && !credentialConfigured) {
       toast('No key and proxy mode is off — add a key or turn on "Site provides the model".', 'error')
       return
     }
@@ -101,7 +105,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
     } finally {
       setTestingAI(false)
     }
-  }, [useProxy, settings.model, settings.baseUrl])
+  }, [useProxy, credentialConfigured, settings.model, settings.baseUrl])
 
   const saveKey = async () => {
     const trimmed = keyInput.trim()
@@ -113,21 +117,25 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       toast('That does not look like an API key. It should start with sk-ant- or be an issued token.', 'error')
       return
     }
-    saveApiKey(trimmed, persist)
-    setStoredKey(trimmed)
+    if (!supabase) { toast('Sign in before saving a private provider key.', 'error'); return }
+    const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'save', api_key: trimmed } })
+    if (error || data?.saved !== true) {
+      toast(typeof data?.error === 'string' ? data.error : 'The secure credential vault could not save your key.', 'error')
+      return
+    }
+    setCredentialConfigured(true)
     setKeyInput('')
-    // A saved BYOK key is ignored while hosted-proxy mode is enabled.
-    // Switch modes as part of saving so the key the student just supplied is
-    // actually the credential used by the next connection test/upload.
     setUseProxy(false)
     await saveSettings({ useProxy: false })
-    toast('Your key is saved and personal-key mode is enabled.', 'success')
+    toast('Your key is encrypted in your account vault. It is never stored in this browser.', 'success')
   }
 
-  const removeKey = () => {
-    clearApiKey()
-    setStoredKey(null)
-    toast('Key removed from this browser.', 'success')
+  const removeKey = async () => {
+    if (!supabase) return
+    const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'delete' } })
+    if (error || data?.deleted !== true) { toast('The saved key could not be removed from the secure vault.', 'error'); return }
+    setCredentialConfigured(false)
+    toast('Private provider key removed from your account vault.', 'success')
   }
 
   const exportAll = async () => {
@@ -173,8 +181,6 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       return
     }
     await wipeEverything()
-    clearApiKey()
-    setStoredKey(null)
     setConfirmWipe(false)
     toast('Everything deleted from this browser.', 'success')
   }
@@ -253,45 +259,26 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
                     className="mt-3"
                     onClick={() => void saveUseProxy(false)}
                   >
-                    {hasApiKey() ? 'Use my saved API key instead' : 'Switch to my own API key'}
+                    {credentialConfigured ? 'Use my saved private key instead' : 'Set up my private API key'}
                   </Button>
                 </>
-              ) : storedKey ? (
+              ) : credentialConfigured ? (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
-                    <code className="rounded bg-surface-2 px-2 py-1 font-mono text-[13px]">
-                      {maskKey(storedKey)}
-                    </code>
-                    <Chip tone={persist ? 'green' : 'neutral'}>
-                      {persist ? 'Saved on this device' : 'This tab only'}
-                    </Chip>
+                    <Chip tone="green">Encrypted in your account vault</Chip>
+                    {credentialLoading ? <Chip>Checking…</Chip> : null}
                   </div>
                   <p className="mt-2 text-[13px] text-muted">
-                    {persist
-                      ? 'It survives a reload. Do not do this on a shared or lab machine.'
-                      : 'It is cleared when this tab closes. Tick “remember” below to keep it.'}
+                    Your key is stored encrypted in Supabase Vault and is only retrieved by the authenticated server-side proxy for your account. It is never returned to the browser or included in app logs.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="danger" onClick={removeKey} icon={<Trash2 className="size-3.5" />}>
-                      Remove key
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        saveApiKey(storedKey, !persist)
-                        setPersist(!persist)
-                        toast(!persist ? 'Now remember this device.' : 'Now this tab only.')
-                      }}
-                    >
-                      {persist ? 'Stop remembering' : 'Remember on this device'}
-                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => void removeKey()} icon={<Trash2 className="size-3.5" />}>Remove key</Button>
                   </div>
                 </>
               ) : (
                 <>
                   <p className="text-[13px] leading-relaxed text-muted">
-                    Optional: use a personal API key instead of the shared BrewKeg provider. It stays in this browser and is sent directly to your chosen API endpoint.
+                    Optional: use a personal provider key instead of the shared BrewKeg provider. It is sent once over HTTPS and stored encrypted in your account's Supabase Vault.
                   </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <input
@@ -306,31 +293,18 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
                       spellCheck={false}
                       className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 font-mono text-[13px] outline-none focus:border-forest-400"
                     />
-                    <Button onClick={saveKey} disabled={!hasApiKey() && !keyInput.trim()}>
+                    <Button onClick={() => void saveKey()} disabled={!keyInput.trim() || credentialLoading}>
                       Save key
                     </Button>
                   </div>
-                  <label className="mt-3 flex cursor-pointer items-start gap-2 text-[13px]">
-                    <input
-                      type="checkbox"
-                      checked={persist}
-                      onChange={(event) => setPersist(event.target.checked)}
-                      className="mt-0.5 size-4 accent-forest"
-                    />
-                    <span>
-                      Remember this key on this device
-                      <span className="block text-[12px] text-muted">
-                        Leave it off on a shared computer — the key then dies with the tab.
-                      </span>
-                    </span>
-                  </label>
+
                 </>
               )}
             </div>
           </div>
 
           {/* ── AI connection test ───────────────────────────────────────── */}
-          {(useProxy || storedKey) && (
+          {(useProxy || credentialConfigured) && (
             <div className="mt-4 border-t border-line pt-4">
               <label className="text-xs font-medium uppercase tracking-wide text-muted">
                 Test the model connection
