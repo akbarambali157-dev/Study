@@ -556,6 +556,98 @@ export async function generateTestForDeck(options: {
   return { questions, costUsd: tokensToCost(model, usage.inputTokens, usage.outputTokens), usage }
 }
 
+
+/**
+ * Independently reviews the answer key of imported objective questions.
+ * The source answerIndex is never changed; verifiedAnswerIndex is advisory.
+ */
+export async function factCheckObjectiveQuestions(options: {
+  questions: QuizQuestion[]
+  model: AiModel
+  baseUrl?: string
+  signal?: AbortSignal
+  useProxy?: boolean
+}): Promise<{
+  questions: QuizQuestion[]
+  checked: number
+  correct: number
+  incorrect: number
+  ambiguous: number
+  contextDependent: number
+  costUsd: number
+  usage: AiUsage
+}> {
+  const sourceQuestions = options.questions.filter((question) => question.sourceType === 'original')
+  if (sourceQuestions.length === 0) {
+    throw new AiError('This document has no imported objective questions to review.', 'schema')
+  }
+
+  let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
+  let costUsd = 0
+  const reviewed = new Map<string, QuizQuestion>()
+
+  for (let offset = 0; offset < sourceQuestions.length; offset += 12) {
+    ensureNotAborted(options.signal)
+    const batch = sourceQuestions.slice(offset, offset + 12)
+    const payload = batch.map((question) => ({
+      questionId: question.id,
+      number: question.sourceNumber,
+      stem: question.stem,
+      options: question.options.map((text, index) => ({
+        index,
+        letter: String.fromCharCode(65 + index),
+        text,
+      })),
+      suppliedAnswer: {
+        index: question.answerIndex,
+        letter: String.fromCharCode(65 + question.answerIndex),
+        text: question.options[question.answerIndex],
+      },
+    }))
+
+    const result = await generateStructured({
+      schema: ObjectiveVerificationSchema,
+      system: SYSTEM_BASE,
+      prompt: objectiveVerificationPrompt({ questions: JSON.stringify(payload) }),
+      model: options.model,
+      maxTokens: 5000,
+      effort: 'low',
+      baseUrl: options.baseUrl,
+      signal: options.signal,
+      useProxy: options.useProxy,
+    })
+    usage = addUsage(usage, result.usage)
+    costUsd += tokensToCost(options.model, result.usage.inputTokens, result.usage.outputTokens)
+
+    const batchIds = new Set(batch.map((question) => question.id))
+    for (const review of result.data.results) {
+      if (!batchIds.has(review.questionId)) continue
+      const original = batch.find((question) => question.id === review.questionId)
+      if (!original) continue
+      reviewed.set(original.id, {
+        ...original,
+        verificationStatus: review.status,
+        verifiedAnswerIndex: review.correctAnswerIndex,
+        verificationNote: review.note,
+      })
+    }
+  }
+
+  const questions = options.questions.map((question) => reviewed.get(question.id) ?? question)
+  await saveQuestions(questions)
+  const checked = questions.filter((question) => question.verificationStatus).length
+  return {
+    questions,
+    checked,
+    correct: questions.filter((question) => question.verificationStatus === 'correct').length,
+    incorrect: questions.filter((question) => question.verificationStatus === 'incorrect').length,
+    ambiguous: questions.filter((question) => question.verificationStatus === 'ambiguous').length,
+    contextDependent: questions.filter((question) => question.verificationStatus === 'context_dependent').length,
+    costUsd,
+    usage,
+  }
+}
+
 /* ── follow-up questions ───────────────────────────────────────────────── */
 
 export async function askAboutKeyPoint(options: {
