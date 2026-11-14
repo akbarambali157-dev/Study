@@ -14,7 +14,6 @@ import {
   Zap,
 } from 'lucide-react'
 import { useLibrary, useProfile } from '@/lib/hooks'
-import { seedDemo } from '@/lib/seed'
 import { touchStreak } from '@/lib/store'
 import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/Button'
@@ -36,6 +35,7 @@ export function DashboardPage() {
   const startDemo = async () => {
     setSeeding(true)
     try {
+      const { seedDemo } = await import('@/lib/seed')
       const docId = await seedDemo()
       await touchStreak()
       toast('Demo study set added — explore it freely.', 'success')
