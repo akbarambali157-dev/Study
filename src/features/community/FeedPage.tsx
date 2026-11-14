@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle, ArrowUpRight, BookOpen, Check, Heart, Lightbulb,
-  MessageCircle, Plus, RefreshCw, Send, Sparkles, Users, X,
+  Bookmark, MessageCircle, Plus, RefreshCw, Send, Sparkles, Users, UserPlus, UserMinus, X,
 } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
@@ -23,6 +23,7 @@ type Post = {
   discipline: string
   tags: string[]
   created_at: string
+  visibility: 'public' | 'private'
 }
 type Comment = {
   id: string
@@ -31,6 +32,7 @@ type Comment = {
   author_name: string
   body: string
   created_at: string
+  parent_comment_id: string | null
 }
 type Reaction = {
   id: string
@@ -47,6 +49,9 @@ const FILTERS = [
   { value: 'question', label: 'Questions' },
   { value: 'collaboration', label: 'Collaborators' },
   { value: 'paper', label: 'Papers' },
+  { value: 'following', label: 'Following' },
+  { value: 'saved', label: 'Saved' },
+  { value: 'department', label: 'My department' },
 ] as const
 
 const POST_TYPES: { value: PostType; label: string }[] = [
@@ -82,6 +87,12 @@ export function FeedPage() {
   const [loadedCommentPosts, setLoadedCommentPosts] = useState<Set<string>>(() => new Set())
   const [loadingCommentsPost, setLoadingCommentsPost] = useState<string | null>(null)
   const [reactions, setReactions] = useState<Reaction[]>([])
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => new Set())
+  const [followedAuthors, setFollowedAuthors] = useState<Set<string>>(() => new Set())
+  const [myDepartment, setMyDepartment] = useState('')
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public')
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [authorName, setAuthorName] = useState('Student')
   const [loading, setLoading] = useState(true)
@@ -124,14 +135,23 @@ export function FeedPage() {
         setCommentCounts({})
         setLoadedCommentPosts(new Set())
         setReactions([])
+        setBookmarkedIds(new Set())
+        setFollowedAuthors(new Set())
+        setMyDepartment('')
         setLoading(false)
         return
       }
-      const { data: postRows, error: postError } = await supabase
-        .from('research_posts')
-        .select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at')
-        .order('created_at', { ascending: false })
-        .range(0, FEED_PAGE_SIZE - 1)
+      const [{ data: postRows, error: postError }, { data: profileRow }, { data: bookmarkRows, error: bookmarkError }, { data: followRows, error: followError }] = await Promise.all([
+        supabase.from('research_posts').select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at,visibility').order('created_at', { ascending: false }).range(0, FEED_PAGE_SIZE - 1),
+        supabase.from('student_profiles').select('department').eq('user_id', user.id).maybeSingle(),
+        supabase.from('post_bookmarks').select('post_id').eq('user_id', user.id),
+        supabase.from('research_follows').select('followed_id').eq('follower_id', user.id),
+      ])
+      if (bookmarkError) throw bookmarkError
+      if (followError) throw followError
+      setMyDepartment(profileRow?.department ?? '')
+      setBookmarkedIds(new Set((bookmarkRows ?? []).map((row) => row.post_id)))
+      setFollowedAuthors(new Set((followRows ?? []).map((row) => row.followed_id)))
       if (postError) throw postError
       const rows = (postRows ?? []) as Post[]
       setPosts(rows)
@@ -168,7 +188,7 @@ export function FeedPage() {
     setLoadingMorePosts(true)
     try {
       const { data, error } = await supabase.from('research_posts')
-        .select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at')
+        .select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at,visibility')
         .order('created_at', { ascending: false })
         .range(posts.length, posts.length + FEED_PAGE_SIZE - 1)
       if (error) throw error
@@ -202,7 +222,7 @@ export function FeedPage() {
       const [countResult, commentsResult] = await Promise.all([
         supabase.from('research_comments').select('id', { count: 'exact', head: true }).eq('post_id', postId),
         supabase.from('research_comments')
-          .select('id,post_id,author_id,author_name,body,created_at')
+          .select('id,post_id,author_id,author_name,body,created_at,parent_comment_id')
           .eq('post_id', postId)
           .order('created_at', { ascending: true })
           .range(0, 49),
@@ -245,8 +265,14 @@ export function FeedPage() {
   }
 
   const visiblePosts = useMemo(
-    () => filter === 'all' ? posts : posts.filter((post) => post.post_type === filter),
-    [filter, posts],
+    () => {
+      if (filter === 'all') return posts
+      if (filter === 'following') return posts.filter((post) => followedAuthors.has(post.author_id))
+      if (filter === 'saved') return posts.filter((post) => bookmarkedIds.has(post.id))
+      if (filter === 'department') return myDepartment ? posts.filter((post) => post.discipline.toLowerCase() === myDepartment.toLowerCase()) : []
+      return posts.filter((post) => post.post_type === filter)
+    },
+    [filter, posts, followedAuthors, bookmarkedIds, myDepartment],
   )
 
   // Build per-post indexes once. Filtering the complete comments/reactions
@@ -291,6 +317,7 @@ export function FeedPage() {
         post_type: postType,
         discipline: discipline.trim().slice(0, 80) || 'General',
         tags: tags.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean).slice(0, 8),
+        visibility,
       })
       if (error) throw error
       setTitle('')
@@ -298,6 +325,7 @@ export function FeedPage() {
       setDiscipline('')
       setTags('')
       setPostType('idea')
+      setVisibility('public')
       setComposerOpen(false)
       toast('Your research post is now in the community feed.', 'success')
       await loadFeed()
@@ -308,8 +336,8 @@ export function FeedPage() {
     }
   }
 
-  const submitComment = async (postId: string) => {
-    const value = commentDrafts[postId]?.trim()
+  const submitComment = async (postId: string, parentCommentId?: string) => {
+    const value = parentCommentId ? replyDrafts[parentCommentId]?.trim() : commentDrafts[postId]?.trim()
     if (!supabase || !userId || !value) return
     if (value.length > 2000) {
       toast('Comments must be 2,000 characters or fewer.', 'error')
@@ -318,14 +346,16 @@ export function FeedPage() {
     setBusyPost(postId)
     try {
       const { data, error } = await supabase.from('research_comments').insert({
-        post_id: postId, author_id: userId, author_name: authorName.slice(0, 80), body: value,
-      }).select('id,post_id,author_id,author_name,body,created_at').single()
+        post_id: postId, author_id: userId, author_name: authorName.slice(0, 80), body: value, parent_comment_id: parentCommentId ?? null,
+      }).select('id,post_id,author_id,author_name,body,created_at,parent_comment_id').single()
       if (error) throw error
       if (data) {
         setComments((current) => [...current, data as Comment])
         setCommentCounts((current) => ({ ...current, [postId]: (current[postId] ?? 0) + 1 }))
       }
-      setCommentDrafts((current) => ({ ...current, [postId]: '' }))
+      if (parentCommentId) setReplyDrafts((current) => ({ ...current, [parentCommentId]: '' }))
+      else setCommentDrafts((current) => ({ ...current, [postId]: '' }))
+      setReplyingTo(null)
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Your comment could not be added.', 'error')
     } finally {
@@ -360,6 +390,26 @@ export function FeedPage() {
     } finally {
       setBusyPost(null)
     }
+  }
+
+  const toggleBookmark = async (postId: string) => {
+    if (!supabase || !userId) { toast('Sign in to save research posts.', 'info'); return }
+    const saved = bookmarkedIds.has(postId)
+    const result = saved
+      ? await supabase.from('post_bookmarks').delete().eq('post_id', postId).eq('user_id', userId)
+      : await supabase.from('post_bookmarks').insert({ post_id: postId, user_id: userId })
+    if (result.error) toast(result.error.message, 'error')
+    else setBookmarkedIds((current) => { const next = new Set(current); saved ? next.delete(postId) : next.add(postId); return next })
+  }
+
+  const toggleFollow = async (authorId: string) => {
+    if (!supabase || !userId || authorId === userId) return
+    const followed = followedAuthors.has(authorId)
+    const result = followed
+      ? await supabase.from('research_follows').delete().eq('follower_id', userId).eq('followed_id', authorId)
+      : await supabase.from('research_follows').insert({ follower_id: userId, followed_id: authorId })
+    if (result.error) toast(result.error.message, 'error')
+    else setFollowedAuthors((current) => { const next = new Set(current); followed ? next.delete(authorId) : next.add(authorId); return next })
   }
 
   const deletePost = async (postId: string) => {
@@ -450,6 +500,11 @@ export function FeedPage() {
                   {POST_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
+              <label className="text-xs font-semibold text-muted">Who can see this?
+                <select value={visibility} onChange={(event) => setVisibility(event.target.value as 'public' | 'private')} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body">
+                  <option value="public">Community members</option><option value="private">Only me</option>
+                </select>
+              </label>
               <label className="text-xs font-semibold text-muted">Discipline / subject
                 <input value={discipline} onChange={(event) => setDiscipline(event.target.value)} maxLength={80} placeholder="e.g. Business Administration" className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body" />
               </label>
@@ -504,10 +559,11 @@ export function FeedPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500/15 to-sky-500/15 font-semibold text-indigo-600 dark:text-indigo-200">{post.author_name.trim().charAt(0).toUpperCase() || 'S'}</span>
-                    <div className="min-w-0"><p className="truncate text-sm font-semibold">{post.author_name}</p><p className="text-xs text-muted">{post.discipline} · {timeAgo(post.created_at)}</p></div>
+                    <div className="min-w-0"><p className="truncate text-sm font-semibold">{post.author_name}</p><p className="text-xs text-muted">{post.discipline} · {timeAgo(post.created_at)}{post.visibility === 'private' ? ' · Private' : ''}</p></div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Chip tone="neutral">{POST_TYPES.find((item) => item.value === post.post_type)?.label ?? 'Research'}</Chip>
+                    {post.author_id !== userId ? <button type="button" onClick={() => void toggleFollow(post.author_id)} className="rounded-lg p-2 text-muted hover:bg-surface-2" aria-label={followedAuthors.has(post.author_id) ? 'Unfollow author' : 'Follow author'}>{followedAuthors.has(post.author_id) ? <UserMinus className="size-4" /> : <UserPlus className="size-4" />}</button> : null}
                     {post.author_id === userId ? <button type="button" onClick={() => void deletePost(post.id)} className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500" aria-label="Delete your post"><X className="size-4" /></button> : <button type="button" onClick={() => void reportPost(post.id)} className="rounded-lg p-2 text-muted hover:bg-amber-500/10 hover:text-amber-600" aria-label="Report this post"><AlertTriangle className="size-4" /></button>}
                   </div>
                 </div>
@@ -516,6 +572,7 @@ export function FeedPage() {
                 {post.tags?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{post.tags.map((tag) => <span key={tag} className="rounded-full bg-indigo-500/8 px-2.5 py-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-200">#{tag}</span>)}</div> : null}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
                   <div className="flex flex-wrap gap-1.5">
+                    <button type="button" onClick={() => void toggleBookmark(post.id)} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold ${bookmarkedIds.has(post.id) ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600' : 'border-line text-muted'}`}><Bookmark className="size-3.5" />{bookmarkedIds.has(post.id) ? 'Saved' : 'Save'}</button>
                     {REACTIONS.map((item) => {
                       const Icon = item.icon
                       const count = postReactions.filter((reaction) => reaction.reaction === item.value).length
@@ -527,7 +584,7 @@ export function FeedPage() {
                 </div>
                 {openComments[post.id] ? (
                   <div className="mt-3 border-t border-line pt-3">
-                    {loadingCommentsPost === post.id && !loadedCommentPosts.has(post.id) ? <p className="mb-3 text-xs text-muted">Loading comments…</p> : postComments.length ? <div className="mb-3 space-y-3">{postComments.map((comment) => <div key={comment.id} className="flex gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-[11px] font-semibold">{comment.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/70 px-3 py-2"><div className="flex flex-wrap items-baseline gap-2"><span className="text-xs font-semibold">{comment.author_name}</span><span className="text-[10px] text-muted">{timeAgo(comment.created_at)}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p></div></div>)}</div> : <p className="mb-3 text-xs text-muted">No comments yet. Add a constructive thought or question.</p>}
+                    {loadingCommentsPost === post.id && !loadedCommentPosts.has(post.id) ? <p className="mb-3 text-xs text-muted">Loading comments…</p> : postComments.length ? <div className="mb-3 space-y-3">{postComments.filter((comment) => !comment.parent_comment_id).map((comment) => <div key={comment.id} className="space-y-2"><div className="flex gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-[11px] font-semibold">{comment.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/70 px-3 py-2"><div className="flex flex-wrap items-baseline gap-2"><span className="text-xs font-semibold">{comment.author_name}</span><span className="text-[10px] text-muted">{timeAgo(comment.created_at)}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p><button type="button" onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)} className="mt-2 text-[11px] font-semibold text-indigo-600">Reply</button></div></div>{postComments.filter((reply) => reply.parent_comment_id === comment.id).map((reply) => <div key={reply.id} className="ml-9 flex gap-2"><span className="grid size-6 shrink-0 place-items-center rounded-lg bg-surface-2 text-[10px] font-semibold">{reply.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/50 px-3 py-2"><p className="text-[11px] font-semibold">{reply.author_name}</p><p className="mt-1 whitespace-pre-wrap text-sm">{reply.body}</p></div></div>)}{replyingTo === comment.id ? <form onSubmit={(event) => { event.preventDefault(); void submitComment(post.id, comment.id) }} className="ml-9 flex gap-2"><input value={replyDrafts[comment.id] ?? ''} onChange={(event) => setReplyDrafts((current) => ({ ...current, [comment.id]: event.target.value }))} maxLength={2000} placeholder="Write a reply…" className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-app px-2.5 text-xs" /><Button type="submit" size="sm" disabled={busyPost === post.id || !(replyDrafts[comment.id] ?? '').trim()}>Reply</Button></form> : null}</div>)}</div> : <p className="mb-3 text-xs text-muted">No comments yet. Add a constructive thought or question.</p>}
                     {commentCounts[post.id] !== undefined && postComments.length < commentCounts[post.id] ? <button type="button" disabled={loadingCommentsPost === post.id} onClick={() => void loadMoreComments(post.id)} className="mb-3 rounded-lg px-3 py-2 text-xs font-semibold text-indigo-600 disabled:opacity-50">{loadingCommentsPost === post.id ? 'Loading…' : 'Load more comments'}</button> : null}
                      <form onSubmit={(event) => { event.preventDefault(); void submitComment(post.id) }} className="flex gap-2">
                       <input value={commentDrafts[post.id] ?? ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))} maxLength={2000} placeholder="Write a helpful comment…" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 text-sm" />
