@@ -15,7 +15,6 @@ import {
   Globe2,
   MoreHorizontal,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/shortcuts'
@@ -56,11 +55,29 @@ export function App() {
     if (statusBar) statusBar.content = settings.dark ? 'black' : 'default'
   }, [settings.dark])
   useEffect(() => {
-    if (!supabase) return
     let mounted = true
-    void supabase.auth.getUser().then(({ data }) => { if (mounted) setIsAdmin(data.user?.app_metadata?.role === 'admin') })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setIsAdmin(session?.user.app_metadata?.role === 'admin'))
-    return () => { mounted = false; listener.subscription.unsubscribe() }
+    let unsubscribe: (() => void) | undefined
+
+    // Supabase is not needed to paint the dashboard. Load its client after the
+    // first render so low-end phones can display the shell before parsing it.
+    const timer = window.setTimeout(() => {
+      void import('@/lib/supabase').then(({ supabase }) => {
+        if (!mounted || !supabase) return
+        void supabase.auth.getUser().then(({ data }) => {
+          if (mounted) setIsAdmin(data.user?.app_metadata?.role === 'admin')
+        })
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (mounted) setIsAdmin(session?.user.app_metadata?.role === 'admin')
+        })
+        unsubscribe = () => data.subscription.unsubscribe()
+      }).catch(() => undefined)
+    }, 250)
+
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+      unsubscribe?.()
+    }
   }, [])
 
   useEffect(() => {
