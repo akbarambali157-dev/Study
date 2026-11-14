@@ -28,6 +28,87 @@ function ensureMapUpsertSupport(): void {
   })
 }
 
+/**
+ * PDF.js 6 uses the TC39 Iterator Helpers proposal. Some supported iOS
+ * WebKit versions do not expose it yet. Add the small helper methods PDF.js
+ * uses before importing the engine; do not reject otherwise capable browsers.
+ */
+function ensureIteratorHelperSupport(): void {
+  const iteratorPrototype = Object.getPrototypeOf(
+    Object.getPrototypeOf([][Symbol.iterator]()),
+  ) as Record<string, unknown>
+
+  const define = (name: string, value: (...args: any[]) => any) => {
+    if (typeof iteratorPrototype[name] !== 'function') {
+      try { Object.defineProperty(iteratorPrototype, name, { configurable: true, writable: true, value }) } catch { /* native prototype may be locked */ }
+    }
+  }
+
+  define('map', function (this: any, mapper: (value: unknown, index: number) => unknown) {
+    const source = this
+    let index = 0
+    return wrapIterator({ next: () => {
+      const item = source.next()
+      return item.done ? item : { done: false, value: mapper(item.value, index++) }
+    } }, iteratorPrototype)
+  })
+  define('filter', function (this: any, predicate: (value: unknown, index: number) => boolean) {
+    const source = this
+    let index = 0
+    return wrapIterator({ next: () => {
+      while (true) {
+        const item = source.next()
+        if (item.done || predicate(item.value, index++)) return item
+      }
+    } }, iteratorPrototype)
+  })
+  define('toArray', function (this: any) {
+    const values: unknown[] = []
+    for (let item = this.next(); !item.done; item = this.next()) values.push(item.value)
+    return values
+  })
+  define('forEach', function (this: any, callback: (value: unknown, index: number) => void) {
+    let index = 0
+    for (let item = this.next(); !item.done; item = this.next()) callback(item.value, index++)
+  })
+  define('some', function (this: any, predicate: (value: unknown, index: number) => boolean) {
+    let index = 0
+    for (let item = this.next(); !item.done; item = this.next()) if (predicate(item.value, index++)) return true
+    return false
+  })
+  define('every', function (this: any, predicate: (value: unknown, index: number) => boolean) {
+    let index = 0
+    for (let item = this.next(); !item.done; item = this.next()) if (!predicate(item.value, index++)) return false
+    return true
+  })
+  define('find', function (this: any, predicate: (value: unknown, index: number) => boolean) {
+    let index = 0
+    for (let item = this.next(); !item.done; item = this.next()) if (predicate(item.value, index++)) return item.value
+    return undefined
+  })
+
+  const root = globalThis as typeof globalThis & { Iterator?: { from?: (value: Iterable<unknown> | Iterator<unknown>) => Iterator<unknown> } }
+  if (typeof root.Iterator?.from !== 'function') {
+    const constructor = (root.Iterator ?? function Iterator() {}) as NonNullable<typeof root.Iterator>
+    constructor.from = (value) => {
+      const source = Symbol.iterator in Object(value)
+        ? (value as Iterable<unknown>)[Symbol.iterator]()
+        : value as Iterator<unknown>
+      return wrapIterator(source, iteratorPrototype) as Iterator<unknown>
+    }
+    Object.defineProperty(globalThis, 'Iterator', { configurable: true, writable: true, value: constructor })
+  }
+}
+
+function wrapIterator(source: { next: () => IteratorResult<unknown> }, prototype: object): Iterator<unknown> {
+  const wrapped = {
+    next: () => source.next(),
+    [Symbol.iterator]() { return this },
+  }
+  Object.setPrototypeOf(wrapped, prototype)
+  return wrapped as Iterator<unknown>
+}
+
 type KnownKey = string | number | symbol | object | null | undefined
 
 export interface ExtractedPdf {
@@ -93,16 +174,7 @@ export async function extractPdf(
       throw new PdfError(`This PDF is larger than ${MAX_PDF_SIZE_LABEL}. Choose a smaller file or split it into parts, then try again.`, 'toolarge', stage)
     }
 
-    const iteratorApi = (globalThis as typeof globalThis & {
-      Iterator?: { from?: unknown; prototype?: { map?: unknown } }
-    }).Iterator
-    if (typeof iteratorApi?.from !== 'function' || typeof iteratorApi.prototype?.map !== 'function') {
-      throw new PdfError(
-        'This browser is missing JavaScript features required by the current PDF reader. Update the browser, or try another browser.',
-        'unknown',
-        'validate',
-      )
-    }
+    ensureIteratorHelperSupport()
 
     stage = 'file-read'
     const buffer = await readFileBuffer(file)
@@ -112,6 +184,7 @@ export async function extractPdf(
 
     stage = 'pdf-open'
     ensureMapUpsertSupport()
+    ensureIteratorHelperSupport()
     const pdfjs = await import('pdfjs-dist')
     pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
     loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer), useWorkerFetch: false })
