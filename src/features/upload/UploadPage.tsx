@@ -213,11 +213,12 @@ export function UploadPage() {
     async (id: string) => {
       const item = files.find((f) => f.id === id)
       if (!item || !item.extracted) return
-      if (!keyReady) {
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine
+      if (!keyReady && !offline) {
         toast(settings.useProxy ? 'Configure Supabase and sign in to use the hosted model.' : 'Add your API key in Settings first — it stays in this browser.', 'error')
         return
       }
-      if (settings.useProxy) {
+      if (settings.useProxy && !offline) {
         const sessionResult = await supabase?.auth.getSession()
         if (!sessionResult?.data.session) {
           toast('Sign in or create an account before using the site-provided AI model.', 'error')
@@ -238,7 +239,7 @@ export function UploadPage() {
         pageCount: item.extracted.pageCount,
         pages: item.extracted.pages,
         createdAt: nowIso(),
-        status: 'extracting',
+        status: offline ? 'queued' : 'extracting',
         source: 'upload',
         sizeBytes: item.file.size,
         remoteId: item.remoteId,
@@ -248,6 +249,18 @@ export function UploadPage() {
       // Preserve the extracted copy locally before starting any network work.
       await saveDocument(savedDoc)
       await cachePdfBlob(savedDoc.id, item.file)
+
+      // Offline uploads are still useful: keep the extracted text and original
+      // PDF on this device, then let the student start AI generation manually
+      // when a connection is available. Never trigger mobile-data work here.
+      if (offline) {
+        setFiles((prev) => prev.map((f) => f.id === id
+          ? { ...f, documentId: savedDoc.id, phase: { kind: 'done', docId: savedDoc.id } }
+          : f))
+        toast('Saved offline on this device. Reconnect when you are ready to generate notes, flashcards and tests.', 'info')
+        navigate(`/doc/${savedDoc.id}`)
+        return
+      }
 
       const controller = new AbortController()
       let currentStage: Stage = 'extract'

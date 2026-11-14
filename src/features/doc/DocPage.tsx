@@ -22,7 +22,8 @@ import { useDocument, useDocumentContent, useSettings } from '@/lib/hooks'
 import { record } from '@/lib/inquiries'
 import { downloadFile, encodeShare, safeFilename, shareUrl, toAnkiTsv, toCsv } from '@/lib/export'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
-import { askAboutKeyPoint } from '@/lib/llm/pipeline'
+import { askAboutKeyPoint, generateStudyMaterial } from '@/lib/llm/pipeline'
+import { clearGeneratedContent } from '@/lib/store'
 import { ORG_KIND_LABEL, type OrgKind } from '@/lib/types'
 import { cn, formatRelative } from '@/lib/utils'
 
@@ -48,6 +49,8 @@ export function DocPage() {
 
   const [focused, setFocused] = useState(0)
   const [askingFor, setAskingFor] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const pointRefs = useRef<Map<string, HTMLLIElement>>(new Map())
   const recordedRef = useRef(false)
 
@@ -93,6 +96,55 @@ export function DocPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [focused, jump, keyPoints])
+
+  useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine)
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+
+  const runQueuedGeneration = async () => {
+    if (!doc || generating) return
+    if (!navigator.onLine) {
+      toast('You are offline. Your document is safe on this device; connect before generating AI materials.', 'info')
+      return
+    }
+    setGenerating(true)
+    try {
+      if (settings.useProxy) {
+        const { supabase } = await import('@/lib/supabase')
+        const session = await supabase?.auth.getSession()
+        if (!session?.data.session) {
+          toast('Sign in before using the site-provided AI model.', 'info')
+          navigate('/auth')
+          return
+        }
+      }
+      await clearGeneratedContent(doc.id)
+      const result = await generateStudyMaterial({
+        doc,
+        model: settings.model,
+        baseUrl: settings.baseUrl || undefined,
+        useProxy: settings.useProxy,
+      })
+      await db.documents.update(doc.id, {
+        status: 'ready',
+        title: result.title?.trim() || doc.title,
+      })
+      toast(`Generated ${result.keyPointCount} key points, ${result.cardCount} flashcards and ${result.questionCount} test questions.`, 'success')
+    } catch (error) {
+      await clearGeneratedContent(doc.id).catch(() => undefined)
+      await db.documents.update(doc.id, { status: 'queued' })
+      const message = error instanceof Error ? redactSecrets(error.message) : 'Generation could not be completed.'
+      toast(`Your document is still saved locally. ${message}`, 'error')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   const orgsFlat = useMemo(
     () => Array.from(orgsByKeyPoint.values()).flat(),
@@ -209,9 +261,13 @@ export function DocPage() {
       {!hasContent ? (
         <EmptyState
           icon={<BookMarked className="size-6" />}
-          title="No notes for this document yet"
-          body="Generation either did not run or stopped before it finished. Running it again replaces anything partial."
-          action={<Button onClick={() => navigate('/upload')}>Run generation</Button>}
+          title={doc.status === 'queued' ? 'Saved for later' : 'No notes for this document yet'}
+          body={doc.status === 'queued'
+            ? isOnline
+              ? 'Your PDF and extracted text are saved on this device. Generate the study materials when you are ready; AI processing uses an internet connection.'
+              : 'Your PDF and extracted text are safely stored on this device. Reconnect when you are ready to generate notes, flashcards and tests.'
+            : 'Generation either did not run or stopped before it finished. Running it again replaces anything partial.'}
+          action={<Button disabled={!isOnline || generating} onClick={() => void runQueuedGeneration()}>{generating ? 'Generating…' : isOnline ? 'Generate study materials' : 'Waiting for connection'}</Button>}
         />
       ) : null}
 

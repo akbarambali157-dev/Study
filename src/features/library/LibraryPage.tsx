@@ -129,6 +129,7 @@ export function LibraryPage() {
                         </Link>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <Chip>{doc.pageCount} pages</Chip>
+                          {doc.status === 'queued' ? <Chip tone="gold">Saved offline · pending</Chip> : null}
                           <Chip>{cardCount} cards</Chip>
                           {dueCount > 0 ? <Chip tone="gold">{dueCount} due</Chip> : null}
                           {lastAttempt ? (

@@ -45,7 +45,8 @@ export default defineConfig({
           '**/pdf.worker*.mjs',
           // Keep the dashboard/app shell offline-ready. Optional routes and
           // heavy engines are cached on first use instead of every install.
-          '**/assets/{AuthPage,AdminPage,DiscoverPage,PublicMaterialQuizPage,ProfileSetupPage,PlannerPage,InstallPage,FeedPage,LibraryPage,UploadPage,DocPage,DeckStudyPage,CardRushPage,TestPage,TrailPage,SettingsPage,SharedPage}-*.js',
+          // Keep every lightweight screen available offline after installation.
+          // Heavy AI/PDF engines stay out of the initial download and cache on first use.
           '**/assets/{sdk,pdf,schema,json-schema-processors,pipeline,ai,supabase}-*.js',
         ],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,

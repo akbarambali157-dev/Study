@@ -7,7 +7,7 @@ export const ORG_KIND_LABEL: Record<OrgKind, string> = {
   reading: 'Further reading',
 }
 
-export type DocumentStatus = 'extracting' | 'ready' | 'failed'
+export type DocumentStatus = 'extracting' | 'queued' | 'ready' | 'failed'
 
 export interface Course {
   id: string

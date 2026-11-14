@@ -42,12 +42,23 @@ export function App() {
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [isAdmin, setIsAdmin] = useState(false)
   const navItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
   const mobilePrimaryItems = navItems.filter((item) => ['/', '/community', '/library'].includes(item.to))
   const mobileMoreItems = navItems.filter((item) => !['/', '/community', '/library'].includes(item.to))
   const moreIsActive = mobileMoreItems.some((item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/'))
   const pendingG = useRef(false)
+
+  useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine)
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.dark)
@@ -166,6 +177,7 @@ export function App() {
                 <Flame className="size-3.5" /><span className="tnum">{profile.streakDays}</span><span className="hidden sm:inline">day streak</span>
               </span>
             ) : null}
+            {!isOnline ? <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300" role="status">Offline</span> : null}
             <IconButton label="Keyboard shortcuts" onClick={openShortcuts}><Command className="size-4" /></IconButton>
           </div>
         </div>
