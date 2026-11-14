@@ -194,13 +194,11 @@ token consumption.
 
 ## Privacy
 
-- PDFs never leave the device. Their extracted text is sent to the AI endpoint
-  to generate notes; the original file stays in IndexedDB so a page citation can
-  open the real page.
-- The learning trail is local. There is no server to send it to. Pause or erase
-  it in Settings, or export it as JSON.
-- Uploading something that looks like a result slip triggers a warning. Do not
-  upload personal records.
+- PDF processing is local-first. The original file and extracted page text stay in IndexedDB by default. A signed-in student can explicitly sync a PDF to a private, owner-scoped Supabase Storage bucket and restore that source PDF plus its page index on another device. Generated notes, flashcards, quiz attempts and planner data remain device-local unless separately exported or shared.
+- Extracted document content is sent to the selected AI provider only when the student requests generation. Hosted AI uses a server-side provider credential. Optional BYOK credentials are stored in Supabase Vault and retrieved only by the authenticated server-side proxy; they are not kept in ordinary browser storage.
+- The learning trail is local. Pause or erase it in Settings, or export it as JSON.
+- Web Push is opt-in per device. VAPID signing credentials stay in Supabase Vault; notification categories and quiet hours are account preferences.
+- Uploading something that looks like a result slip triggers a warning. Do not upload personal records.
 - `material/` is gitignored: the zip in it contains a result slip with personal
   data. Keeping this repository public means deleting that folder first.
 
