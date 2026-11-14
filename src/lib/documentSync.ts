@@ -51,7 +51,7 @@ function wait(ms: number): Promise<void> {
  * Supabase recommends TUS for uploads over 6 MB. Use 6 MB chunks so a
  * connection interruption only requires resending the current chunk.
  */
-async function uploadPdfResumably(
+async function uploadPdfResumable(
   file: File,
   storagePath: string,
   accessToken: string,
@@ -189,7 +189,7 @@ export async function uploadDocumentToCloud(
   const isRetry = Boolean(document.storagePath)
 
   try {
-    await uploadPdfResumably(file, storagePath, sessionData.session.access_token, signal)
+    await uploadPdfResumable(file, storagePath, sessionData.session.access_token, signal)
   } catch (error) {
     if (error instanceof DocumentSyncError) throw error
     if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error
