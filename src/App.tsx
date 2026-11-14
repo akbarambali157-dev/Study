@@ -175,7 +175,7 @@ export function App() {
               {mobileMoreItems.map((item) => {
                 const Icon = item.icon
                 return (
-                  <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(
+                  <NavLink key={item.to} to={item.to} end={item.end} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')} className={({ isActive }) => cn(
                     'flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-3 text-xs font-medium transition',
                     isActive ? 'bg-forest/10 text-forest dark:bg-gold/10 dark:text-gold' : 'text-body hover:bg-surface-2',
                   )}>
