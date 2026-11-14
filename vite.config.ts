@@ -22,8 +22,8 @@ export default defineConfig({
         short_name: 'Study Hub',
         description:
           'Turn lecture PDFs into short notes, key points, flashcards and tests.',
-        theme_color: '#0B3D2E',
-        background_color: '#FAF7F1',
+        theme_color: '#17134b',
+        background_color: '#090d1d',
         display: 'standalone',
         start_url: './',
         scope: './',
