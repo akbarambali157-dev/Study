@@ -189,14 +189,13 @@ interface TextItem {
 }
 
 function itemsToText(items: unknown[]): string {
-  let out = ''
+  const parts: string[] = []
   for (const raw of items) {
     const item = raw as TextItem
     if (typeof item.str !== 'string') continue
-    out += item.str
-    out += item.hasEOL ? '\n' : ' '
+    parts.push(item.str, item.hasEOL ? '\n' : ' ')
   }
-  return out.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+  return parts.join('').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 /* ── local PDF storage, for "open at page" ───────────────────────────── */
