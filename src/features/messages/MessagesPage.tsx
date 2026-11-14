@@ -103,23 +103,25 @@ export function MessagesPage() {
   }, [loadInbox])
   useEffect(() => {
     if (!userId || !supabase) { setMessages([]); return }
-    if (selectedId) void loadMessages(selectedId)
+    if (!selectedId) {
+      const inboxPoll = window.setInterval(() => { void loadInbox() }, 10000)
+      return () => window.clearInterval(inboxPoll)
+    }
+    void loadMessages(selectedId)
     let pollId: number | undefined
     const startPolling = () => {
       if (pollId !== undefined) return
       pollId = window.setInterval(() => {
-        void loadInbox()
-        if (selectedId) void loadMessages(selectedId)
+        void loadMessages(selectedId)
       }, 7000)
     }
     const stopPolling = () => {
       if (pollId !== undefined) window.clearInterval(pollId)
       pollId = undefined
     }
-    const channel = supabase.channel(`messages:${userId}:${selectedId ?? 'inbox'}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        void loadInbox()
-        if (selectedId) void loadMessages(selectedId)
+    const channel = supabase.channel(`messages:${selectedId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, () => {
+        void loadMessages(selectedId)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members', filter: `user_id=eq.${userId}` }, () => {
         void loadInbox()
