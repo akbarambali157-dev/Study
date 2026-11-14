@@ -14,7 +14,7 @@ import { PageHeading, SectionTitle } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { clearApiKey, getApiKey, looksLikeApiKey, maskKey } from '@/lib/apiKey'
+import { looksLikeApiKey } from '@/lib/apiKey'
 import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
@@ -31,7 +31,6 @@ export function SettingsPage() {
   const navigate = useNavigate()
 
   const [keyInput, setKeyInput] = useState('')
-  const [legacyKey, setLegacyKey] = useState<string | null>(null)
   const [credentialConfigured, setCredentialConfigured] = useState(false)
   const [credentialLoading, setCredentialLoading] = useState(true)
   const [accountEmail, setAccountEmail] = useState('')
@@ -44,7 +43,6 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
 const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   useEffect(() => {
-    setLegacyKey(getApiKey())
     let active = true
     const checkCredential = async () => {
       if (!supabase) { setCredentialLoading(false); return }
@@ -109,7 +107,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
   }, [useProxy, credentialConfigured, settings.model, settings.baseUrl])
 
   const saveKey = async () => {
-    const trimmed = keyInput.trim() || legacyKey?.trim() || ''
+    const trimmed = keyInput.trim()
     if (!trimmed) { toast('Paste a key first.', 'error'); return }
     if (!looksLikeApiKey(trimmed)) {
       toast('That does not look like a complete provider key. Check the value and try again.', 'error')
@@ -303,12 +301,6 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
                 </>
               ) : (
                 <>
-                  {legacyKey ? <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-                    <p className="text-xs font-semibold">A previously saved key was found on this device</p>
-                    <p className="mt-1 text-[11px] text-muted">The old browser copy is not used for new requests. You can move it into your encrypted account vault, then the browser copy will be cleared.</p>
-                    <p className="mt-1 font-mono text-[11px] text-muted">{maskKey(legacyKey)}</p>
-                    <Button size="sm" className="mt-2" variant="secondary" onClick={() => void saveKey()} disabled={credentialLoading}>Move saved key to account vault</Button>
-                  </div> : null}
                   <p className="text-[13px] leading-relaxed text-muted">
                     Optional: use a personal provider key instead of the shared BrewKeg provider. It is sent once over HTTPS and stored encrypted in your account's Supabase Vault.
                   </p>
@@ -325,7 +317,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
                       spellCheck={false}
                       className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 font-mono text-[13px] outline-none focus:border-forest-400"
                     />
-                    <Button onClick={() => void saveKey()} disabled={(!keyInput.trim() && !legacyKey) || credentialLoading}>
+                    <Button onClick={() => void saveKey()} disabled={!keyInput.trim() || credentialLoading}>
                       Save key
                     </Button>
                   </div>
