@@ -454,6 +454,11 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
 
+      <section className="mb-6">
+        <SectionTitle hint="Choose what Study Hub may notify you about">Notifications</SectionTitle>
+        <NotificationPreferences />
+      </section>
+
       {/* ── data ──────────────────────────────────────────────────────── */}
       <section className="mb-6">
         <SectionTitle hint="Export a portable copy of your local study data">
@@ -578,4 +583,76 @@ function ToggleRow({
 function estimateFor40Pages(model: Parameters<typeof estimateGenerationCost>[1]): number {
   const samplePages = Array.from({ length: 40 }, () => 'x'.repeat(2_500))
   return estimateGenerationCost(samplePages, model).usd
+}
+
+
+type NotificationPrefs = {
+  direct_messages: boolean
+  replies: boolean
+  mentions: boolean
+  reactions: boolean
+  collaboration_invites: boolean
+  course_discussions: boolean
+  suggested_connections: boolean
+  product_announcements: boolean
+  quiet_hours_enabled: boolean
+  pause_all: boolean
+}
+const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  direct_messages: true, replies: true, mentions: true, reactions: true,
+  collaboration_invites: true, course_discussions: false, suggested_connections: false,
+  product_announcements: false, quiet_hours_enabled: false, pause_all: false,
+}
+function NotificationPreferences() {
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!supabase) { if (active) setLoading(false); return }
+      const { data: auth, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      const user = auth.user
+      if (!user) { if (active) { setUserId(null); setLoading(false) }; return }
+      const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle()
+      if (error) throw error
+      const initial = { ...DEFAULT_NOTIFICATION_PREFS, ...(data ?? {}) }
+      if (!data) {
+        const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id })
+        if (insertError) throw insertError
+      }
+      if (active) { setUserId(user.id); setPrefs(initial); setLoading(false) }
+    }
+    void load().catch(error => { if (active) { setLoading(false); toast(error instanceof Error ? error.message : 'Notification preferences could not be loaded.', 'error') } })
+    return () => { active = false }
+  }, [])
+  const change = async (key: keyof NotificationPrefs, value: boolean) => {
+    if (!supabase || !userId || saving) return
+    const next = { ...prefs, [key]: value }
+    setPrefs(next)
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('notification_preferences').upsert({ user_id: userId, ...next, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (error) throw error
+    } catch (error) {
+      setPrefs(prefs)
+      toast(error instanceof Error ? error.message : 'Preference could not be saved.', 'error')
+    } finally { setSaving(false) }
+  }
+  if (loading) return <Card className="p-4 text-sm text-muted">Loading notification preferences…</Card>
+  if (!userId) return <Card className="p-4 text-sm text-muted">Sign in to save notification preferences. Push delivery will be enabled after the notification sender is configured.</Card>
+  return <Card className="divide-y divide-line p-0">
+    <ToggleRow title="Pause all notifications" body="Temporarily turn off notification categories without changing each preference." checked={prefs.pause_all} onChange={value => void change('pause_all', value)} />
+    <ToggleRow title="Direct messages" body="Notify me when a student sends a message." checked={prefs.direct_messages} onChange={value => void change('direct_messages', value)} />
+    <ToggleRow title="Replies to my posts" body="Notify me when someone replies to my research posts." checked={prefs.replies} onChange={value => void change('replies', value)} />
+    <ToggleRow title="Mentions" body="Notify me when someone mentions me in a discussion." checked={prefs.mentions} onChange={value => void change('mentions', value)} />
+    <ToggleRow title="Reactions" body="Notify me about reactions to my contributions." checked={prefs.reactions} onChange={value => void change('reactions', value)} />
+    <ToggleRow title="Collaboration invitations" body="Notify me about invitations to academic projects and groups." checked={prefs.collaboration_invites} onChange={value => void change('collaboration_invites', value)} />
+    <ToggleRow title="Course discussions" body="Notify me about activity in courses I follow." checked={prefs.course_discussions} onChange={value => void change('course_discussions', value)} />
+    <ToggleRow title="Suggested connections" body="Allow occasional suggestions for relevant academic peers." checked={prefs.suggested_connections} onChange={value => void change('suggested_connections', value)} />
+    <ToggleRow title="Product announcements" body="Receive important Study Hub product updates." checked={prefs.product_announcements} onChange={value => void change('product_announcements', value)} />
+    <p className="px-4 py-3 text-[11px] text-muted">These preferences are stored with your account. Actual push delivery is not active until a server-side notification sender and VAPID credentials are configured.</p>
+  </Card>
 }
