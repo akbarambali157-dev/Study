@@ -24,6 +24,7 @@ import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
 import { generateStudyMaterial, STAGE_LABEL, type Stage } from '@/lib/llm/pipeline'
 import { cachePdfBlob, extractPdf, MAX_PAGES, PdfError, type ExtractedPdf } from '@/lib/pdf'
+import { MAX_PDF_BYTES, MAX_PDF_SIZE_LABEL } from '@/lib/pdfLimits'
 import { clearGeneratedContent, saveDocument, touchStreak } from '@/lib/store'
 import type { DocumentRec } from '@/lib/types'
 import { nowIso, stripExtension, titleCase, uid } from '@/lib/utils'
@@ -99,6 +100,10 @@ export function UploadPage() {
       for (const f of newFiles) {
         if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
           toast(`“${f.name}” is not a PDF.`, 'error')
+          continue
+        }
+        if (f.size > MAX_PDF_BYTES) {
+          toast(`“${f.name}” is larger than ${MAX_PDF_SIZE_LABEL}. Choose a smaller PDF or split it into parts.`, 'error')
           continue
         }
         toAdd.push({
@@ -257,7 +262,7 @@ export function UploadPage() {
         let remote = null
         let cloudSyncIssue: QueuedFile['cloudSyncIssue']
         try {
-          remote = await uploadDocumentToCloud(item.file, savedDoc)
+          remote = await uploadDocumentToCloud(item.file, savedDoc, controller.signal)
           if (remote) {
             savedDoc = { ...savedDoc, ...remote }
             setFiles((prev) => prev.map((f) => f.id === id
@@ -723,8 +728,7 @@ export function UploadPage() {
               Drop PDFs here, or choose files
             </p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
-              Lecture notes, slides, handouts. Up to {MAX_PAGES} pages each, with selectable
-              text — scans are refused rather than guessed at.
+              Lecture notes, slides and handouts. Up to {MAX_PAGES} pages and {MAX_PDF_SIZE_LABEL} each, with selectable text — scans are refused rather than guessed at.
             </p>
             <Button className="mt-5" onClick={() => fileRef.current?.click()}>
               Choose PDFs
