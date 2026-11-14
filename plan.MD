@@ -1292,8 +1292,8 @@ This section supersedes older status notes where they describe BYOK, cloud resto
 
 ### Production status and remaining release gates
 
-- The latest repository commit is 30ab04c64219d77f6aa126ccd38ef84cb03c1230.
-- Vercel has not deployed that commit. Its GitHub status is failing with build-rate-limit. The latest known READY production deployment is commit 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34; do not treat the newer repository changes as live until Vercel reports READY for the matching commit.
+- The latest application-code commit verified by CI is 30ab04c64219d77f6aa126ccd38ef84cb03c1230. The documentation-only plan ledger update was commit 75fff3d0ffc65327dd6690cd5d31c560a38bb3e8; CI and Validate Study Hub also passed for that commit.
+- Vercel has not deployed the current main line. Its GitHub status is failing with build-rate-limit. The latest known READY production deployment is commit 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34; do not treat the newer repository changes as live until Vercel reports READY for the matching commit.
 - The 48 unchecked items in the mobile, community, messaging, PDF and AI acceptance checklists above remain open. They require real iPhone/Android devices, signed-in test accounts, a real text/scanned PDF test set, a valid BYOK credential entered through Settings and at least one registered push device. They have deliberately not been marked complete based only on code review or CI.
 - Enable Supabase Auth leaked-password protection in the project's Auth security settings.
 - The broader roadmap is not fully implemented yet: server-backed XP/achievement ledger, mastery trends, recurring revision, literature-review workspace, shared resources/reading lists/project goals, group study resources and quizzes, attachment/search/per-conversation messaging controls, and broader institutional integrations remain future work.
