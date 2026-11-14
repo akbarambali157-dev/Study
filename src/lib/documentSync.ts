@@ -369,9 +369,9 @@ export async function restoreCloudDocument(remoteId: string): Promise<string> {
   }
 
   const { db } = await import('./db')
-  const existing = await db.documents.where('remoteId').equals(remoteId).first()
+  const existing = await db.documents.where('remoteId').equals(remoteId).filter((item) => item.remoteOwnerId === userId).first()
   if (existing) return existing.id
-  const localId = `cloud-${remoteId}`
+  const localId = `cloud-${userId.slice(0, 8)}-${remoteId}`
   const fileName = String(metadata.file_name || 'restored-document.pdf').slice(0, 255)
   const document: DocumentRec = {
     id: localId,
