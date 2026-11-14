@@ -71,6 +71,7 @@ type QueuedFile = {
   pii: string | null
   piiAcknowledged: boolean
   isPublic: boolean
+  shareOriginal: boolean
   cloudSyncIssue?: { message: string; diagnostic: string }
 }
 
@@ -108,7 +109,8 @@ export function UploadPage() {
           phase: { kind: 'idle' },
           pii: null,
           piiAcknowledged: false,
-          isPublic: true,
+          isPublic: false,
+          shareOriginal: false,
         })
       }
       if (toAdd.length === 0) return
@@ -146,7 +148,8 @@ export function UploadPage() {
                   extracted: result,
                   title: titleCase(result.title || stripExtension(file.name)),
                   pii: findPiiSignal(file.name, result.pages),
-                  isPublic: !findPiiSignal(file.name, result.pages),
+                  isPublic: false,
+                  shareOriginal: false,
                   phase: { kind: 'ready' },
                 }
               : f,
@@ -192,7 +195,11 @@ export function UploadPage() {
   }, [])
 
   const togglePublic = useCallback((id: string, checked: boolean) => {
-    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, isPublic: checked } : f)))
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, isPublic: checked, shareOriginal: checked ? f.shareOriginal : false } : f)))
+  }, [])
+
+  const toggleShareOriginal = useCallback((id: string, checked: boolean) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, shareOriginal: checked } : f)))
   }, [])
 
   // ── run generation for one file ─────────────────────────────────────────
@@ -289,13 +296,26 @@ export function UploadPage() {
           },
         })
 
+        // The notes-generation stage returns a topic-based title grounded in
+        // the extracted content; use it instead of exposing the upload filename.
+        savedDoc = { ...savedDoc, title: result.title?.trim() || savedDoc.title }
         await saveDocument({ ...savedDoc, status: 'ready', materialVisibility: item.isPublic ? 'public' : 'private' })
         if (item.isPublic && supabase) {
           try {
-            const publicMaterialId = await publishGeneratedMaterial(savedDoc.id, savedDoc.title, savedDoc.pageCount)
+            const canShareOriginal = item.shareOriginal && Boolean(savedDoc.remoteId)
+            const publicMaterialId = await publishGeneratedMaterial(
+              savedDoc.id,
+              savedDoc.title,
+              savedDoc.pageCount,
+              { shareOriginal: canShareOriginal, sourceDocumentId: savedDoc.remoteId },
+            )
             savedDoc = { ...savedDoc, publicMaterialId, materialVisibility: 'public' }
             await saveDocument({ ...savedDoc, status: 'ready' })
-            toast('Your study material is now in the public library. The original PDF remains private.', 'success')
+            toast(canShareOriginal
+              ? 'Your topic-based study set and original PDF are shared with the community.'
+              : item.shareOriginal
+                ? 'Your study set is shared. The original PDF could not be included because its cloud copy is not available.'
+                : 'Your study set is now in the public library. The original PDF remains private.', 'success')
           } catch (publishError) {
             savedDoc = { ...savedDoc, materialVisibility: 'private' }
             await saveDocument({ ...savedDoc, status: 'ready' })
@@ -571,14 +591,24 @@ export function UploadPage() {
               </p>
             )}
 
-            <div className="mb-3 rounded-xl border border-line bg-surface-2/60 p-3">
+            <div className="mb-3 space-y-3 rounded-xl border border-line bg-surface-2/60 p-3">
               <label className="flex cursor-pointer items-start gap-3">
-                <input type="checkbox" checked={item.isPublic} onChange={(event) => togglePublic(item.id, event.target.checked)} className="mt-1 size-4 accent-forest" />
+                <input type="checkbox" checked={item.isPublic} onChange={(event) => togglePublic(item.id, event.target.checked)} disabled={Boolean(item.pii)} className="mt-1 size-4 accent-forest" />
                 <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-sm font-semibold">{item.isPublic ? 'Publish generated material' : 'Keep generated material private'} <Chip tone={item.isPublic ? 'green' : 'clay'}>{item.isPublic ? 'Public' : 'Private'}</Chip></span>
-                  <span className="mt-1 block text-xs leading-relaxed text-muted">{item.isPublic ? 'Your notes, key points, flashcards and questions can be discovered by other students. The original PDF and extracted page text stay private.' : 'Only you can see this study set. You can publish it later from Discover.'}</span>
+                  <span className="flex items-center gap-2 text-sm font-semibold">{item.isPublic ? 'Share study set with the community' : 'Keep study set private'} <Chip tone={item.isPublic ? 'green' : 'clay'}>{item.isPublic ? 'Public' : 'Private by default'}</Chip></span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted">When enabled, your topic-titled short notes, key points, flashcards and original quiz become available to other students without another AI generation request.</span>
                 </span>
               </label>
+              {item.isPublic ? (
+                <label className="flex cursor-pointer items-start gap-3 border-t border-line pt-3">
+                  <input type="checkbox" checked={item.shareOriginal} onChange={(event) => toggleShareOriginal(item.id, event.target.checked)} disabled={Boolean(item.pii)} className="mt-1 size-4 accent-forest" />
+                  <span className="min-w-0">
+                    <span className="text-sm font-semibold">Also let students download the original PDF</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted">The download is available only while your study set is public. Your uploaded filename is not shown; the download uses the generated topic title.</span>
+                  </span>
+                </label>
+              ) : null}
+              {item.pii ? <p className="text-xs text-clay">Sharing is disabled because this upload appears to contain personal information.</p> : null}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
