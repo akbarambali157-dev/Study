@@ -121,7 +121,7 @@ export function App() {
         <div className="hub-topbar-inner mx-auto flex w-full max-w-7xl items-center gap-3 px-3 sm:px-6 lg:px-8">
           <NavLink to="/" className="hub-brand group flex shrink-0 items-center gap-2.5" aria-label="Study Hub home">
             <span className="hub-brand-mark" aria-hidden="true">
-              <img src="/studyhub-icon.svg" alt="" className="hub-brand-image" />
+              <img src="./studyhub-icon.svg" alt="" className="hub-brand-image" />
             </span>
             <span className="hub-brand-copy">
               <span className="block font-display text-[15px] font-bold leading-none tracking-tight text-body">Study Hub</span>
