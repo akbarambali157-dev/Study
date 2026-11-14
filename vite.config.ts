@@ -46,19 +46,19 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /\/assets\/.*\.(?:js|mjs)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'studyhub-code',
-              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
-          {
             urlPattern: /\.worker.*\.mjs$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'pdf-worker',
               expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            urlPattern: /\/assets\/.*\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'studyhub-code',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],
