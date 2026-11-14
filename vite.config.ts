@@ -40,12 +40,19 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mjs}'],
-        // pdf.js ships a large worker; let it be cached lazily rather than
-        // bloating the precache.
-        globIgnores: ['**/pdf.worker*.mjs'],
+        /* Precache only the lightweight app shell. Route and feature bundles are
+         cached when first used, so installation does not download the whole app. */
+        globPatterns: ['**/*.{css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.(?:js|mjs)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'studyhub-code',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
           {
             urlPattern: /\.worker.*\.mjs$/,
             handler: 'CacheFirst',
