@@ -25,6 +25,7 @@ import { AiError, generateStructured, MAP_CONCURRENCY, type AiUsage } from './ai
 import {
   askPrompt,
   cardsPrompt,
+  compressDigestsPrompt,
   mapPrompt,
   orgsPrompt,
   quizPrompt,
@@ -135,72 +136,113 @@ export async function generateStudyMaterial(
   let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
   let costUsd = 0
 
-  // ── map: one call per chunk ────────────────────────────────────────────
-  // This is the stage that sends the whole document, so it runs on the cheapest
-  // capable model by default. It only has to summarise one chunk at a time; the
-  // judgement calls happen later, on the summaries, with the chosen model.
+  // ── map: one call per bounded page chunk ────────────────────────────────
+  // The cheapest model reads the source. If that model is unavailable or
+  // overloaded, move the remainder of this document to the selected model.
   const mapModel = options.mapModel ?? CHEAP_MODEL
-  onStage?.('map', `${chunks.length} section${chunks.length === 1 ? '' : 's'}`)
-  let mapped = 0
+  let activeMapModel = mapModel
+  const callMap = (prompt: string, maxTokens: number) =>
+    generateStructured({
+      schema: ChunkMapSchema,
+      system: SYSTEM_BASE,
+      prompt,
+      model: activeMapModel,
+      maxTokens,
+      effort: 'low',
+      baseUrl,
+      signal,
+      useProxy,
+    })
+  const callMapWithFallback = async (prompt: string, maxTokens: number) => {
+    try {
+      const result = await callMap(prompt, maxTokens)
+      return { ...result, usedModel: activeMapModel }
+    } catch (error) {
+      const canUseSelectedModel =
+        error instanceof AiError &&
+        (error.code === 'model-unavailable' || error.code === 'overloaded') &&
+        activeMapModel !== model
+      if (!canUseSelectedModel) throw error
+      activeMapModel = model
+      const result = await callMap(prompt, maxTokens)
+      return { ...result, usedModel: activeMapModel }
+    }
+  }
 
-  // The shared hosted provider is more reliable when its chunk requests are
-  // serialized. BYOK users retain the normal two-request concurrency.
+  onStage?.('map', `${chunks.length} sections`)
+  let mapped = 0
+  // Hosted requests are serialized to avoid overwhelming the shared provider.
   const mapConcurrency = useProxy ? 1 : MAP_CONCURRENCY
   const maps = await pool(chunks, mapConcurrency, async (chunk) => {
     ensureNotAborted(signal)
-
-    const call = (withModel: AiModel) =>
-      generateStructured({
-        schema: ChunkMapSchema,
-        system: SYSTEM_BASE,
-        prompt: mapPrompt({
-          fromPage: chunk.fromPage,
-          toPage: chunk.toPage,
-          pageCount,
-          title: doc.title,
-          chunkText: chunk.text,
-        }),
-        model: withModel,
-        maxTokens: 4000,
-        effort: 'low',
-        baseUrl,
-        signal,
-        useProxy,
-      })
-
-    let result
-    let usedModel = mapModel
-    try {
-      result = await call(mapModel)
-    } catch (error) {
-      // Fall back only when the provider explicitly rejects this model. Network,
-      // authentication and rate-limit errors must not trigger a second paid call.
-      if (error instanceof AiError && error.code === 'aborted') throw error
-      if (!(error instanceof AiError) || error.code !== 'model-unavailable' || mapModel === model) throw error
-      usedModel = model
-      result = await call(model)
-    }
-
-    const { data, usage: chunkUsage } = result
+    const result = await callMapWithFallback(
+      mapPrompt({
+        fromPage: chunk.fromPage,
+        toPage: chunk.toPage,
+        pageCount,
+        title: doc.title,
+        chunkText: chunk.text,
+      }),
+      4000,
+    )
     mapped += 1
-    onStage?.('map', `${mapped} of ${chunks.length}`)
-
-    return { chunk, ...data, usage: chunkUsage, usedModel }
+    onStage?.('map', `${mapped} of ${chunks.length} sections`)
+    return { chunk, ...result.data, usage: result.usage, usedModel: result.usedModel }
   })
 
   usage = addUsage(usage, maps.reduce((total, item) => addUsage(total, item.usage), { inputTokens: 0, outputTokens: 0 }))
   costUsd += maps.reduce((total, item) => total + tokensToCost(item.usedModel, item.usage.inputTokens, item.usage.outputTokens), 0)
   ensureNotAborted(signal)
 
-  const digests = maps
-    .map(
-      (m) =>
-        `── pages ${m.chunk.fromPage}–${m.chunk.toPage} ──\n${m.summary}\n` +
-        m.keyPoints
-          .map((kp) => `- (p.${clampPage(kp.page, m.chunk.fromPage, m.chunk.toPage)}) ${kp.heading}: ${kp.body}`)
-          .join('\n'),
-    )
-    .join('\n\n')
+  // A 400-page source can create a large collection of otherwise-small
+  // digests. Compress them hierarchically so the final synthesis prompt stays
+  // comfortably below the proxy and model request-size limits.
+  type DigestRecord = { fromPage: number; toPage: number; text: string }
+  let digestRecords: DigestRecord[] = maps.map((m) => ({
+    fromPage: m.chunk.fromPage,
+    toPage: m.chunk.toPage,
+    text:
+      `── pages ${m.chunk.fromPage}–${m.chunk.toPage} ──\n${m.summary}\n` +
+      m.keyPoints
+        .map((kp) => `- (p.${clampPage(kp.page, m.chunk.fromPage, m.chunk.toPage)}) ${kp.heading}: ${kp.body}`)
+        .join('\n'),
+  }))
+  const digestSize = () => digestRecords.reduce((total, item) => total + item.text.length, 0)
+  while (digestRecords.length > 8 && digestSize() > 65_000) {
+    ensureNotAborted(signal)
+    const batches: DigestRecord[][] = []
+    for (let index = 0; index < digestRecords.length; index += 8) {
+      batches.push(digestRecords.slice(index, index + 8))
+    }
+    let compressedCount = 0
+    const compressed = await pool(batches, mapConcurrency, async (batch) => {
+      ensureNotAborted(signal)
+      const fromPage = batch[0].fromPage
+      const toPage = batch[batch.length - 1].toPage
+      const result = await callMapWithFallback(
+        compressDigestsPrompt({
+          title: doc.title,
+          pageCount,
+          fromPage,
+          toPage,
+          digests: batch.map((item) => item.text).join('\n\n'),
+        }),
+        3000,
+      )
+      usage = addUsage(usage, result.usage)
+      costUsd += tokensToCost(result.usedModel, result.usage.inputTokens, result.usage.outputTokens)
+      compressedCount += 1
+      onStage?.('map', `Condensing long document summaries · ${compressedCount} of ${batches.length}`)
+      const text =
+        `── condensed pages ${fromPage}–${toPage} ──\n${result.data.summary}\n` +
+        result.data.keyPoints
+          .map((kp) => `- (p.${clampPage(kp.page, fromPage, toPage)}) ${kp.heading}: ${kp.body}`)
+          .join('\n')
+      return { fromPage, toPage, text }
+    })
+    digestRecords = compressed
+  }
+  const digests = digestRecords.map((item) => item.text).join('\n\n')
 
   // ── reduce: short notes + key points ───────────────────────────────────
   onStage?.('reduce')
