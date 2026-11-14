@@ -1239,3 +1239,62 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Updated the public original-PDF download function to allow files up to 50 MB; deployed `public-material-download` version 2, ACTIVE, with the existing public-record and explicit-share checks unchanged.
 - Updated the AI pipeline to keep the inexpensive Haiku model for section mapping, fall back to the selected model if Haiku is unavailable or overloaded, and hierarchically compress validated section digests before final synthesis. This keeps long-document prompts bounded while preserving original page references.
 - Validation still required: GitHub type-check/build, a real 400-page text PDF, a 50 MB upload over TUS, and an explicitly shared original-PDF download. iOS memory use and browser stability should be checked on an actual device before treating the upper limits as fully production-verified.
+
+
+---
+
+## 29. Latest implementation and release audit — 14 November 2026
+
+This section supersedes older status notes where they describe BYOK, cloud restore, push delivery, messaging fallback or community collaboration as not yet implemented. Historical entries above are retained as an audit trail.
+
+### Implemented in code and/or Supabase
+
+**Private PDF cloud lifecycle**
+- Added an account-scoped cloud document list in Library.
+- Added restore of the original private PDF and its extracted page index to another signed-in device. Restore validates owner, status, page count/order, size and the PDF file signature before writing to IndexedDB.
+- Added a Dexie index for remote document IDs and retained the owning account ID on restored documents.
+- Deletion removes the local document and queues private cloud cleanup durably when offline; the queue is restricted to the original owner and flushes when connectivity returns.
+- The restore/delete path is implemented but still requires a real two-device account test.
+
+**Hosted AI and private BYOK**
+- Hosted requests continue through the authenticated ai-proxy Edge Function.
+- BYOK requests use the separate authenticated byok-proxy Edge Function. The key is stored in Supabase Vault, with the approved provider endpoint stored alongside it. The browser does not receive the saved secret, and the endpoint is restricted to the official Anthropic API or the configured BrewKeg endpoint.
+- Legacy browser key storage is cleared by the API-key module. Settings now describes the account-vault behaviour and does not offer arbitrary provider URLs.
+- BYOK credentials are selected by the authenticated user ID; the BYOK path does not silently fall back to the hosted key.
+- AI requests are not automatically repeated after ambiguous paid-request failures.
+- The hosted and BYOK connection tests are implemented, but a real successful request with a signed-in account and valid user-owned credential is still required.
+
+**Research Feed, messaging and academic spaces**
+- Research posts support public/private visibility, bookmarks, author follows, threaded replies and department-based filtering. Private post/comment access is protected by RLS.
+- Course Hubs and Research Circles have separate group types, public/private visibility, owner membership, join/leave, discussions and private invitations. Invite acceptance creates membership server-side and respects discoverability/block settings.
+- Messages are reachable from the app navigation and student discovery. The inbox refreshes lightly while idle; an open conversation uses scoped Realtime updates with polling fallback when the channel fails.
+- These are the base collaboration workflows. Shared resource libraries, shared reading lists, project goals/task boards, group flashcard decks/quizzes and group messaging are not yet implemented.
+
+**Web Push**
+- Stored a VAPID keypair and an internal dispatch token in Supabase Vault; the private signing key is not in GitHub or the frontend.
+- Added a database notification trigger using pg_net, a server-side push-dispatch Edge Function, a signed-in push-test Edge Function and a service-worker push/click handler.
+- Push delivery respects account notification categories, global pause and quiet hours using the saved device timezone. Delivery records prevent duplicate sends; expired endpoints are removed.
+- The public VAPID key endpoint was tested and returned HTTP 200. The internal dispatch authentication path was exercised with a deliberately nonexistent notification ID and correctly returned not-found after authentication.
+- There are currently zero registered push devices, so actual browser delivery, notification clicks and quiet-hour behaviour have not been end-to-end tested.
+
+**Settings, privacy and documentation**
+- Settings has module navigation for account, academic profile, AI, appearance, notifications, privacy, storage, offline/app and help.
+- Sign-out removes the current device's push subscription first; if push is enabled, sign-out is blocked while offline so the server-side subscription is not left attached to a shared device.
+- README privacy notes now distinguish local-first PDF storage from explicitly requested private cloud sync and document Vault-backed BYOK and opt-in Web Push.
+
+### Automated and backend verification
+
+- GitHub Actions CI and Validate Study Hub both passed for commit 30ab04c64219d77f6aa126ccd38ef84cb03c1230 (TypeScript checks and production build).
+- Supabase Edge Functions verified ACTIVE: ai-proxy v11, byok-proxy v4, push-dispatch v5 and push-test v1.
+- Supabase migrations for group spaces, Vault-backed BYOK, Web Push delivery, timezone storage and push delivery indexing are applied.
+- Supabase performance advisor no longer reports an unindexed foreign key. Its unused-index notices are informational on this low-traffic/new schema.
+- Supabase security advisor still reports leaked-password protection disabled. push_delivery_log intentionally has RLS enabled with no client policies; only the service role is granted access.
+
+### Production status and remaining release gates
+
+- The latest repository commit is 30ab04c64219d77f6aa126ccd38ef84cb03c1230.
+- Vercel has not deployed that commit. Its GitHub status is failing with build-rate-limit. The latest known READY production deployment is commit 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34; do not treat the newer repository changes as live until Vercel reports READY for the matching commit.
+- The 48 unchecked items in the mobile, community, messaging, PDF and AI acceptance checklists above remain open. They require real iPhone/Android devices, signed-in test accounts, a real text/scanned PDF test set, a valid BYOK credential entered through Settings and at least one registered push device. They have deliberately not been marked complete based only on code review or CI.
+- Enable Supabase Auth leaked-password protection in the project's Auth security settings.
+- The broader roadmap is not fully implemented yet: server-backed XP/achievement ledger, mastery trends, recurring revision, literature-review workspace, shared resources/reading lists/project goals, group study resources and quizzes, attachment/search/per-conversation messaging controls, and broader institutional integrations remain future work.
+- Do not expand these later workstreams or declare the product release-complete until the current PDF, AI, account-isolation and real-device acceptance gates pass.
