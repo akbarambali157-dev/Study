@@ -38,6 +38,7 @@ export class StudyHubDb extends Dexie {
   pdfBlobs!: Table<{ id: string; blob: Blob; savedAt: number }, string>
   studyTasks!: Table<StudyTask, string>
   studyGoals!: Table<StudyGoal, string>
+  pendingCloudDeletions!: Table<{ id: string; ownerId: string; storagePath: string; queuedAt: number }, string>
 
   constructor() {
     super('oou-study-hub')
@@ -123,6 +124,30 @@ export class StudyHubDb extends Dexie {
       pdfBlobs: 'id, savedAt',
       studyTasks: 'id, dueAt, completed, kind, createdAt',
       studyGoals: 'id, createdAt, updatedAt',
+    })
+
+    // Version 5 keeps cloud object cleanup durable when a student deletes a
+    // local document while offline. It is scoped to the original owner account.
+    this.version(5).stores({
+      courses: 'id, code, createdAt',
+      documents: 'id, courseId, createdAt, status, source, remoteId, syncStatus',
+      notes: 'id, documentId',
+      keyPoints: 'id, documentId, position',
+      orgs: 'id, documentId, keyPointId',
+      decks: 'id, documentId',
+      cards: 'id, deckId, documentId',
+      reviews: 'cardId, dueAt',
+      questions: 'id, deckId, documentId',
+      attempts: 'id, deckId, createdAt',
+      inquiries: 'id, createdAt, documentId, kind',
+      gameRuns: 'id, deckId, createdAt',
+      profile: 'id',
+      learningProfile: 'id',
+      settings: 'id',
+      pdfBlobs: 'id, savedAt',
+      studyTasks: 'id, dueAt, completed, kind, createdAt',
+      studyGoals: 'id, createdAt, updatedAt',
+      pendingCloudDeletions: 'id, ownerId, queuedAt',
     })
   }
 }
