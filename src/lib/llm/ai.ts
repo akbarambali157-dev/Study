@@ -1,7 +1,5 @@
-import type Anthropic from '@anthropic-ai/sdk'
 import type { ZodType } from 'zod'
-import { getApiKey } from '../apiKey'
-import { aiProxyUrl, supabase } from '../supabase'
+import { aiProxyUrl, byokProxyUrl, supabase } from '../supabase'
 import type { AiModel } from '../types'
 import { sleep } from '../utils'
 
@@ -45,47 +43,6 @@ export function redactSecrets(text: string): string {
     .replace(/sb_[a-z]+_[A-Za-z0-9_-]{8,}/g, 'sb_•••')
 }
 
-export async function createClient(baseUrl?: string): Promise<Anthropic> {
-  const key = getApiKey()
-  if (!key) {
-    throw new AiError(
-      'No API key yet. Add one in Settings — it stays in this browser.',
-      'missing-key',
-    )
-  }
-
-  // Anthropic keys go in x-api-key. Gateway keys are usually Bearer tokens, so
-  // anything that isn't an sk-ant- key is sent as an auth token instead.
-  const isAnthropicKey = key.startsWith('sk-ant-')
-  const trimmedBase = baseUrl?.trim()
-  // Vercel may have the hosted BrewKeg endpoint configured as the app default.
-  // A personal Anthropic key must go to Anthropic itself, not be sent to the
-  // unrelated gateway. Keep a separately entered non-BrewKeg compatible URL
-  // available for users who intentionally use an Anthropic-compatible proxy.
-  let isHostedGatewayDefault = false
-  if (trimmedBase) {
-    try {
-      isHostedGatewayDefault = new URL(trimmedBase).hostname === 'brewkeg.dev' ||
-        new URL(trimmedBase).hostname.endsWith('.brewkeg.dev')
-    } catch {
-      // Let the SDK return the normal, actionable invalid-URL error below.
-    }
-  }
-  const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase?.replace(/\/v1\/?$/, '').replace(/\/$/, '')
-
-  // Keep the provider SDK out of the initial mobile bundle. BYOK users load it
-  // only when they make their first direct-provider request.
-  const { default: AnthropicClient } = await import('@anthropic-ai/sdk')
-  return new AnthropicClient({
-    apiKey: isAnthropicKey ? key : undefined,
-    authToken: isAnthropicKey ? undefined : key,
-    baseURL: resolvedBaseUrl ? resolvedBaseUrl.replace(/\/$/, '') : undefined,
-    // This app holds only the student's own key, on the student's own device.
-    // That is the one context where this flag is defensible.
-    dangerouslyAllowBrowser: true,
-    maxRetries: 0,
-  })
-}
 
 interface TimedSignal {
   signal: AbortSignal
@@ -142,6 +99,7 @@ export interface StructuredRequest<T> {
  */
 async function generateStructuredViaProxy<T>(
   request: StructuredRequest<T>,
+  mode: 'hosted' | 'byok',
 ): Promise<{ data: T; usage: AiUsage }> {
   // Provider overloads are transient. Give hosted requests three attempts with
   // a longer backoff; a 503 means the upstream did not accept the generation.
@@ -176,7 +134,7 @@ async function generateStructuredViaProxy<T>(
       }
 
       const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
-      const resp = await fetch(aiProxyUrl(), {
+      const resp = await fetch(mode === 'hosted' ? aiProxyUrl() : byokProxyUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,6 +147,7 @@ async function generateStructuredViaProxy<T>(
           model: request.model,
           max_tokens: request.maxTokens ?? 8000,
           effort: request.effort ?? 'medium',
+          ...(mode === 'byok' && request.baseUrl ? { base_url: request.baseUrl } : {}),
           output_config: {
             format: zodOutputFormat(request.schema),
             effort: request.effort ?? 'medium',
@@ -199,14 +158,19 @@ async function generateStructuredViaProxy<T>(
 
       if (!resp.ok) {
         const errBody = await resp.json().catch(() => null)
+        const requestId = errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined
         if (resp.status === 401) {
-          throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth', false, errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined)
+          throw new AiError('Your sign-in session has expired. Sign in again.', 'auth', false, requestId)
         }
+        const code = typeof errBody?.code === 'string' ? errBody.code : ''
+        if (code === 'BYOK_NOT_CONFIGURED') throw new AiError('Add your private provider key in Settings first.', 'missing-key', false, requestId)
+        if (code === 'BYOK_AUTH_ERROR') throw new AiError('Your saved personal key was rejected. Replace it in Settings.', 'auth', false, requestId)
+        if (code === 'INVALID_PROVIDER_URL') throw new AiError('The selected provider URL is not supported. Use Anthropic or BrewKeg HTTPS endpoints.', 'unknown', false, requestId)
         const detail = typeof errBody?.error === 'string' ? errBody.error : `Proxy returned ${resp.status}`
         const mapped = resp.status >= 500
-          ? new AiError(`Hosted AI is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503, errBody?.request_id)
+          ? new AiError(`${mode === 'hosted' ? 'Hosted AI' : 'Your provider'} is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503, requestId)
           : mapError({ status: resp.status, message: detail })
-        throw new AiError(mapped.message, mapped.code, mapped.retryable, errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined)
+        throw new AiError(mapped.message, mapped.code, mapped.retryable, requestId)
       }
 
       const payload = await resp.json() as {content?:unknown;output_text?:unknown;request_id?:string;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
@@ -282,72 +246,10 @@ async function generateStructuredViaProxy<T>(
 export async function generateStructured<T>(
   request: StructuredRequest<T>,
 ): Promise<{ data: T; usage: AiUsage }> {
-  // Proxy mode: the site provides the model, key is held server-side.
-  if (request.useProxy) {
-    return generateStructuredViaProxy(request)
-  }
+  // Both modes run server-side: hosted uses the site's provider key; BYOK retrieves the student's Vault-encrypted key.
+  return generateStructuredViaProxy(request, request.useProxy ? 'hosted' : 'byok')
 
-  const attempts = 2
-  let lastError: unknown
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    if (request.signal?.aborted) {
-      throw new AiError('Generation stopped.', 'aborted')
-    }
-
-    const timeout = createTimedSignal(request.signal)
-    try {
-      const { zodOutputFormat } = await import('@anthropic-ai/sdk/helpers/zod')
-      const client = await createClient(request.baseUrl)
-      const message = await client.messages.parse(
-        {
-          model: request.model,
-          max_tokens: request.maxTokens ?? 8000,
-          system: request.system,
-          messages: [{ role: 'user', content: request.prompt }],
-          output_config: {
-            format: zodOutputFormat(request.schema),
-            effort: request.effort ?? 'medium',
-          },
-        },
-        { signal: timeout.signal },
-      )
-
-      if (message.stop_reason === 'refusal') {
-        throw new AiError(
-          'The model declined to work with this document. Try a different PDF.',
-          'refusal',
-        )
-      }
-
-      const candidate = message.parsed_output ?? parseStructured(extractText(message.content))
-      const validation = request.schema.safeParse(candidate)
-      if (!validation.success) throw new AiError('The provider response did not match the required data shape.','schema')
-      return {
-        data: validation.data,
-        usage: {
-          inputTokens: message.usage?.input_tokens ?? 0,
-          outputTokens: message.usage?.output_tokens ?? 0,
-        },
-      }
-    } catch (error) {
-      lastError = error
-      const mapped = timeout.didTimeout()
-        ? new AiError('The model took too long to respond. Try again.', 'network', true)
-        : mapError(error)
-      if (mapped.code === 'aborted') throw mapped
-
-      const shouldRetry =
-        mapped.retryable && attempt < attempts - 1
-      if (!shouldRetry) throw mapped
-
-      await sleep(900 * (attempt + 1))
-    } finally {
-      timeout.cleanup()
-    }
-  }
-
-  throw mapError(lastError)
 }
 
 
@@ -375,26 +277,33 @@ function parseStructured(value:unknown):unknown {
 export async function generateText(request:TextRequest):Promise<{text:string;usage:AiUsage}> {
  const timeout=createTimedSignal(request.signal)
  try{
-  if(request.useProxy){
-   if(!supabase)throw new AiError('Hosted AI is not configured.','unknown')
-   const {data,error}=await supabase.auth.getSession()
-   if(error)throw new AiError('Your sign-in session could not be checked. Sign in again.','auth')
-   const token=data.session?.access_token
-   if(!token)throw new AiError('Sign in to test hosted AI.','auth')
-   const publicKey=(import.meta.env.VITE_SUPABASE_ANON_KEY as string|undefined)?.trim()
-   if(!publicKey)throw new AiError('The Supabase public key is missing.','unknown')
-   const response=await fetch(aiProxyUrl(),{method:'POST',headers:{'Content-Type':'application/json',apikey:publicKey,Authorization:`Bearer ${token}`},body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32}),signal:timeout.signal})
-   const payload=await response.json().catch(()=>null)
-   if(!response.ok){const mapped=mapError({status:response.status,message:payload?.error??`Proxy returned ${response.status}`});throw new AiError(mapped.message,mapped.code,mapped.retryable,payload?.request_id??response.headers.get('x-request-id')??undefined)}
-   const text=extractText(payload?.content??payload?.output_text??payload)
-   if(!text)throw new AiError('The provider returned an empty response.','schema')
-   return {text,usage:{inputTokens:Number(payload?.usage?.input_tokens??payload?.usage?.prompt_tokens??0),outputTokens:Number(payload?.usage?.output_tokens??payload?.usage?.completion_tokens??0)}}
+  if(!supabase)throw new AiError('Account-backed AI needs a signed-in Study Hub account.','auth')
+  const {data:sessionData,error:sessionError}=await supabase.auth.getSession()
+  if(sessionError)throw new AiError('Your sign-in session could not be checked. Sign in again.','auth')
+  const token=sessionData.session?.access_token
+  if(!token)throw new AiError('Sign in to use this AI connection.','auth')
+  const publicKey=(import.meta.env.VITE_SUPABASE_ANON_KEY as string|undefined)?.trim()
+  if(!publicKey)throw new AiError('The Supabase public key is missing.','unknown')
+  const mode=request.useProxy?'hosted':'byok'
+  const response=await fetch(mode==='hosted'?aiProxyUrl():byokProxyUrl(),{
+   method:'POST',
+   headers:{'Content-Type':'application/json',apikey:publicKey,Authorization:`Bearer ${token}`},
+   body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32,...(mode==='byok'&&request.baseUrl?{base_url:request.baseUrl}:{})}),
+   signal:timeout.signal,
+  })
+  const payload=await response.json().catch(()=>null)
+  if(!response.ok){
+   const requestId=payload?.request_id??response.headers.get('x-request-id')??undefined
+   if(response.status===401)throw new AiError('Your sign-in session has expired. Sign in again.','auth',false,requestId)
+   if(payload?.code==='BYOK_NOT_CONFIGURED')throw new AiError('Add your private provider key in Settings first.','missing-key',false,requestId)
+   if(payload?.code==='BYOK_AUTH_ERROR')throw new AiError('Your saved personal key was rejected. Replace it in Settings.','auth',false,requestId)
+   const detail=typeof payload?.error==='string'?payload.error:`Proxy returned ${response.status}`
+   const mapped=mapError({status:response.status,message:detail})
+   throw new AiError(mapped.message,mapped.code,mapped.retryable,requestId)
   }
-  const client = await createClient(request.baseUrl)
-  const message=await client.messages.create({model:request.model,max_tokens:request.maxTokens??32,system:request.system,messages:[{role:'user',content:request.prompt}]},{signal:timeout.signal})
-  const text=extractText(message.content)
-  if(!text)throw new AiError('The provider returned an empty response.','schema')
-  return {text,usage:{inputTokens:message.usage?.input_tokens??0,outputTokens:message.usage?.output_tokens??0}}
+  const text=extractText(payload?.content??payload?.output_text??payload)
+  if(!text)throw new AiError('The provider returned an empty response.','schema',false,payload?.request_id)
+  return {text,usage:{inputTokens:Number(payload?.usage?.input_tokens??payload?.usage?.prompt_tokens??0),outputTokens:Number(payload?.usage?.output_tokens??payload?.usage?.completion_tokens??0)}}
  }catch(error){if(timeout.didTimeout())throw new AiError('The model took too long to respond.','network',true);throw mapError(error)}
  finally{timeout.cleanup()}
 }
