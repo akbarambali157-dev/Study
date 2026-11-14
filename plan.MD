@@ -1160,7 +1160,7 @@ This ledger records repository and deployment evidence. A code path is not relea
 
 **Remaining release gates**
 - Add server-backed, tamper-resistant XP ledger before presenting XP as a trusted account-wide record or introducing leaderboards.
-- Add topic-level mastery calculations and visual trend history.
+- Add mastery trends over time and richer per-topic performance history.
 - Add planner-to-document linking and recurring revision scheduling.
 - Validate planner, review and quiz flows on phone-sized screens and across browser restarts.
 - Add automated unit tests for scheduling, scoring, date handling and progress calculations.
@@ -1169,5 +1169,5 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Planner and learning progress remain device-local unless explicitly synced; browser storage is not a cross-device backup.
 - BYOK keys are stored in the browser by design; they are not a server-side secrets vault.
 - Academic profiles default to private; public discovery is not implemented.
-- Notification preferences are stored, but push subscriptions and push delivery are not yet active.
+- Notification preferences and per-device push subscription registration/removal are implemented; actual push delivery still needs the VAPID secrets and server-side sender.
 - Supabase security advisor currently reports leaked-password protection disabled.
