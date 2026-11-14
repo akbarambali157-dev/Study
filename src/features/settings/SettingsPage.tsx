@@ -30,6 +30,7 @@ import { downloadFile } from '@/lib/export'
 import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 export function SettingsPage() {
   const settings = useSettings()
