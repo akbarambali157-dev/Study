@@ -12,7 +12,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useLibrary } from '@/lib/hooks'
-import { deleteCloudDocument, listCloudDocuments, restoreCloudDocument, type CloudDocumentSummary } from '@/lib/documentSync'
+import { listCloudDocuments, restoreCloudDocument, type CloudDocumentSummary } from '@/lib/documentSync'
 import { deleteDocument } from '@/lib/store'
 import { record } from '@/lib/inquiries'
 import { PageHeading } from '@/components/PageShell'
@@ -72,13 +72,9 @@ export function LibraryPage() {
   const remove = async (id: string, title: string) => {
     const target = library.find((item) => item.doc.id === id)?.doc
     if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too${target?.remoteId ? ' and its private cloud PDF and page index will also be deleted' : ''}.`)) return
-    if (target?.remoteId) {
-      if (!navigator.onLine) { toast('Connect to the internet before deleting the private cloud copy. Nothing has been deleted.', 'info'); return }
-      try { await deleteCloudDocument(target.remoteId) }
-      catch (error) { toast(error instanceof Error ? error.message : 'The cloud copy could not be deleted. Your local study set is unchanged.', 'error'); return }
-    }
-    await deleteDocument(id)
-    toast('Deleted.', 'success')
+    const cloudCleanupPending = await deleteDocument(id)
+    if (cloudCleanupPending) toast('Removed from this device. Private cloud cleanup is queued for the next connection.', 'info')
+    else toast('Document and its study materials deleted.', 'success')
   }
 
   const syncDocument = async (id: string) => {
