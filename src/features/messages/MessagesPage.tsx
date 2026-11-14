@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, MessageCircle, Send, ShieldAlert, UserRound } from 'lucide-react'
+import { ArrowLeft, Ban, Check, MessageCircle, Send, ShieldAlert, UserRound } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { supabase } from '@/lib/supabase'
 
-type Membership = { conversation_id: string; status: 'pending' | 'accepted'; member_role: 'sender' | 'recipient'; last_read_at: string | null }
+type Membership = { conversation_id: string; status: 'pending' | 'accepted'; member_role: 'sender' | 'recipient'; last_read_at: string | null; display_name: string }
 type Conversation = { id: string; created_by: string; recipient_id: string; updated_at: string; last_message_at: string | null }
 type Student = { user_id: string; display_name: string; institution: string; department: string; level: string }
 type Message = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string; edited_at: string | null; deleted_at: string | null }
@@ -33,18 +33,21 @@ export function MessagesPage() {
       const uid = auth.user.id
       setUserId(uid)
       const { data: memberRows, error: memberError } = await supabase.from('conversation_members')
-        .select('conversation_id,status,member_role,last_read_at')
+        .select('conversation_id,status,member_role,last_read_at,display_name')
         .eq('user_id', uid).order('joined_at', { ascending: false }).limit(50)
       if (memberError) throw memberError
       const memberships = (memberRows ?? []) as Membership[]
       const ids = memberships.map((item) => item.conversation_id)
       if (!ids.length) { setInbox([]); setLoading(false); return }
-      const [{ data: conversations, error: conversationsError }, { data: messageRows, error: messagesError }] = await Promise.all([
+      const [{ data: conversations, error: conversationsError }, { data: messageRows, error: messagesError }, { data: blockRows, error: blockError }] = await Promise.all([
         supabase.from('conversations').select('id,created_by,recipient_id,updated_at,last_message_at').in('id', ids).order('updated_at', { ascending: false }),
         supabase.from('messages').select('id,conversation_id,sender_id,body,created_at,edited_at,deleted_at').in('conversation_id', ids).order('created_at', { ascending: false }).limit(150),
+        supabase.from('user_blocks').select('blocked_id').eq('blocker_id', uid),
       ])
       if (conversationsError) throw conversationsError
       if (messagesError) throw messagesError
+      if (blockError) throw blockError
+      const blockedIds = new Set((blockRows ?? []).map((row) => row.blocked_id as string))
       const conversationRows = (conversations ?? []) as Conversation[]
       const peerIds = [...new Set(conversationRows.map((item) => item.created_by === uid ? item.recipient_id : item.created_by))]
       const { data: profiles, error: profileError } = await supabase.from('student_profiles')
@@ -57,8 +60,8 @@ export function MessagesPage() {
       setInbox(conversationRows.flatMap((conversation) => {
         const membership = membershipMap.get(conversation.id)
         const peerId = conversation.created_by === uid ? conversation.recipient_id : conversation.created_by
-        const student = profileMap.get(peerId)
-        if (!membership || !student) return []
+        const student = profileMap.get(peerId) ?? { user_id: peerId, display_name: membership.display_name || 'Student', institution: '', department: '', level: '' }
+        if (!membership || blockedIds.has(peerId)) return []
         const latest = latestMap.get(conversation.id)
         return [{ conversation, membership, student, latest, unread: Boolean(latest && latest.sender_id !== uid && (!membership.last_read_at || latest.created_at > membership.last_read_at)) }]
       }))
@@ -128,7 +131,7 @@ export function MessagesPage() {
 
   if (selectedId) return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-4 flex items-center gap-3"><Button size="sm" variant="secondary" onClick={() => navigate('/messages')} icon={<ArrowLeft className="size-4" />}>Inbox</Button><div className="min-w-0"><h1 className="truncate text-xl font-semibold">{selected?.student.display_name ?? 'Conversation'}</h1><p className="text-xs text-muted">{selected ? [selected.student.department, selected.student.level ? `Level ${selected.student.level}` : ''].filter(Boolean).join(' · ') : 'Loading conversation…'}</p></div></div>
+      <div className="mb-4 flex flex-wrap items-center gap-3"><Button size="sm" variant="secondary" onClick={() => navigate('/messages')} icon={<ArrowLeft className="size-4" />}>Inbox</Button><div className="min-w-0 flex-1"><h1 className="truncate text-xl font-semibold">{selected?.student.display_name ?? 'Conversation'}</h1><p className="text-xs text-muted">{selected ? [selected.student.department, selected.student.level ? `Level ${selected.student.level}` : ''].filter(Boolean).join(' · ') : 'Loading conversation…'}</p></div>{selected && userId ? <><Button size="sm" variant="ghost" onClick={async () => { if (!supabase || !window.confirm(`Block ${selected.student.display_name}? This will prevent messages in either direction.`)) return; const { error } = await supabase.from('user_blocks').insert({ blocker_id: userId, blocked_id: selected.student.user_id }); if (error) toast(error.message, 'error'); else { toast('Student blocked.', 'success'); navigate('/messages'); void loadInbox() } }} icon={<Ban className="size-3.5" />}>Block</Button><Button size="sm" variant="ghost" onClick={async () => { if (!supabase) return; const reason = window.prompt('Why are you reporting this account?'); if (!reason?.trim()) return; const { error } = await supabase.from('user_reports').insert({ reporter_id: userId, target_user_id: selected.student.user_id, conversation_id: selected.conversation.id, reason: reason.trim().slice(0,500) }); if (error) toast(error.message, 'error'); else toast('Report submitted for review.', 'success') }} icon={<ShieldAlert className="size-3.5" />}>Report</Button></> : null}</div>
       {!selected && !loading ? <Card className="p-5"><p className="text-sm text-muted">This conversation is unavailable or you do not have access.</p></Card> : null}
       {selected ? <Card className="overflow-hidden p-0">
         {selected.membership.status === 'pending' && selected.membership.member_role === 'recipient' ? <div className="border-b border-line bg-amber-500/10 p-4"><p className="text-sm font-semibold">Message request</p><p className="mt-1 text-xs text-muted">Accept this request before replying. You can block the sender if you do not want further contact.</p><Button size="sm" className="mt-3" onClick={() => void acceptRequest()} icon={<Check className="size-4" />}>Accept request</Button></div> : null}
