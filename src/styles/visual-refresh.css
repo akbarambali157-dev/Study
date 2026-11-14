@@ -372,3 +372,152 @@ main#main :is(button, [role="button"]):active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   .hub-mobile-link svg, .hub-mobile-more svg { transition: none; }
 }
+
+
+/* ── Study Hub identity and page-level visual language ─────────────────── */
+.hub-brand-mark {
+  width: 2.65rem;
+  height: 2.65rem;
+  overflow: visible;
+  border: 0;
+  border-radius: .82rem;
+  background: transparent;
+  box-shadow: 0 5px 15px -9px rgb(35 30 116 / .65);
+}
+.hub-brand-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.hub-brand:hover .hub-brand-mark { transform: translateY(-1px) scale(1.035); }
+@media (max-width: 639px) {
+  .hub-brand-mark { width: 2.4rem; height: 2.4rem; }
+}
+
+/* Dashboard: more intentional rhythm between the overview and work areas. */
+.hub-dashboard { max-width: 76rem; }
+.hub-dashboard-heading { align-items: center; }
+.hub-dashboard-heading h1 { letter-spacing: -.055em; }
+.hub-dashboard-section { margin-top: 2.15rem; }
+.hub-dashboard-section .section-heading { margin-bottom: .9rem; }
+.hub-dashboard-section .section-heading h2 {
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  letter-spacing: -.04em;
+}
+.hub-dashboard .overview-stats { gap: .7rem; }
+.hub-dashboard .metric-panel { border-radius: 1.15rem; }
+.hub-dashboard .recent-card { border-radius: 1.15rem; }
+.hub-dashboard .continue-card { border-radius: 1.35rem; }
+@media (max-width: 640px) {
+  .hub-dashboard-section { margin-top: 1.6rem; }
+  .hub-dashboard .overview-primary { padding: 1.25rem; }
+}
+
+/* Research community: editorial feed with a quieter, more readable canvas. */
+.hub-community-page { max-width: 66rem; }
+.hub-community-page > .flex:first-child { margin-bottom: .2rem; }
+.hub-community-hero {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(199 210 254 / .18);
+  background:
+    radial-gradient(ellipse at 82% 4%, rgb(45 212 191 / .23), transparent 34%),
+    radial-gradient(ellipse at 12% 100%, rgb(129 140 248 / .32), transparent 48%),
+    linear-gradient(126deg, #11183d 0%, #25246e 55%, #3b36a8 100%);
+  box-shadow: 0 24px 60px -38px rgb(32 34 113 / .78);
+}
+.hub-community-hero::after {
+  position: absolute;
+  z-index: -1;
+  right: -2.5rem;
+  bottom: -7rem;
+  width: 17rem;
+  height: 17rem;
+  border: 1px solid rgb(255 255 255 / .12);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2rem rgb(255 255 255 / .035), 0 0 0 4rem rgb(255 255 255 / .025);
+  content: '';
+}
+.hub-community-composer {
+  border: 1px solid color-mix(in srgb, #818cf8 28%, var(--line));
+  border-radius: 1.35rem;
+  box-shadow: var(--shadow);
+}
+.hub-community-toolbar {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.hub-community-page .community-post {
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--surface) 96%, #818cf8 4%);
+}
+.hub-community-page .community-post h2 { line-height: 1.3; }
+.hub-community-page .community-post p { overflow-wrap: anywhere; }
+
+/* Discover: make the shared library feel like a curated knowledge commons. */
+.hub-discover-page { max-width: 72rem; }
+.hub-discover-hero {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 82% 8%, rgb(45 212 191 / .23), transparent 32%),
+    radial-gradient(ellipse at 8% 100%, rgb(129 140 248 / .32), transparent 46%),
+    linear-gradient(126deg, #11183d 0%, #25246e 56%, #3b36a8 100%);
+  box-shadow: 0 24px 60px -38px rgb(32 34 113 / .78);
+}
+.hub-discover-hero > div:last-child > div {
+  border: 1px solid rgb(255 255 255 / .12);
+  background: rgb(255 255 255 / .085);
+  backdrop-filter: blur(8px);
+}
+.hub-discover-search input,
+.hub-library-search input {
+  border-color: color-mix(in srgb, var(--line) 80%, #818cf8 20%);
+  background: color-mix(in srgb, var(--surface) 96%, #818cf8 4%);
+  box-shadow: 0 5px 20px -16px rgb(36 39 111 / .3);
+}
+.hub-discover-card {
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--surface) 97%, #818cf8 3%);
+  box-shadow: var(--shadow-card);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.hub-discover-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, #818cf8 38%, var(--line));
+  box-shadow: var(--shadow);
+}
+.hub-discover-card h3 { line-height: 1.3; letter-spacing: -.025em; }
+
+/* Library: a clear separation between personal uploads and saved community sets. */
+.hub-library-page { max-width: 72rem; margin-inline: auto; }
+.hub-library-search { max-width: 46rem; }
+.hub-library-card {
+  border-radius: 1.2rem;
+  background: color-mix(in srgb, var(--surface) 97%, #818cf8 3%);
+  box-shadow: var(--shadow-card);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.hub-library-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, #818cf8 34%, var(--line));
+  box-shadow: var(--shadow);
+}
+.hub-saved-materials {
+  padding-top: 1.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+.hub-saved-materials > div:first-child h2 { letter-spacing: -.035em; }
+.hub-saved-materials .card-surface {
+  border-radius: 1.15rem;
+}
+@media (max-width: 639px) {
+  .hub-community-hero, .hub-discover-hero { border-radius: 1.35rem; }
+  .hub-community-page .community-post { border-radius: 1.05rem; }
+  .hub-library-card { border-radius: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-discover-card, .hub-library-card { transition: none; }
+  .hub-discover-card:hover, .hub-library-card:hover { transform: none; }
+}
