@@ -7,6 +7,7 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   // Relative base so the same build works on GitHub Pages, Netlify and Vercel.
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'), __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local') },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
@@ -14,7 +15,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192.png', 'pwa-512.png'],
       manifest: {
         name: 'OOU Study Hub',
@@ -24,7 +25,6 @@ export default defineConfig({
         theme_color: '#0B3D2E',
         background_color: '#FAF7F1',
         display: 'standalone',
-        orientation: 'portrait',
         start_url: './',
         scope: './',
         icons: [

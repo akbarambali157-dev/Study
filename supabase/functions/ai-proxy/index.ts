@@ -16,6 +16,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const BREWKEG_BASE_URL = 'https://brewkeg.dev'
 
+function extractProviderText(payload:any):string{if(typeof payload==='string')return payload.trim();if(Array.isArray(payload))return payload.map((b)=>typeof b?.text==='string'?b.text:'').filter(Boolean).join('\\n').trim();if(!payload||typeof payload!=='object')return '';if(typeof payload.output_text==='string')return payload.output_text.trim();if(payload.content!==undefined)return extractProviderText(payload.content);if(Array.isArray(payload.choices)&&payload.choices[0])return extractProviderText(payload.choices[0].message?.content??payload.choices[0].text);if(payload.message?.content!==undefined)return extractProviderText(payload.message.content);return ''}
+function tokenCount(a:unknown,b:unknown):number{const n=Number(a??b??0);return Number.isFinite(n)?Math.max(0,Math.floor(n)):0}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, x-client-info, content-type',
@@ -174,7 +177,9 @@ serve(async (req) => {
   }
 
   // ── Parse response ──────────────────────────────────────────────────
-  const responseJson = await brewkegResp.json().catch(() => null)
+  const rawBody = await brewkegResp.text()
+  let responseJson:any
+  try{responseJson=JSON.parse(rawBody)}catch{responseJson={content:rawBody}}
   if (!brewkegResp.ok) {
     const upstreamAuthFailure = brewkegResp.status === 401 || brewkegResp.status === 403
     const providerMessage = upstreamAuthFailure
@@ -187,20 +192,9 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-  const rawContent =
-    responseJson?.content?.[0]?.type === 'text'
-      ? responseJson.content[0].text
-      : responseJson?.content
-  const content = typeof rawContent === 'string'
-    ? rawContent
-    : JSON.stringify(rawContent ?? responseJson ?? {})
-
-  const inputTokens = Number(responseJson?.usage?.input_tokens ?? 0)
-  const outputTokens = Number(responseJson?.usage?.output_tokens ?? 0)
-  const usage = {
-    input_tokens: Number.isFinite(inputTokens) ? Math.max(0, Math.floor(inputTokens)) : 0,
-    output_tokens: Number.isFinite(outputTokens) ? Math.max(0, Math.floor(outputTokens)) : 0,
-  }
+  const content=extractProviderText(responseJson)
+  if(!content)return new Response(JSON.stringify({error:'The provider returned an empty or unsupported response.'}),{status:502,headers:{...corsHeaders,'Content-Type':'application/json'}})
+  const usage={input_tokens:tokenCount(responseJson?.usage?.input_tokens,responseJson?.usage?.prompt_tokens),output_tokens:tokenCount(responseJson?.usage?.output_tokens,responseJson?.usage?.completion_tokens)}
 
   // ── Record usage for the logged-in user ─────────────────────────────
   try {

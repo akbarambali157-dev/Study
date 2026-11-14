@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 export function ProfileSetupPage() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [email, setEmail] = useState('')
   const [form, setForm] = useState({
     displayName: '',
     faculty: '',
@@ -25,10 +26,11 @@ export function ProfileSetupPage() {
     void Promise.all([db.profile.get('me'), supabase?.auth.getUser()]).then(([profile, auth]) => {
       if (!active) return
       const user = auth && 'data' in auth ? auth.data.user : null
+      setEmail(user?.email ?? '')
       setForm({
         displayName: profile?.displayName && profile.displayName !== 'Student'
           ? profile.displayName
-          : String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? ''),
+          : String(user?.user_metadata?.display_name ?? user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? ''),
         faculty: profile?.faculty ?? '',
         department: profile?.department ?? '',
         level: profile?.level ?? '',
@@ -68,6 +70,7 @@ export function ProfileSetupPage() {
         const { error } = await supabase.auth.updateUser({
           data: {
             display_name: form.displayName.trim(),
+            full_name: form.displayName.trim(),
             faculty: form.faculty.trim(),
             department: form.department.trim(),
             level: form.level.trim(),
@@ -103,6 +106,10 @@ export function ProfileSetupPage() {
           </div>
         </div>
         <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {email ? <label className="text-sm font-medium sm:col-span-2">Account email
+            <input value={email} readOnly aria-readonly="true" autoComplete="email" className="mt-1.5 h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-muted" />
+            <span className="mt-1 block text-xs font-normal text-muted">Change this through account verification, not here.</span>
+          </label> : null}
           <label className="text-sm font-medium sm:col-span-2">Full name
             <input value={form.displayName} onChange={e => update('displayName', e.target.value)} required autoComplete="name" className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="Your full name" />
           </label>

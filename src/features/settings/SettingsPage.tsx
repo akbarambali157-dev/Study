@@ -14,7 +14,6 @@ import { PageHeading, SectionTitle } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { z } from 'zod'
 import {
   clearApiKey,
   getApiKey,
@@ -28,12 +27,9 @@ import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
 import { downloadFile } from '@/lib/export'
-import { generateStructured } from '@/lib/llm/ai'
+import { generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
-
-/** Minimal schema for the connection test — the model just says "yes". */
-const TestSchema = z.object({ ok: z.string() })
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -80,35 +76,23 @@ const [aiTestResult, setAiTestResult] = useState<'ok' | 'fail' | null>(null)
     setTestingAI(true)
     setAiTestResult(null)
     try {
-      const model = settings.model
-      const { data, usage } = await generateStructured({
-        schema: TestSchema,
-        system: 'You are a connection test. Reply with exactly {"ok":"yes"} and nothing else.',
-        prompt: 'Test',
-        model,
-        maxTokens: 20,
-        effort: 'low',
-        baseUrl: settings.baseUrl || undefined,
-        useProxy,
-      })
-      if (data.ok === 'yes') {
+      const model=settings.model
+      const {text:reply,usage}=await generateText({system:'You are checking whether the Study Hub AI connection is available. Reply with one short plain-text confirmation.',prompt:'Reply: Study Hub connection OK',model,maxTokens:32,baseUrl:settings.baseUrl||undefined,useProxy})
+      if(reply.trim()){
         setAiTestResult('ok')
-        toast(
-          `AI is working — got a reply (${usage.inputTokens} in / ${usage.outputTokens} out tokens).`,
-          'success',
-        )
-      } else {
+        toast(`AI is working — ${useProxy?'hosted provider':'your configured provider'} replied (${usage.inputTokens} in / ${usage.outputTokens} out tokens).`,'success')
+      }else{
         setAiTestResult('fail')
-        toast('AI replied but with an unexpected shape.', 'error')
+        toast('The provider returned an empty response. The connection test did not pass.','error')
       }
     } catch (err) {
       setAiTestResult('fail')
-      const message = err instanceof Error ? err.message : String(err)
+      const message = err instanceof Error ? redactSecrets(err.message) : 'Unknown provider error.'
       toast(`AI test failed: ${message}`, 'error')
     } finally {
       setTestingAI(false)
     }
-  }, [hasApiKey, useProxy, settings.model, settings.baseUrl])
+  }, [useProxy, settings.model, settings.baseUrl])
 
   const saveKey = async () => {
     const trimmed = keyInput.trim()

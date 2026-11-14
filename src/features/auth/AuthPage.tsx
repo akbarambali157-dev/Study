@@ -415,8 +415,7 @@ export function AuthPage() {
           <ShieldCheck className="mx-auto mb-2 size-5 text-forest-400" />
           <h3 className="text-sm font-semibold">Private by default</h3>
           <p className="mt-1 text-[12px] text-muted">
-            Your profile, documents and study trail stay in this browser. PDF text is sent to the
-            configured AI provider only when you choose to generate study material.
+            Your learning profile and study trail stay on this device. Signed-in PDF uploads are stored in your private Study Hub document space. PDF text is sent to the configured AI provider only when you choose to generate study material.
           </p>
         </div>
       </form>

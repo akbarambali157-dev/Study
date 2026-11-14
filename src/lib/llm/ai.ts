@@ -68,7 +68,7 @@ export function createClient(baseUrl?: string): Anthropic {
       // Let the SDK return the normal, actionable invalid-URL error below.
     }
   }
-  const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase
+  const resolvedBaseUrl = isAnthropicKey && isHostedGatewayDefault ? undefined : trimmedBase?.replace(/\/v1\/?$/, '').replace(/\/$/, '')
 
   return new Anthropic({
     apiKey: isAnthropicKey ? key : undefined,
@@ -203,20 +203,9 @@ async function generateStructuredViaProxy<T>(
         })
       }
 
-      const { content, usage } = (await resp.json()) as {
-        content: string
-        usage: { input_tokens: number; output_tokens: number }
-      }
-
-      // Validate with the same zod schema as the direct path. Malformed JSON
-      // is a schema failure, so the bounded repair retry can run.
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(content)
-      } catch {
-        throw new AiError('The model returned malformed structured data.', 'schema', true)
-      }
-      const parsed = request.schema.safeParse(decoded)
+      const payload = await resp.json() as {content?:unknown;output_text?:unknown}
+      const content = extractText(payload.content ?? payload.output_text ?? payload)
+      const parsed = request.schema.safeParse(parseStructured(content))
       if (!parsed.success) {
         throw new AiError(
           'The response did not match the expected shape.',
@@ -240,7 +229,7 @@ async function generateStructuredViaProxy<T>(
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
-        mapped.code === 'schema' || (mapped.retryable && attempt < attempts - 1)
+        mapped.retryable && attempt < attempts - 1
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
@@ -299,17 +288,11 @@ export async function generateStructured<T>(
         )
       }
 
-      const parsed = message.parsed_output as T | null | undefined
-      if (!parsed) {
-        throw new AiError(
-          'The response did not match the expected shape.',
-          'schema',
-          true,
-        )
-      }
-
+      const candidate = message.parsed_output ?? parseStructured(extractText(message.content))
+      const validation = request.schema.safeParse(candidate)
+      if (!validation.success) throw new AiError('The provider response did not match the required data shape.','schema')
       return {
-        data: parsed,
+        data: validation.data,
         usage: {
           inputTokens: message.usage?.input_tokens ?? 0,
           outputTokens: message.usage?.output_tokens ?? 0,
@@ -323,7 +306,7 @@ export async function generateStructured<T>(
       if (mapped.code === 'aborted') throw mapped
 
       const shouldRetry =
-        mapped.code === 'schema' || (mapped.retryable && attempt < attempts - 1)
+        mapped.retryable && attempt < attempts - 1
       if (!shouldRetry) throw mapped
 
       await sleep(900 * (attempt + 1))
@@ -333,6 +316,54 @@ export async function generateStructured<T>(
   }
 
   throw mapError(lastError)
+}
+
+
+export interface TextRequest { system:string; prompt:string; model:AiModel; maxTokens?:number; baseUrl?:string; signal?:AbortSignal; useProxy?:boolean }
+function extractText(value:unknown):string {
+ if(typeof value==='string')return value.trim()
+ if(Array.isArray(value))return value.map((x)=>typeof x?.text==='string'?x.text:'').filter(Boolean).join('\\n').trim()
+ if(!value||typeof value!=='object')return ''
+ const x=value as Record<string,any>
+ if(typeof x.output_text==='string')return x.output_text.trim()
+ if(x.content!==undefined)return extractText(x.content)
+ if(Array.isArray(x.choices)&&x.choices[0])return extractText(x.choices[0].message?.content??x.choices[0].text)
+ if(x.message?.content!==undefined)return extractText(x.message.content)
+ return ''
+}
+function parseStructured(value:unknown):unknown {
+ if(typeof value!=='string')return value
+ const cleaned=value.trim().replace(/^\\uFEFF/,'').replace(/^\\s*```(?:json)?\\s*/i,'').replace(/\\s*```\\s*$/,'')
+ try{return JSON.parse(cleaned)}catch{
+  const start=cleaned.indexOf('{'),end=cleaned.lastIndexOf('}')
+  if(start>=0&&end>start){try{return JSON.parse(cleaned.slice(start,end+1))}catch{/* invalid */}}
+  throw new AiError('The provider returned invalid structured data. No duplicate retry was sent.','schema')
+ }
+}
+export async function generateText(request:TextRequest):Promise<{text:string;usage:AiUsage}> {
+ const timeout=createTimedSignal(request.signal)
+ try{
+  if(request.useProxy){
+   if(!supabase)throw new AiError('Hosted AI is not configured.','unknown')
+   const {data,error}=await supabase.auth.getSession()
+   if(error)throw new AiError('Your sign-in session could not be checked. Sign in again.','auth')
+   const token=data.session?.access_token
+   if(!token)throw new AiError('Sign in to test hosted AI.','auth')
+   const publicKey=(import.meta.env.VITE_SUPABASE_ANON_KEY as string|undefined)?.trim()
+   if(!publicKey)throw new AiError('The Supabase public key is missing.','unknown')
+   const response=await fetch(aiProxyUrl(),{method:'POST',headers:{'Content-Type':'application/json',apikey:publicKey,Authorization:`Bearer ${token}`},body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32}),signal:timeout.signal})
+   const payload=await response.json().catch(()=>null)
+   if(!response.ok)throw mapError({status:response.status,message:payload?.error??`Proxy returned ${response.status}`})
+   const text=extractText(payload?.content??payload?.output_text??payload)
+   if(!text)throw new AiError('The provider returned an empty response.','schema')
+   return {text,usage:{inputTokens:Number(payload?.usage?.input_tokens??payload?.usage?.prompt_tokens??0),outputTokens:Number(payload?.usage?.output_tokens??payload?.usage?.completion_tokens??0)}}
+  }
+  const message=await createClient(request.baseUrl).messages.create({model:request.model,max_tokens:request.maxTokens??32,system:request.system,messages:[{role:'user',content:request.prompt}]},{signal:timeout.signal})
+  const text=extractText(message.content)
+  if(!text)throw new AiError('The provider returned an empty response.','schema')
+  return {text,usage:{inputTokens:message.usage?.input_tokens??0,outputTokens:message.usage?.output_tokens??0}}
+ }catch(error){if(timeout.didTimeout())throw new AiError('The model took too long to respond.','network',true);throw mapError(error)}
+ finally{timeout.cleanup()}
 }
 
 function mapError(error: unknown): AiError {

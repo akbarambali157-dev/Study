@@ -6,6 +6,9 @@ import './styles/globals.css'
 import './styles/visual-refresh.css'
 import './styles/community.css'
 import { router } from './router'
+import { registerPwaUpdates } from './lib/pwa'
+
+registerPwaUpdates()
 
 const queryClient = new QueryClient({
   defaultOptions: {

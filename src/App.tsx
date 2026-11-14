@@ -7,6 +7,7 @@ import {
   Flame,
   Home,
   Newspaper,
+  RefreshCw,
   Settings as SettingsIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,7 @@ import { isTypingTarget } from '@/lib/shortcuts'
 import { ShortcutsSheet } from '@/components/ShortcutsSheet'
 import { Toaster } from '@/components/ui/toast'
 import { IconButton } from '@/components/ui/Button'
+import { applyPwaUpdate, checkForPwaUpdate } from '@/lib/pwa'
 
 const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
@@ -30,11 +32,18 @@ export function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
   const pendingG = useRef(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.dark)
   }, [settings.dark])
+  useEffect(() => {
+    const onUpdate=()=>setUpdateAvailable(true)
+    window.addEventListener('studyhub:pwa-update',onUpdate)
+    checkForPwaUpdate()
+    return ()=>window.removeEventListener('studyhub:pwa-update',onUpdate)
+  },[])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
@@ -115,6 +124,10 @@ export function App() {
           </div>
         </div>
       </header>
+      {updateAvailable ? <div className="mx-auto mt-3 flex w-[calc(100%-1.5rem)] max-w-6xl items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-white/95 px-4 py-3 text-sm shadow-lg dark:border-indigo-900 dark:bg-slate-900/95" role="status" aria-live="polite">
+        <div><p className="font-semibold text-body">A new Study Hub version is ready</p><p className="text-xs text-muted">Update when ready. Your current work stays open until you choose.</p></div>
+        <div className="flex shrink-0 items-center gap-2"><button type="button" className="rounded-lg px-2 py-2 text-xs text-muted" onClick={()=>setUpdateAvailable(false)}>Later</button><button type="button" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" onClick={()=>void applyPwaUpdate()}><RefreshCw className="size-3.5"/>Update</button></div>
+      </div> : null}
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8">
         <Outlet />
       </main>
