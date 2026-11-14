@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Globe2,
   MoreHorizontal,
+  MessageCircle,
+  Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
@@ -178,6 +180,8 @@ export function App() {
               </span>
             ) : null}
             {!isOnline ? <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300" role="status">Offline</span> : null}
+            <NavLink to="/messages" aria-label="Messages" title="Messages" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><MessageCircle className="size-4" /></NavLink>
+            <NavLink to="/notifications" aria-label="Notifications" title="Notifications" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><Bell className="size-4" /></NavLink>
             <IconButton label="Keyboard shortcuts" onClick={openShortcuts}><Command className="size-4" /></IconButton>
           </div>
         </div>
