@@ -59,7 +59,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\\/assets\\/.*\\.(?:js|mjs)$/,
+            urlPattern: /\/assets\/.*\.(?:js|mjs)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'studyhub-feature-code',
