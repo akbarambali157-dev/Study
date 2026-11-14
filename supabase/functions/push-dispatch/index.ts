@@ -115,6 +115,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // The VAPID public key is intentionally public; only the private key and
+  // dispatch token remain in Vault.
+  if (body.action === "public-key") {
+    try {
+      const keys = await webpush.importVapidKeys(config.vapid_jwks);
+      const publicKey = await webpush.exportApplicationServerKey(keys);
+      return json(200, { publicKey });
+    } catch (error) {
+      console.error("VAPID public key export failed", { name: error instanceof Error ? error.name : "unknown" });
+      return json(503, { error: "Push registration is not configured." });
+    }
+  }
+
   const supplied = req.headers.get("Authorization") ?? "";
   if (supplied !== `Bearer ${config.dispatch_token}`) return json(401, { error: "Unauthorized." });
   const notificationId = typeof body.notification_id === "string" ? body.notification_id : "";
