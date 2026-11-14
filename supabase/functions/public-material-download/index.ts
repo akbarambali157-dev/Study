@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
     .eq("mime_type", "application/pdf")
     .maybeSingle();
 
-  if (documentError || !document?.storage_path || Number(document.size_bytes) > 31457280) {
+  if (documentError || !document?.storage_path || Number(document.size_bytes) > 52428800) {
     return respond(404, { error: "The original PDF is no longer available." });
   }
 
