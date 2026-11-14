@@ -661,16 +661,21 @@ function NotificationPreferences() {
       if (!user) { if (active) { setUserId(null); setVapidKey(await publicKeyPromise); setLoading(false) }; return }
       const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle()
       if (error) throw error
+      const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       const initial = {
         ...DEFAULT_NOTIFICATION_PREFS,
         ...(data ?? {}),
         quiet_hours_start: typeof data?.quiet_hours_start === 'string' ? data.quiet_hours_start.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_start,
         quiet_hours_end: typeof data?.quiet_hours_end === 'string' ? data.quiet_hours_end.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_end,
-        time_zone: typeof data?.time_zone === 'string' ? data.time_zone : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'),
+        time_zone: localTimeZone,
       }
       if (!data) {
         const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id, time_zone: initial.time_zone })
         if (insertError) throw insertError
+      } else if (data.time_zone !== localTimeZone) {
+        const { error: zoneError } = await supabase.from('notification_preferences')
+          .update({ time_zone: localTimeZone, updated_at: new Date().toISOString() }).eq('user_id', user.id)
+        if (zoneError) throw zoneError
       }
       let hasSubscription = false
       if (supportsWebPush()) {
