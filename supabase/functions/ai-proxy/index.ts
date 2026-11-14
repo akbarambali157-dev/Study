@@ -151,6 +151,9 @@ serve(async (req) => {
   }
 
   // ── Forward to brewkeg.dev ──────────────────────────────────────────
+  // Correlation ID lets support trace one failure without collecting prompts,
+  // PDFs, user credentials or other sensitive request contents.
+  const requestId = crypto.randomUUID()
   let brewkegResp: Response
   try {
     brewkegResp = await fetch(`${BREWKEG_BASE_URL}/v1/messages`, {
@@ -169,10 +172,11 @@ serve(async (req) => {
       }),
       signal: AbortSignal.timeout(90_000),
     })
-  } catch {
-    return new Response(JSON.stringify({ error: 'could not reach model provider' }), {
+  } catch (error) {
+    console.error('AI provider transport failed', { requestId, name: error instanceof Error ? error.name : 'unknown' })
+    return new Response(JSON.stringify({ error: 'could not reach model provider', code: 'PROVIDER_NETWORK_ERROR', request_id: requestId }), {
       status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'x-request-id': requestId },
     })
   }
 
@@ -189,11 +193,14 @@ serve(async (req) => {
       // Reserve 401 for the user's Supabase session; provider-key failures are
       // gateway failures and must not tell the student to sign in again.
       status: upstreamAuthFailure ? 502 : brewkegResp.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'x-request-id': requestId },
     })
   }
   const content=extractProviderText(responseJson)
-  if(!content)return new Response(JSON.stringify({error:'The provider returned an empty or unsupported response.'}),{status:502,headers:{...corsHeaders,'Content-Type':'application/json'}})
+  if(!content){
+    console.error('AI provider returned no text content', { requestId, status: brewkegResp.status, contentType: typeof responseJson?.content })
+    return new Response(JSON.stringify({error:'The provider returned an empty or unsupported response.',code:'PROVIDER_EMPTY_RESPONSE',request_id:requestId}),{status:502,headers:{...corsHeaders,'Content-Type':'application/json','x-request-id':requestId}})
+  }
   const usage={input_tokens:tokenCount(responseJson?.usage?.input_tokens,responseJson?.usage?.prompt_tokens),output_tokens:tokenCount(responseJson?.usage?.output_tokens,responseJson?.usage?.completion_tokens)}
 
   // ── Record usage for the logged-in user ─────────────────────────────
@@ -213,10 +220,10 @@ serve(async (req) => {
 
   // ── Return ──────────────────────────────────────────────────────────
   return new Response(
-    JSON.stringify({ content, usage }),
+    JSON.stringify({ content, usage, request_id: requestId }),
     {
       status: brewkegResp.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'x-request-id': requestId },
     },
   )
 })

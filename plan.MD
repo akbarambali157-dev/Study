@@ -1063,3 +1063,33 @@ This ledger records what has actually been changed and checked. It does not conv
 - Supabase security advisor currently reports one separate warning: leaked-password protection is disabled. This is an Auth dashboard setting, not a PDF/AI code failure; enable it in Supabase Auth security settings.
 
 **Release status:** v1.0 and v1.1 are in progress, not fully released. CI/build and deployment pass, but real-account provider tests and real-device PWA/PDF tests remain mandatory before either version can be marked complete.
+
+
+## 23. PDF ingestion and AI diagnostics architecture — 14 November 2026
+
+### Separation of responsibilities
+- Local PDF validation and text extraction are independent from cloud persistence.
+- Cloud persistence is an optional sync operation for signed-in accounts. A storage outage must not block local study generation or BYOK.
+- Cloud sync errors carry a stage, stable machine-readable code, retryability and a diagnostic reference.
+- AI provider failures carry an AI error code and diagnostic reference; hosted proxy requests additionally return a request correlation ID.
+- Diagnostics must never include API keys, access tokens, complete prompts, extracted PDF text, or personal document contents.
+
+### Diagnostic stages
+- PDF: browser/PDF.js validation and extraction; scanned/image-only documents remain an explicit unsupported state.
+- Cloud PDF: session lookup, identity verification, private object upload, metadata write, page-index write, finalization.
+- AI: session and configuration, hosted proxy transport, provider transport, provider authentication/model/rate limits, response extraction, structured schema validation, generation pipeline stage.
+
+### Permanent architecture rules
+- A failure in one subsystem must not silently cascade into another subsystem.
+- Every network boundary must validate inputs and outputs and return a typed error contract.
+- Retries are permitted only for explicitly retryable failures; never automatically retry deterministic validation/schema errors or repeat paid generation unexpectedly.
+- User-facing errors show a concise explanation plus a safe diagnostic reference. Support/debug details must exclude secrets and document content.
+- Keep provider adapters behind the shared AI request contract; do not spread provider-specific fetch logic into feature pages.
+- Keep local document availability separate from remote synchronization state.
+
+### Validation still required
+- Run an authenticated upload on a real device and capture the DOC diagnostic if storage/indexing fails.
+- Run hosted AI connection test and one generation; capture AI diagnostic/request ID if either fails.
+- Run BYOK connection test and generation separately from hosted mode.
+- Test RLS with a second account and verify no cross-account object or page access.
+- Confirm cloud sync can fail while local BYOK generation succeeds.

@@ -3,30 +3,70 @@ import type { DocumentRec } from './types'
 
 const BUCKET = 'study-documents'
 
+export type DocumentSyncStage = 'configuration' | 'validation' | 'session' | 'identity' | 'storage-upload' | 'metadata' | 'page-index' | 'finalize'
+
+export class DocumentSyncError extends Error {
+  readonly diagnosticId: string
+  constructor(
+    message: string,
+    readonly stage: DocumentSyncStage,
+    readonly code: string,
+    readonly retryable = false,
+    readonly status?: number,
+  ) {
+    super(message)
+    this.name = 'DocumentSyncError'
+    this.diagnosticId = `DOC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`
+  }
+}
+
 export interface CloudDocumentRef {
   remoteId: string
   storagePath: string
   syncStatus: 'indexed'
 }
 
-/** Upload a private PDF and its extracted page text for the signed-in owner. */
+function failure(stage: DocumentSyncStage, code: string, error: unknown, retryable = false): DocumentSyncError {
+  const message = error instanceof Error ? error.message : 'Unknown storage error'
+  const status = typeof error === 'object' && error && 'status' in error ? Number((error as { status?: unknown }).status) || undefined : undefined
+  return new DocumentSyncError(message.slice(0, 240), stage, code, retryable, status)
+}
+
+/**
+ * Cloud sync is deliberately a separate operation from local PDF extraction
+ * and AI generation. Callers can continue locally when cloud sync is down.
+ */
 export async function uploadDocumentToCloud(file: File, document: DocumentRec): Promise<CloudDocumentRef | null> {
   if (!supabase) return null
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    throw new Error('Choose a valid PDF file before uploading.')
+    throw new DocumentSyncError('Choose a valid PDF file before uploading.', 'validation', 'INVALID_PDF')
   }
   if (!file.size || file.size > 30 * 1024 * 1024) {
-    throw new Error('This PDF must be between 1 byte and 30 MB.')
+    throw new DocumentSyncError('This PDF must be between 1 byte and 30 MB.', 'validation', 'PDF_SIZE_LIMIT')
+  }
+  if (!document.pages.length) {
+    throw new DocumentSyncError('The PDF has no extracted page text to index.', 'validation', 'EMPTY_PAGE_INDEX')
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-  if (sessionError) throw new Error('Your sign-in session could not be checked. Sign in again.')
+  let sessionData
+  try {
+    const result = await supabase.auth.getSession()
+    if (result.error) throw result.error
+    sessionData = result.data
+  } catch (error) {
+    throw failure('session', 'SESSION_LOOKUP_FAILED', error, true)
+  }
   if (!sessionData.session) return null
 
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) throw new Error('Your account could not be verified. Sign in again before uploading.')
+  let userId: string
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    if (error || !data.user) throw error ?? new Error('No authenticated user returned')
+    userId = data.user.id
+  } catch (error) {
+    throw failure('identity', 'USER_VERIFICATION_FAILED', error, true)
+  }
 
-  const userId = userData.user.id
   const remoteId = document.remoteId ?? crypto.randomUUID()
   const safeName = file.name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'document.pdf'
   const storagePath = document.storagePath ?? `${userId}/${remoteId}/${safeName}`
@@ -37,7 +77,7 @@ export async function uploadDocumentToCloud(file: File, document: DocumentRec): 
     upsert: isRetry,
     cacheControl: '3600',
   })
-  if (uploadError) throw new Error(`Private PDF upload failed: ${uploadError.message}`)
+  if (uploadError) throw failure('storage-upload', 'PRIVATE_STORAGE_UPLOAD_FAILED', uploadError, true)
 
   try {
     const metadata = {
@@ -47,35 +87,34 @@ export async function uploadDocumentToCloud(file: File, document: DocumentRec): 
       status: 'uploaded', error_message: null, updated_at: new Date().toISOString(),
     }
     const { error: metadataError } = await supabase.from('study_documents').upsert(metadata, { onConflict: 'id' })
-    if (metadataError) throw new Error(`Document record could not be saved: ${metadataError.message}`)
+    if (metadataError) throw failure('metadata', 'DOCUMENT_METADATA_WRITE_FAILED', metadataError, true)
 
-    if (isRetry) {
-      const { error } = await supabase.from('study_document_pages').delete().eq('document_id', remoteId).eq('owner_id', userId)
-      if (error) throw new Error(`The previous page index could not be refreshed: ${error.message}`)
-    }
+    // Replace the previous page set atomically from the client's perspective.
+    // Delete is scoped to this owner and document; a failed refresh is surfaced.
+    const { error: deleteError } = await supabase.from('study_document_pages')
+      .delete().eq('document_id', remoteId).eq('owner_id', userId)
+    if (deleteError) throw failure('page-index', 'OLD_PAGE_INDEX_CLEANUP_FAILED', deleteError, true)
 
     for (let start = 0; start < document.pages.length; start += 20) {
       const rows = document.pages.slice(start, start + 20).map((page_text, index) => ({
         document_id: remoteId, owner_id: userId, page_number: start + index + 1, page_text,
       }))
       const { error } = await supabase.from('study_document_pages').insert(rows)
-      if (error) throw new Error(`PDF text indexing failed on pages ${start + 1}–${start + rows.length}: ${error.message}`)
+      if (error) throw failure('page-index', `PAGE_INDEX_INSERT_FAILED_${start + 1}`, error, true)
     }
 
     const { error: readyError } = await supabase.from('study_documents')
-      .update({ status: 'indexed', updated_at: new Date().toISOString() })
+      .update({ status: 'indexed', error_message: null, updated_at: new Date().toISOString() })
       .eq('id', remoteId).eq('owner_id', userId)
-    if (readyError) throw new Error(`PDF uploaded, but page indexing did not finish: ${readyError.message}`)
+    if (readyError) throw failure('finalize', 'DOCUMENT_FINALIZE_FAILED', readyError, true)
 
     return { remoteId, storagePath, syncStatus: 'indexed' }
   } catch (error) {
-    if (isRetry) {
-      await supabase.from('study_document_pages').delete().eq('document_id', remoteId).eq('owner_id', userId)
-      await supabase.from('study_documents').update({ status: 'failed', error_message: 'Page indexing needs to be retried.' }).eq('id', remoteId).eq('owner_id', userId)
-    } else {
-      await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => undefined)
-      await supabase.from('study_documents').delete().eq('id', remoteId).eq('owner_id', userId)
-    }
+    // Preserve the binary and metadata on retryable indexing errors. A later
+    // retry can safely upsert the same object and rebuild the page index.
+    await supabase.from('study_documents')
+      .update({ status: 'failed', error_message: error instanceof Error ? error.message.slice(0, 240) : 'Indexing failed', updated_at: new Date().toISOString() })
+      .eq('id', remoteId).eq('owner_id', userId)
     throw error
   }
 }

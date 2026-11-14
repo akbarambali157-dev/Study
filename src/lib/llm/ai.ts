@@ -23,10 +23,14 @@ export class AiError extends Error {
     message: string,
     readonly code: AiErrorCode,
     readonly retryable = false,
+    readonly requestId?: string,
   ) {
     super(message)
     this.name = 'AiError'
   }
+
+  /** Safe reference shown to the student; it contains no prompt or credential data. */
+  readonly diagnosticId = `AI-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`
 }
 
 export interface AiUsage {
@@ -194,13 +198,10 @@ async function generateStructuredViaProxy<T>(
           throw new AiError('Your session has expired. Sign in again to use hosted AI.', 'auth')
         }
         const detail = typeof errBody?.error === 'string' ? errBody.error : `Proxy returned ${resp.status}`
-        if (resp.status >= 500) {
-          throw new AiError(`Hosted AI is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503)
-        }
-        throw mapError({
-          status: resp.status,
-          message: detail,
-        })
+        const mapped = resp.status >= 500
+          ? new AiError(`Hosted AI is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503, errBody?.request_id)
+          : mapError({ status: resp.status, message: detail })
+        throw new AiError(mapped.message, mapped.code, mapped.retryable, errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined)
       }
 
       const payload = await resp.json() as {content?:unknown;output_text?:unknown;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
@@ -354,7 +355,7 @@ export async function generateText(request:TextRequest):Promise<{text:string;usa
    if(!publicKey)throw new AiError('The Supabase public key is missing.','unknown')
    const response=await fetch(aiProxyUrl(),{method:'POST',headers:{'Content-Type':'application/json',apikey:publicKey,Authorization:`Bearer ${token}`},body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32}),signal:timeout.signal})
    const payload=await response.json().catch(()=>null)
-   if(!response.ok)throw mapError({status:response.status,message:payload?.error??`Proxy returned ${response.status}`})
+   if(!response.ok){const mapped=mapError({status:response.status,message:payload?.error??`Proxy returned ${response.status}`});throw new AiError(mapped.message,mapped.code,mapped.retryable,payload?.request_id??response.headers.get('x-request-id')??undefined)}
    const text=extractText(payload?.content??payload?.output_text??payload)
    if(!text)throw new AiError('The provider returned an empty response.','schema')
    return {text,usage:{inputTokens:Number(payload?.usage?.input_tokens??payload?.usage?.prompt_tokens??0),outputTokens:Number(payload?.usage?.output_tokens??payload?.usage?.completion_tokens??0)}}

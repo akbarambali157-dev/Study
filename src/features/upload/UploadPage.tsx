@@ -17,7 +17,7 @@ import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { hasAiAccess } from '@/lib/apiKey'
 import { supabase } from '@/lib/supabase'
-import { uploadDocumentToCloud } from '@/lib/documentSync'
+import { uploadDocumentToCloud, DocumentSyncError } from '@/lib/documentSync'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
@@ -56,7 +56,7 @@ type FilePhase =
   | { kind: 'ready' }
   | { kind: 'running'; stage: Stage; detail?: string }
   | { kind: 'done'; docId: string }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; message: string; errorDiagnostic?: string }
 
 type QueuedFile = {
   id: string
@@ -69,6 +69,7 @@ type QueuedFile = {
   phase: FilePhase
   pii: string | null
   piiAcknowledged: boolean
+  cloudSyncIssue?: { message: string; diagnostic: string }
 }
 
 export function UploadPage() {
@@ -159,6 +160,7 @@ export function UploadPage() {
                       err instanceof PdfError
                         ? err.message
                         : 'This PDF could not be read. It may be damaged or password-protected.',
+                    errorDiagnostic: err instanceof PdfError ? `PDF · ${err.code}` : `PDF-UNKNOWN · ${err instanceof Error ? err.name : 'unknown'}`,
                   },
                 }
               : f,
@@ -232,16 +234,30 @@ export function UploadPage() {
         : f))
 
       try {
-        const remote = await uploadDocumentToCloud(item.file, savedDoc)
-        if (remote) {
-          savedDoc = { ...savedDoc, ...remote }
-          setFiles((prev) => prev.map((f) => f.id === id
-            ? { ...f, remoteId: remote.remoteId, storagePath: remote.storagePath }
-            : f))
-          await saveDocument(savedDoc)
+        // Cloud persistence is independent from study generation. A storage or
+        // indexing outage must not discard a readable local PDF or block BYOK.
+        let remote = null
+        let cloudSyncIssue: QueuedFile['cloudSyncIssue']
+        try {
+          remote = await uploadDocumentToCloud(item.file, savedDoc)
+          if (remote) {
+            savedDoc = { ...savedDoc, ...remote }
+            setFiles((prev) => prev.map((f) => f.id === id
+              ? { ...f, remoteId: remote!.remoteId, storagePath: remote!.storagePath, cloudSyncIssue: undefined }
+              : f))
+            await saveDocument(savedDoc)
+          }
+        } catch (syncError) {
+          const message = syncError instanceof Error ? redactSecrets(syncError.message) : 'Cloud sync failed.'
+          const diagnostic = syncError instanceof DocumentSyncError
+            ? `${syncError.diagnosticId} · ${syncError.stage} · ${syncError.code}`
+            : `DOC-UNKNOWN · ${syncError instanceof Error ? syncError.name : 'unknown'}`
+          cloudSyncIssue = { message, diagnostic }
+          setFiles((prev) => prev.map((f) => f.id === id ? { ...f, cloudSyncIssue } : f))
+          toast(`PDF remains available on this device. Cloud copy failed: ${message} [${diagnostic}]`, 'error')
         }
         setFiles((prev) => prev.map((f) => f.id === id
-          ? { ...f, phase: { kind: 'running', stage: 'map', detail: remote ? 'Private copy uploaded and pages indexed' : 'Using this device’s private copy' } }
+          ? { ...f, phase: { kind: 'running', stage: 'map', detail: remote ? 'Private copy uploaded and pages indexed' : cloudSyncIssue ? 'Cloud sync failed; continuing from local copy' : 'Using this device’s private copy' } }
           : f))
 
         const result = await generateStudyMaterial({
@@ -300,7 +316,7 @@ export function UploadPage() {
         setFiles((prev) =>
           prev.map((f) =>
             f.id === id
-              ? { ...f, phase: { kind: 'error', message: redactSecrets(message) } }
+              ? { ...f, phase: { kind: 'error', message: redactSecrets(message), errorDiagnostic: err instanceof AiError ? `${err.diagnosticId} · ${err.code}${err.requestId ? ` · request ${err.requestId}` : ''}` : `AI-UNKNOWN · ${err instanceof Error ? err.name : 'unknown'}` } }
               : f,
           ),
         )
@@ -389,6 +405,16 @@ export function UploadPage() {
               {phaseLabel(item.phase)}
               {item.phase.kind === 'error' ? ` — ${item.phase.message}` : ''}
             </p>
+            {item.cloudSyncIssue ? (
+              <div className="mt-2 rounded-lg border border-clay/30 bg-clay/5 px-3 py-2 text-[12px] leading-relaxed">
+                <p className="font-medium text-clay">Cloud copy not saved — local processing can continue.</p>
+                <p className="mt-1 text-muted">{item.cloudSyncIssue.message}</p>
+                <p className="mt-1 font-mono text-[11px] text-muted">Diagnostic: {item.cloudSyncIssue.diagnostic}</p>
+              </div>
+            ) : null}
+            {item.phase.kind === 'error' && item.phase.errorDiagnostic ? (
+              <p className="mt-1 font-mono text-[11px] text-muted">Diagnostic: {item.phase.errorDiagnostic}</p>
+            ) : null}
           </div>
           <div className="flex shrink-0 gap-1.5">
             {!busy && item.phase.kind !== 'done' ? (
