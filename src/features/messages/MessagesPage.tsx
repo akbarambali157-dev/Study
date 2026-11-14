@@ -91,6 +91,17 @@ export function MessagesPage() {
 
   useEffect(() => { void loadInbox() }, [loadInbox])
   useEffect(() => {
+    if (!supabase) return
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setUserId(null); setInbox([]); setMessages([]); setDraft('')
+      } else {
+        void Promise.resolve().then(() => loadInbox())
+      }
+    })
+    return () => data.subscription.unsubscribe()
+  }, [loadInbox])
+  useEffect(() => {
     if (!selectedId || !userId || !supabase) { setMessages([]); return }
     void loadMessages(selectedId)
     const channel = supabase.channel(`messages:${selectedId}`)
