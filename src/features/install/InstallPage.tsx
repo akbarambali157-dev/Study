@@ -7,24 +7,26 @@ import { Card, Chip } from '@/components/ui/misc'
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }> }
 
 export function InstallPage() {
-  const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null)
+  const [promptEvent, setPromptEvent] = useState<PwaInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(false)
   const [ios, setIos] = useState(false)
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
     setInstalled(standalone)
     setIos(/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
-    const onPrompt = (event: Event) => { event.preventDefault(); setPromptEvent(event as InstallPromptEvent) }
+    setPromptEvent(getDeferredInstallPrompt())
+    const onPrompt = () => setPromptEvent(getDeferredInstallPrompt())
     const onInstalled = () => { setInstalled(true); setPromptEvent(null) }
-    window.addEventListener('beforeinstallprompt', onPrompt)
-    window.addEventListener('appinstalled', onInstalled)
-    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled) }
+    window.addEventListener('studyhub:install-prompt', onPrompt)
+    window.addEventListener('studyhub:app-installed', onInstalled)
+    return () => { window.removeEventListener('studyhub:install-prompt', onPrompt); window.removeEventListener('studyhub:app-installed', onInstalled) }
   }, [])
   const install = async () => {
     if (!promptEvent) return
     await promptEvent.prompt()
     const choice = await promptEvent.userChoice
     if (choice.outcome === 'accepted') setInstalled(true)
+    clearDeferredInstallPrompt()
     setPromptEvent(null)
   }
   return <div className="mx-auto max-w-3xl">
