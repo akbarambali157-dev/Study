@@ -13,7 +13,12 @@ export function AdminPage(){
  const load=useCallback(async()=>{
   if(!supabase){setAllowed(false);setLoading(false);return}
   setLoading(true);setError('')
-  const{data:auth}=await supabase.auth.getUser();const admin=auth.user?.app_metadata?.role==='admin';setAllowed(admin)
+  // Refresh first so a role recently added in Supabase App Metadata is present
+  // in the access token used by PostgREST RLS policies, not only in /auth/v1/user.
+  const{data:sessionData,error:sessionError}=await supabase.auth.refreshSession()
+  const user=sessionData.session?.user
+  if(sessionError||!user){setAllowed(false);setError(sessionError?.message||'Your session could not be refreshed. Sign out and sign back in, then reopen Admin.');setLoading(false);return}
+  const admin=user.app_metadata?.role==='admin';setAllowed(admin)
   if(!admin){setLoading(false);return}
   const[summaryResult,recentResult,limitsResult,globalResult]=await Promise.all([
    supabase.rpc('admin_usage_summary'),
