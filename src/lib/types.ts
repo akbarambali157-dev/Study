@@ -30,6 +30,9 @@ export interface DocumentRec {
   status: DocumentStatus
   source: 'upload' | 'demo'
   sizeBytes?: number
+  remoteId?: string
+  storagePath?: string
+  syncStatus?: 'local' | 'indexed' | 'failed'
   dirty?: boolean
 }
 

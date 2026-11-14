@@ -17,6 +17,7 @@ import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { hasAiAccess } from '@/lib/apiKey'
 import { supabase } from '@/lib/supabase'
+import { uploadDocumentToCloud } from '@/lib/documentSync'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
@@ -60,6 +61,8 @@ type FilePhase =
 type QueuedFile = {
   id: string
   documentId?: string
+  remoteId?: string
+  storagePath?: string
   file: File
   extracted: ExtractedPdf | null
   title: string
@@ -204,7 +207,7 @@ export function UploadPage() {
         return
       }
 
-      const doc: DocumentRec = {
+      let savedDoc: DocumentRec = {
         id: item.documentId ?? uid('doc'),
         title: item.title.trim() || stripExtension(item.file.name),
         fileName: item.file.name,
@@ -214,24 +217,35 @@ export function UploadPage() {
         status: 'extracting',
         source: 'upload',
         sizeBytes: item.file.size,
+        remoteId: item.remoteId,
+        storagePath: item.storagePath,
+        syncStatus: item.remoteId ? 'indexed' : 'local',
       }
-
-      await saveDocument(doc)
-      await cachePdfBlob(doc.id, item.file)
+      // Preserve the extracted copy locally before starting any network work.
+      await saveDocument(savedDoc)
+      await cachePdfBlob(savedDoc.id, item.file)
 
       const controller = new AbortController()
       abortRef.current = controller
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.id === id
-            ? { ...f, documentId: doc.id, phase: { kind: 'running', stage: 'map' } }
-            : f,
-        ),
-      )
+      setFiles((prev) => prev.map((f) => f.id === id
+        ? { ...f, documentId: savedDoc.id, phase: { kind: 'running', stage: 'extract', detail: 'Preparing your private document copy' } }
+        : f))
 
       try {
+        const remote = await uploadDocumentToCloud(item.file, savedDoc)
+        if (remote) {
+          savedDoc = { ...savedDoc, ...remote }
+          setFiles((prev) => prev.map((f) => f.id === id
+            ? { ...f, remoteId: remote.remoteId, storagePath: remote.storagePath }
+            : f))
+          await saveDocument(savedDoc)
+        }
+        setFiles((prev) => prev.map((f) => f.id === id
+          ? { ...f, phase: { kind: 'running', stage: 'map', detail: remote ? 'Private copy uploaded and pages indexed' : 'Using this device’s private copy' } }
+          : f))
+
         const result = await generateStudyMaterial({
-          doc,
+          doc: savedDoc,
           model: settings.model,
           baseUrl: settings.baseUrl || undefined,
           signal: controller.signal,
@@ -247,12 +261,12 @@ export function UploadPage() {
           },
         })
 
-        await saveDocument({ ...doc, status: 'ready' })
+        await saveDocument({ ...savedDoc, status: 'ready' })
         await touchStreak()
         setFiles((prev) =>
           prev.map((f) =>
             f.id === id
-              ? { ...f, phase: { kind: 'done', docId: doc.id } }
+              ? { ...f, phase: { kind: 'done', docId: savedDoc.id } }
               : f,
           ),
         )
@@ -260,14 +274,14 @@ export function UploadPage() {
           ? `${result.usage.inputTokens.toLocaleString()} input / ${result.usage.outputTokens.toLocaleString()} output tokens; gateway billing applies`
           : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
         toast(
-          `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${doc.title}”.`,
+          `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${savedDoc.title}”.`,
           'success',
         )
-        navigate(`/doc/${doc.id}`)
+        navigate(`/doc/${savedDoc.id}`)
       } catch (err) {
         const stopped = controller.signal.aborted
-        await clearGeneratedContent(doc.id)
-        await saveDocument({ ...doc, status: stopped ? 'extracting' : 'failed' })
+        await clearGeneratedContent(savedDoc.id)
+        await saveDocument({ ...savedDoc, status: stopped ? 'extracting' : 'failed' })
         if (stopped) {
           setFiles((prev) =>
             prev.map((f) =>
