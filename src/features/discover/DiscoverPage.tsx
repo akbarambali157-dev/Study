@@ -118,16 +118,16 @@ export function DiscoverPage() {
     }
   }
 
-  if (!supabase) return <div className="mx-auto max-w-4xl"><PageHeading title="Discover" subtitle="Explore shared study materials from the OOU community." /><Card className="p-5">The shared library is not connected on this device.</Card></div>
+  if (!supabase) return <div className="hub-discover-page mx-auto max-w-4xl"><PageHeading title="Discover" subtitle="Explore shared study materials from the OOU community." /><Card className="p-5">The shared library is not connected on this device.</Card></div>
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="hub-discover-page mx-auto max-w-5xl">
       <PageHeading title="Discover" subtitle="A growing library of student-shared notes, original PDFs, flashcards and quizzes." />
-      <section className="mb-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[#132d2a] via-[#1d4a43] to-[#375f76] p-5 text-white shadow-lg sm:p-7">
+      <section className="hub-discover-hero mb-5 overflow-hidden rounded-3xl p-5 text-white shadow-lg sm:p-7">
         <div className="flex items-start gap-3"><span className="grid size-11 place-items-center rounded-2xl border border-white/20 bg-white/10"><Sparkles className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-emerald-100">The OOU knowledge commons</p><h2 className="mt-1 text-2xl font-semibold">Learn from the work around you.</h2><p className="mt-1 max-w-2xl text-sm text-white/75">Explore materials students have chosen to share. Some contributions include the original PDF for download; private uploads and page indexes stay protected.</p></div></div>
         <div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).length}</p><p className="text-[11px] text-white/70">Public sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.owner_id === userId).length}</p><p className="text-[11px] text-white/70">Your sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).reduce((n, row) => n + Number((row.content as MaterialContent).flashcards?.length ?? 0), 0)}</p><p className="text-[11px] text-white/70">Shared cards</p></div></div>
       </section>
-      <div className="relative mb-4"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search subjects, titles, tags or students…" className="h-12 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-sm outline-none focus:border-forest-400" /></div>
+      <div className="hub-discover-search relative mb-4"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search subjects, titles, tags or students…" className="h-12 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-sm outline-none focus:border-forest-400" /></div>
       {loading ? <Card className="p-6 text-sm text-muted">Loading the community library…</Card> : filtered.length === 0 ? <EmptyState icon={<BookOpen className="size-6" />} title="No materials found" body="Try another search, or publish a study set from Add material." /> : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((row) => {
@@ -137,7 +137,7 @@ export function DiscoverPage() {
             const saved = savedIds.includes(row.id)
             const cards = publicMaterialCards(row)
             const stats = progress[row.id]
-            return <Card key={row.id} className="overflow-hidden p-0">
+            return <Card key={row.id} className="hub-discover-card overflow-hidden p-0">
               <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Chip tone="green">{row.discipline || 'General'}</Chip><Chip>{row.page_count} pages</Chip>{mine ? <Chip tone={row.is_public ? 'green' : 'clay'}>{row.is_public ? 'Public' : 'Private'}</Chip> : null}</div><h3 className="mt-3 font-display text-lg font-semibold">{row.title}</h3><p className="mt-1 text-xs text-muted">Shared by {row.author_name} · {new Date(row.created_at).toLocaleDateString()}</p></div><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-400/10 text-forest-400"><BookOpen className="size-5" /></span></div>
                 <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted">{row.summary || 'A student-created study set.'}</p>
