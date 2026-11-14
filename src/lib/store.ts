@@ -157,26 +157,27 @@ export async function getQuestions(deckId: string): Promise<QuizQuestion[]> {
 
 /** A document counts as "ready" once its deck has at least one card. */
 export async function libraryOverview() {
-  const [documents, decks, cards, reviews, attempts] = await Promise.all([
+  const nowIso = new Date().toISOString()
+  const [documents, decks, cards, futureReviewIds, attempts] = await Promise.all([
     db.documents.orderBy('createdAt').reverse().toArray(),
     db.decks.toArray(),
     db.cards.toArray(),
-    db.reviews.toArray(),
+    // Only future-due review keys are needed. Missing, due and overdue cards
+    // all count as due, so loading every review object wastes memory.
+    db.reviews.where('dueAt').above(nowIso).primaryKeys(),
     db.attempts.orderBy('createdAt').reverse().toArray(),
   ])
 
-  const reviewByCard = new Map(reviews.map((review) => [review.cardId, review]))
+  const notDue = new Set(futureReviewIds)
   const deckByDoc = new Map(decks.map((deck) => [deck.documentId, deck]))
   const statsByDeck = new Map<string, { cardCount: number; dueCount: number }>()
   const latestAttemptByDeck = new Map<string, QuizAttempt>()
 
   // One pass over cards replaces a full card-array filter for every document.
-  const now = Date.now()
   for (const card of cards) {
     const stats = statsByDeck.get(card.deckId) ?? { cardCount: 0, dueCount: 0 }
     stats.cardCount++
-    const review = reviewByCard.get(card.id)
-    if (!review || Date.parse(review.dueAt) <= now) stats.dueCount++
+    if (!notDue.has(card.id)) stats.dueCount++
     statsByDeck.set(card.deckId, stats)
   }
 
