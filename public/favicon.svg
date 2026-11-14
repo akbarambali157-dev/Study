@@ -1,4 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0B3D2E"/>
-  <text x="32" y="45" font-family="Georgia,serif" font-size="34" font-weight="700" fill="#F2B33D" text-anchor="middle">O</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#24205f"/><stop offset=".55" stop-color="#17134b"/><stop offset="1" stop-color="#080d2c"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop stop-color="#5145e8" stop-opacity=".42"/><stop offset="1" stop-color="#5145e8" stop-opacity="0"/></radialGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#69d7ff"/><stop offset="1" stop-color="#3266f2"/></linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5ff5d2"/><stop offset="1" stop-color="#09b9a8"/></linearGradient>
+    <linearGradient id="lower" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b4a4ff"/><stop offset="1" stop-color="#5e68ff"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff1a1"/><stop offset="1" stop-color="#f4a51c"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="254" r="224" fill="url(#glow)"/>
+  <path d="M256 82c12 54 28 70 82 82-54 12-70 28-82 82-12-54-28-70-82-82 54-12 70-28 82-82Z" fill="url(#gold)"/>
+  <path d="M85 204c61 4 113 19 151 55v160c-42-35-90-48-164-43l13-172Z" fill="url(#left)"/>
+  <path d="M427 204c-61 4-113 19-151 55v160c42-35 90-48 164-43l-13-172Z" fill="url(#right)"/>
+  <path d="M72 340c74-28 135-20 184 22v71c-53-39-113-47-192-19l8-74Z" fill="#58a9ff" opacity=".92"/>
+  <path d="M440 340c-74-28-135-20-184 22v71c53-39 113-47 192-19l-8-74Z" fill="#43e0cb" opacity=".92"/>
+  <path d="M64 421c78-34 139-26 192 20 53-46 114-54 192-20l-192 58-192-58Z" fill="url(#lower)"/>
+  <path d="M256 339v102" stroke="#e7eaff" stroke-opacity=".7" stroke-width="5" stroke-linecap="round"/>
 </svg>
