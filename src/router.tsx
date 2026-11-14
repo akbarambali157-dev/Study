@@ -1,6 +1,5 @@
 import { createHashRouter } from 'react-router-dom'
 import { App } from './App'
-import { DashboardPage } from './features/dashboard/DashboardPage'
 import { NotFoundPage } from './features/NotFoundPage'
 
 /**
@@ -13,7 +12,7 @@ export const router = createHashRouter([
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, lazy: async () => ({ Component: (await import('./features/dashboard/DashboardPage')).DashboardPage }) },
       { path: 'auth', lazy: async () => ({ Component: (await import('./features/auth/AuthPage')).AuthPage }) },
       { path: 'admin', lazy: async () => ({ Component: (await import('./features/admin/AdminPage')).AdminPage }) },
       { path: 'discover', lazy: async () => ({ Component: (await import('./features/discover/DiscoverPage')).DiscoverPage }) },
