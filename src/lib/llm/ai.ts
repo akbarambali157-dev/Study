@@ -209,12 +209,27 @@ async function generateStructuredViaProxy<T>(
       const payload = await resp.json() as {content?:unknown;output_text?:unknown;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
       const content = extractText(payload.content ?? payload.output_text ?? payload)
       const usage = { input_tokens: Number(payload.usage?.input_tokens ?? payload.usage?.prompt_tokens ?? 0), output_tokens: Number(payload.usage?.output_tokens ?? payload.usage?.completion_tokens ?? 0) }
-      const parsed = request.schema.safeParse(parseStructured(content))
+      let candidate: unknown
+      try {
+        candidate = parseStructured(content)
+      } catch (error) {
+        if (error instanceof AiError) {
+          throw new AiError(error.message, error.code, error.retryable, payload.request_id)
+        }
+        throw error
+      }
+      const parsed = request.schema.safeParse(candidate)
       if (!parsed.success) {
+        // Report only schema paths/codes: never include model output or source PDF text.
+        const details = parsed.error.issues
+          .slice(0, 5)
+          .map((issue) => `${issue.path.length ? issue.path.join('.') : 'root'} (${issue.code})`)
+          .join('; ')
         throw new AiError(
-          'The response did not match the expected shape.',
+          `The response did not match the expected shape. Invalid fields: ${details || 'unknown'}.`,
           'schema',
           false,
+          payload.request_id,
         )
       }
 
