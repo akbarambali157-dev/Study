@@ -607,6 +607,40 @@ function ToggleRow({
   )
 }
 
+function BlockedUsersSettings() {
+  const [rows, setRows] = useState<{ blocked_id: string; display_name: string }[]>([])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const load = useCallback(async () => {
+    if (!supabase) { setLoading(false); return }
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) { setLoading(false); return }
+    const { data, error } = await supabase.from('user_blocks').select('blocked_id').eq('blocker_id', auth.user.id).order('created_at', { ascending: false })
+    if (error) { toast(error.message, 'error'); setLoading(false); return }
+    const ids = (data ?? []).map((row) => row.blocked_id)
+    const { data: profiles } = ids.length
+      ? await supabase.from('student_profiles').select('user_id,display_name').in('user_id', ids)
+      : { data: [] }
+    const names = new Map((profiles ?? []).map((profile) => [profile.user_id, profile.display_name]))
+    setRows(ids.map((blocked_id) => ({ blocked_id, display_name: names.get(blocked_id) ?? 'Blocked student' })))
+    setLoading(false)
+  }, [])
+  useEffect(() => { void load() }, [load])
+  const unblock = async (id: string) => {
+    if (!supabase || busy) return
+    setBusy(id)
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) { setBusy(null); return }
+    const { error } = await supabase.from('user_blocks').delete().eq('blocker_id', auth.user.id).eq('blocked_id', id)
+    if (error) toast(error.message, 'error')
+    else { setRows((current) => current.filter((row) => row.blocked_id !== id)); toast('Student unblocked.', 'success') }
+    setBusy(null)
+  }
+  if (loading) return <span className="text-xs text-muted">Loading…</span>
+  if (!rows.length) return <span className="text-xs text-muted">No blocked accounts</span>
+  return <div className="w-full space-y-2">{rows.map((row) => <div key={row.blocked_id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2"><span className="truncate text-xs font-medium">{row.display_name}</span><Button size="sm" variant="ghost" disabled={busy === row.blocked_id} onClick={() => void unblock(row.blocked_id)}>{busy === row.blocked_id ? 'Working…' : 'Unblock'}</Button></div>)}</div>
+}
+
 /** Uses the same staged model mix as the upload cost preview. */
 function estimateFor40Pages(model: Parameters<typeof estimateGenerationCost>[1]): number {
   const samplePages = Array.from({ length: 40 }, () => 'x'.repeat(2_500))
