@@ -203,14 +203,15 @@ async function generateStructuredViaProxy<T>(
         })
       }
 
-      const payload = await resp.json() as {content?:unknown;output_text?:unknown}
+      const payload = await resp.json() as {content?:unknown;output_text?:unknown;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
       const content = extractText(payload.content ?? payload.output_text ?? payload)
+      const usage = { input_tokens: Number(payload.usage?.input_tokens ?? payload.usage?.prompt_tokens ?? 0), output_tokens: Number(payload.usage?.output_tokens ?? payload.usage?.completion_tokens ?? 0) }
       const parsed = request.schema.safeParse(parseStructured(content))
       if (!parsed.success) {
         throw new AiError(
           'The response did not match the expected shape.',
           'schema',
-          true,
+          false,
         )
       }
 
