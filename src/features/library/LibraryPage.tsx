@@ -69,7 +69,7 @@ export function LibraryPage() {
   }
 
   return (
-    <div>
+    <div className="hub-library-page">
       <PageHeading
         title="Library"
         subtitle={
