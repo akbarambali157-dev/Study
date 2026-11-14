@@ -27,7 +27,7 @@ import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
 import { downloadFile } from '@/lib/export'
-import { generateText, redactSecrets } from '@/lib/llm/ai'
+import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 
