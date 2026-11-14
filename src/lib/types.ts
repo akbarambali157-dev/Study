@@ -33,6 +33,9 @@ export interface DocumentRec {
   remoteId?: string
   storagePath?: string
   syncStatus?: 'local' | 'indexed' | 'failed'
+  /** Visibility applies only to generated study materials; source PDF remains private. */
+  publicMaterialId?: string
+  materialVisibility?: 'public' | 'private'
   dirty?: boolean
 }
 

@@ -17,6 +17,7 @@ import { Card, Chip, Progress } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { hasAiAccess } from '@/lib/apiKey'
 import { supabase } from '@/lib/supabase'
+import { publishGeneratedMaterial } from '@/lib/materials'
 import { uploadDocumentToCloud, DocumentSyncError } from '@/lib/documentSync'
 import { estimateGenerationCost, formatUsd, modelInfo, nairaHint } from '@/lib/cost'
 import { useSettings } from '@/lib/hooks'
@@ -69,6 +70,7 @@ type QueuedFile = {
   phase: FilePhase
   pii: string | null
   piiAcknowledged: boolean
+  isPublic: boolean
   cloudSyncIssue?: { message: string; diagnostic: string }
 }
 
@@ -106,6 +108,7 @@ export function UploadPage() {
           phase: { kind: 'idle' },
           pii: null,
           piiAcknowledged: false,
+          isPublic: true,
         })
       }
       if (toAdd.length === 0) return
@@ -143,6 +146,7 @@ export function UploadPage() {
                   extracted: result,
                   title: titleCase(result.title || stripExtension(file.name)),
                   pii: findPiiSignal(file.name, result.pages),
+                  isPublic: !findPiiSignal(file.name, result.pages),
                   phase: { kind: 'ready' },
                 }
               : f,
@@ -185,6 +189,10 @@ export function UploadPage() {
 
   const togglePiiAck = useCallback((id: string, checked: boolean) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, piiAcknowledged: checked } : f)))
+  }, [])
+
+  const togglePublic = useCallback((id: string, checked: boolean) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, isPublic: checked } : f)))
   }, [])
 
   // ── run generation for one file ─────────────────────────────────────────
@@ -281,7 +289,19 @@ export function UploadPage() {
           },
         })
 
-        await saveDocument({ ...savedDoc, status: 'ready' })
+        await saveDocument({ ...savedDoc, status: 'ready', materialVisibility: item.isPublic ? 'public' : 'private' })
+        if (item.isPublic && supabase) {
+          try {
+            const publicMaterialId = await publishGeneratedMaterial(savedDoc.id, savedDoc.title, savedDoc.pageCount)
+            savedDoc = { ...savedDoc, publicMaterialId, materialVisibility: 'public' }
+            await saveDocument({ ...savedDoc, status: 'ready' })
+            toast('Your study material is now in the public library. The original PDF remains private.', 'success')
+          } catch (publishError) {
+            savedDoc = { ...savedDoc, materialVisibility: 'private' }
+            await saveDocument({ ...savedDoc, status: 'ready' })
+            toast(publishError instanceof Error ? 'Study set generated privately; publishing failed: ' + publishError.message : 'Study set generated privately; publishing failed.', 'error')
+          }
+        }
         await touchStreak()
         setFiles((prev) =>
           prev.map((f) =>
@@ -551,6 +571,15 @@ export function UploadPage() {
               </p>
             )}
 
+            <div className="mb-3 rounded-xl border border-line bg-surface-2/60 p-3">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input type="checkbox" checked={item.isPublic} onChange={(event) => togglePublic(item.id, event.target.checked)} className="mt-1 size-4 accent-forest" />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-sm font-semibold">{item.isPublic ? 'Publish generated material' : 'Keep generated material private'} <Chip tone={item.isPublic ? 'green' : 'clay'}>{item.isPublic ? 'Public' : 'Private'}</Chip></span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted">{item.isPublic ? 'Your notes, key points, flashcards and questions can be discovered by other students. The original PDF and extracted page text stay private.' : 'Only you can see this study set. You can publish it later from Discover.'}</span>
+                </span>
+              </label>
+            </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 onClick={() => void runFile(item.id)}

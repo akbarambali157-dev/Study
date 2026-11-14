@@ -9,7 +9,10 @@ import {
   Newspaper,
   RefreshCw,
   Settings as SettingsIcon,
+  ShieldCheck,
+  Globe2,
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/shortcuts'
@@ -22,6 +25,7 @@ const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
   { to: '/community', label: 'Research', icon: Newspaper, end: false },
   { to: '/library', label: 'Library', icon: BookOpen, end: false },
+  { to: '/discover', label: 'Discover', icon: Globe2, end: false },
   { to: '/trail', label: 'Trail', icon: Compass, end: false },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
 ]
@@ -33,11 +37,21 @@ export function App() {
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const navItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
   const pendingG = useRef(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.dark)
   }, [settings.dark])
+  useEffect(() => {
+    if (!supabase) return
+    let mounted = true
+    void supabase.auth.getUser().then(({ data }) => { if (mounted) setIsAdmin(data.user?.app_metadata?.role === 'admin') })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setIsAdmin(session?.user.app_metadata?.role === 'admin'))
+    return () => { mounted = false; listener.subscription.unsubscribe() }
+  }, [])
+
   useEffect(() => {
     const onUpdate=()=>setUpdateAvailable(true)
     window.addEventListener('studyhub:pwa-update',onUpdate)
@@ -105,7 +119,7 @@ export function App() {
             </span>
           </NavLink>
           <nav className="ml-4 hidden items-center gap-1 sm:flex" aria-label="Main">
-            {NAV.map((item) => (
+            {navItems.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(
                 'rounded-lg px-3 py-2 text-sm font-medium transition',
                 isActive ? 'bg-surface-2 text-body' : 'text-muted hover:bg-surface-2/60 hover:text-body',
@@ -133,7 +147,7 @@ export function App() {
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-app/95 backdrop-blur-md sm:hidden" aria-label="Main">
         <div className="mx-auto flex max-w-md items-stretch justify-around px-1 pb-[env(safe-area-inset-bottom)]">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon
             return (
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(

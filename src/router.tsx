@@ -16,6 +16,8 @@ export const router = createHashRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'auth', element: <AuthPage /> },
+      { path: 'admin', lazy: async () => ({ Component: (await import('./features/admin/AdminPage')).AdminPage }) },
+      { path: 'discover', lazy: async () => ({ Component: (await import('./features/discover/DiscoverPage')).DiscoverPage }) },
       { path: 'profile-setup', element: <ProfileSetupPage /> },
       {
         path: 'community',
