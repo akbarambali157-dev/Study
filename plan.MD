@@ -1298,3 +1298,40 @@ This section supersedes older status notes where they describe BYOK, cloud resto
 - Enable Supabase Auth leaked-password protection in the project's Auth security settings.
 - The broader roadmap is not fully implemented yet: server-backed XP/achievement ledger, mastery trends, recurring revision, literature-review workspace, shared resources/reading lists/project goals, group study resources and quizzes, attachment/search/per-conversation messaging controls, and broader institutional integrations remain future work.
 - Do not expand these later workstreams or declare the product release-complete until the current PDF, AI, account-isolation and real-device acceptance gates pass.
+
+### 29.1 Follow-up hardening and verification — 14 November 2026
+
+This follow-up records corrections made after the audit above. It does not close the real-device or production release gates.
+
+**Account isolation and offline cloud lifecycle**
+- Pending private-PDF sync now refuses to upload a document whose recorded remoteOwnerId differs from the signed-in account. A legacy remote document with an ID but no recorded owner is blocked rather than silently assigned to the current account.
+- Cloud deletion resolves legacy ownership through the signed-in user's RLS-visible metadata instead of assuming the current account owns the remote object.
+- Remote object deletion validates that the Storage path begins with the exact owner ID and remote document ID before calling Storage. The durable deletion queue remains scoped to the original owner.
+- Library explains when a cloud sync is blocked because it belongs to another or an older account. The local study copy is preserved.
+- Settings now reads the current device's push endpoint, checks connectivity before sign-out when a subscription exists, deletes the server-side subscription row first, then unsubscribes the browser token. This also fixes the earlier TypeScript error caused by referring to a child component's state from the parent Settings page.
+
+**Provider credential hardening**
+- Client and server accept only the supported Anthropic sk-ant- and BrewKeg bk_live_ key prefixes. Other key formats are rejected before choosing or contacting a provider.
+- The Vault database function independently enforces the same prefix-to-endpoint pairing, so the Edge Function is not the only validation boundary.
+- A synthetic BrewKeg-format credential was stored, read back and deleted in a Vault round-trip test. An unsupported prefix was rejected. No test credential remains in the Vault.
+- Active BYOK Edge Function: version 5, JWT verification enabled. No real user BYOK credential is currently configured, so a live provider inference test remains outstanding.
+
+**Web Push hardening**
+- Added an atomic per-notification/per-device delivery claim. A transactional database test verified: first claim succeeds, duplicate claim is rejected, a failed delivery can be reclaimed, and a sent delivery cannot be claimed again. The test transaction was rolled back and created no notification or subscription.
+- Added push_test to the notification-type constraint. Without this, the self-test Edge Function's insert would have been rejected by the database. Explicit self-tests bypass quiet hours and normal category/global pause filters, because the student has deliberately requested a test.
+- Active push Edge Functions: push-dispatch version 5 (JWT verification off; internal dispatch token checked by the function) and push-test version 1 (JWT verification on).
+- The public VAPID key endpoint returned HTTP 200. Supabase has the VAPID keypair and dispatch token in Vault, and the pg_net notification trigger is present.
+- There are still zero registered push devices and zero delivery records. Actual browser delivery, notification click-through and quiet-hour behaviour remain unverified until a student registers a real device and sends the Settings test notification.
+
+**Older mobile PDF compatibility**
+- PDF.js compatibility helpers now install on both the main thread and the PDF worker before PDF.js is evaluated. This includes the missing Map/Iterator helper APIs used by PDF.js 6 on older WebKit versions.
+- This is a compatibility mitigation, not proof of iPhone success. Physical iOS Safari testing with a text PDF remains required.
+
+**Current verification snapshot**
+- GitHub Actions CI and Validate Study Hub both passed for repository commit 75fff3d0ffc65327dd6690cd5d31c560a38bb3e8 (TypeScript check and production build).
+- Supabase Edge Functions are ACTIVE: ai-proxy v11, byok-proxy v5, push-dispatch v5, push-test v1 and public-material-download v2.
+- Supabase security advisor currently reports leaked-password protection disabled. Enable it in the Supabase Auth security settings.
+- The latest READY Vercel production deployment is still commit 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34. Vercel reports build-rate-limit for the newer repository commit; none of the newer frontend changes should be described as live.
+- No valid provider key or push subscription is currently stored for an end-to-end user test. No physical iPhone or Android device has been tested in this run.
+
+**Release decision:** These code and database hardening changes are implemented and automated checks pass. v1.0/v1.1 remain in progress until the real-account PDF/AI tests, cross-account tests, real-device PWA/offline tests and actual push delivery tests pass. The broader roadmap items listed in section 29 remain future work; they are not silently marked complete.
