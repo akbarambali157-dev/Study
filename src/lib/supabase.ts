@@ -22,5 +22,5 @@ export function aiProxyUrl(): string {
 /** Full URL of the authenticated BYOK Edge Function. */
 export function byokProxyUrl(): string {
   if (!isSupabaseConfigured) throw new Error('Secure personal-key mode needs a signed-in Study Hub account.')
-  return `${supabaseUrl.replace(/\\/$/, '')}/functions/v1/byok-proxy`
+  return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/byok-proxy`
 }
