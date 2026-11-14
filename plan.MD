@@ -1470,3 +1470,17 @@ These are user-reported acceptance results, not independent laboratory or automa
 - [ ] Implement the redesign in phases; this documentation commit does not itself change the application UI.
 - [ ] Animations preference: ON by default; OFF preserves the current static interface. Respect operating-system reduced-motion settings.
 - [ ] Use iPhone and Redmi 10A as key responsive/performance test devices and incorporate the pending Android tester's feedback.
+
+
+---
+
+## 32. Master version map — 14 November 2026
+
+The complete end-to-end release sequence, including all approved product areas, current implementation status, future scope, dependencies and release gates, is now maintained in [VERSION_MAP.md](VERSION_MAP.md).
+
+Use the documents together:
+- VERSION_MAP.md is the master version-by-version delivery map and cross-project inventory.
+- plan.MD remains the detailed product, architecture, security and feature specification, plus the implementation history.
+- UI_DESIGN_PLAN.md remains the detailed specification for Version 1.3's visual redesign, motion preference and performance work.
+
+When the documents appear to conflict, use the latest dated user-confirmed status and record a dated correction. Do not treat planned features or code presence as release acceptance. Keep the version map updated as each workstream is implemented and tested.
