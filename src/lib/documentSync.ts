@@ -150,7 +150,7 @@ async function uploadPdfResumable(
 }
 
 
-type PendingSyncResult = { synced: number; skipped: number; failed: number; reason?: 'offline' | 'configuration' | 'signed-out' }
+type PendingSyncResult = { synced: number; skipped: number; failed: number; reason?: 'offline' | 'configuration' | 'signed-out' | 'account-mismatch' }
 let pendingSync: Promise<PendingSyncResult> | null = null
 
 /**
@@ -174,8 +174,18 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
     const documents = await (await import('./db')).db.documents
       .where('source').equals('upload').toArray()
     const pendingDocuments = documentId ? documents.filter((document) => document.id === documentId) : documents
+    let accountMismatch = false
 
     for (const document of pendingDocuments) {
+      // A retry created under one account must never be uploaded by another
+      // account after sign-out or account switching. Local-only documents with
+      // no remote ID remain eligible for an explicit, user-initiated sync.
+      if ((document.remoteOwnerId && document.remoteOwnerId !== data.session.user.id) ||
+          (document.remoteId && !document.remoteOwnerId)) {
+        result.skipped++
+        accountMismatch = true
+        continue
+      }
       if (document.syncStatus === 'indexed' || document.status === 'extracting') {
         result.skipped++
         continue
@@ -212,7 +222,7 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
         result.failed++
       }
     }
-    return result
+    return accountMismatch ? { ...result, reason: 'account-mismatch' as const } : result
   })().finally(() => { pendingSync = null })
   pendingSync = current
   return current
@@ -426,17 +436,20 @@ export async function deleteRemoteDocument(input: { remoteId: string; storagePat
   if (authError || !auth.user || auth.user.id !== input.ownerId) return false
 
   let storagePath = input.storagePath
+  if (storagePath && !storagePath.startsWith(`${input.ownerId}/${input.remoteId}/`)) {
+    // A stale or cross-account path must never be passed to Storage.remove.
+    return false
+  }
   if (!storagePath) {
     const { data, error } = await supabase.from('study_documents')
       .select('storage_path').eq('id', input.remoteId).eq('owner_id', input.ownerId).maybeSingle()
     if (error) throw failure('metadata', 'DELETE_METADATA_LOOKUP_FAILED', error, true)
     storagePath = data?.storage_path
+    if (!storagePath || !storagePath.startsWith(`${input.ownerId}/${input.remoteId}/`)) return false
   }
 
-  if (storagePath) {
-    const { error } = await supabase.storage.from(BUCKET).remove([storagePath])
-    if (error) throw failure('storage-upload', 'PRIVATE_OBJECT_DELETE_FAILED', error, true)
-  }
+  const { error: storageError } = await supabase.storage.from(BUCKET).remove([storagePath])
+  if (storageError) throw failure('storage-upload', 'PRIVATE_OBJECT_DELETE_FAILED', storageError, true)
   const { error: pagesError } = await supabase.from('study_document_pages')
     .delete().eq('document_id', input.remoteId).eq('owner_id', input.ownerId)
   if (pagesError) throw failure('page-index', 'PAGE_INDEX_DELETE_FAILED', pagesError, true)
