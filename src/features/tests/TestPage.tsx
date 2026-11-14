@@ -339,14 +339,14 @@ export function TestPage() {
           <Button
             className="mt-5"
             onClick={start}
-            disabled={busy || keyPoints.length === 0}
+            disabled={busy || (keyPoints.length === 0 && sourceQuestionCount === 0)}
             icon={
               busy ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />
             }
           >
             {busy ? 'Writing questions…' : 'Start the test'}
           </Button>
-          {keyPoints.length === 0 ? (
+          {keyPoints.length === 0 && sourceQuestionCount === 0 ? (
             <p className="mt-2 text-xs text-clay">
               This document has no key points, so there is nothing to test.
             </p>
