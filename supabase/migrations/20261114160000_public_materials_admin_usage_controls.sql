@@ -18,7 +18,7 @@ begin
  if v_user_count>=p_user_daily_limit then return query select false,'user_daily_limit'::text,null::uuid; return; end if;
  select count(*)::integer into v_global_count from public.ai_usage where created_at>=now()-interval '24 hours';
  if v_global_count>=p_global_daily_limit then return query select false,'global_daily_limit'::text,null::uuid; return; end if;
- insert into public.ai_usage(user_id,model,status_code,request_id,created_at) values(p_user_id,p_model,p_request_id,102,now()) returning id into v_usage_id;
+ insert into public.ai_usage(user_id,model,status_code,request_id,created_at) values(p_user_id,p_model,102,p_request_id,now()) returning id into v_usage_id;
  return query select true,'reserved'::text,v_usage_id;
 end; $$;
 revoke all on function public.reserve_ai_request(uuid,text,text,integer,integer) from public,anon,authenticated;
