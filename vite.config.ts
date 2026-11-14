@@ -61,6 +61,14 @@ export default defineConfig({
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          {
+            urlPattern: /\\.(?:js|mjs)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'study-app-js',
+              expiration: { maxEntries: 80, maxAgeSeconds: 2592000 },
+            },
+          },
         ],
       },
     }),
