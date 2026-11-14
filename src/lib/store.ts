@@ -58,9 +58,11 @@ export async function deleteDocument(id: string): Promise<void> {
       db.reviews,
       db.questions,
       db.attempts,
+      db.pdfBlobs,
     ],
     async () => {
       await db.documents.delete(id)
+      await db.pdfBlobs.delete(id)
       await db.notes.where('documentId').equals(id).delete()
       await db.keyPoints.where('documentId').equals(id).delete()
       await db.orgs.where('documentId').equals(id).delete()
