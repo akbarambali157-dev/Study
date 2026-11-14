@@ -19,21 +19,25 @@ const SKIP_COST_MS = 3_000
 
 interface Round {
   card: CardRec
+  question: string
   options: string[]
   answerIndex: number
+  direction: 'recall' | 'reverse'
 }
 
 function makeRound(card: CardRec, pool: CardRec[]): Round {
-  // Distractors are other cards' backs. A deck with fewer than four distinct
-  // backs gets duplicated ones rather than fewer options — a three-button
-  // question would telegraph the answer.
-  const others = shuffle(pool.filter((c) => c.id !== card.id))
-    .map((c) => c.back)
-    .filter((back, index, all) => back !== card.back && all.indexOf(back) === index)
-
-  while (others.length < 3) others.push(`— no other card in this deck —`)
-  const options = shuffle([card.back, ...others.slice(0, 3)])
-  return { card, options, answerIndex: options.indexOf(card.back) }
+  // Most rounds ask the card's normal question; some reverse the direction so
+  // students must recognise which prompt matches a definition or explanation.
+  const direction: Round['direction'] = Math.random() < 0.32 ? 'reverse' : 'recall'
+  const correct = direction === 'reverse' ? card.front : card.back
+  const question = direction === 'reverse'
+    ? `Which study prompt is answered by: “${card.back}”?`
+    : card.front
+  const others = shuffle(pool.filter((item) => item.id !== card.id))
+    .map((item) => direction === 'reverse' ? item.front : item.back)
+    .filter((value, index, all) => value && value !== correct && all.indexOf(value) === index)
+  const options = shuffle([correct, ...others.slice(0, 3)])
+  return { card, question, options, answerIndex: options.indexOf(correct), direction }
 }
 
 type Status = 'idle' | 'running' | 'over'
@@ -63,6 +67,8 @@ export function CardRushPage() {
   const locked = useRef(false)
   const finished = useRef(false)
   const timer = useRef<number | null>(null)
+  const queue = useRef<CardRec[]>([])
+  const lastCardId = useRef<string | null>(null)
 
   const stop = useCallback(() => {
     if (timer.current !== null) window.clearInterval(timer.current)
@@ -72,8 +78,18 @@ export function CardRushPage() {
   const nextRound = useCallback(
     (pool: CardRec[]) => {
       if (pool.length === 0) return
-      // Weight towards cards that have been getting away from the student.
-      const pick = pool[Math.floor(Math.random() * pool.length)]
+      // Exhaust a shuffled pass through the deck before repeating anything.
+      // Avoid placing the previous pass's final card first in the next pass.
+      if (queue.current.length === 0) {
+        queue.current = shuffle(pool)
+        if (queue.current.length > 1 && queue.current[0].id === lastCardId.current) {
+          const swapIndex = 1 + Math.floor(Math.random() * (queue.current.length - 1))
+          ;[queue.current[0], queue.current[swapIndex]] = [queue.current[swapIndex], queue.current[0]]
+        }
+      }
+      const pick = queue.current.shift()
+      if (!pick) return
+      lastCardId.current = pick.id
       setRound(makeRound(pick, pool))
       setChosen(null)
       setFeedback(null)
@@ -140,6 +156,8 @@ export function CardRushPage() {
     setAsked(0)
     setLastRun(null)
     setDailyBonusEarned(false)
+    queue.current = shuffle(cards)
+    lastCardId.current = null
     setFeedback(null)
     setRemaining(RUN_MS)
     startedAt.current = Date.now()
@@ -390,7 +408,7 @@ export function CardRushPage() {
             />
           </div>
 
-          <p className="mb-4 mt-2 text-[17px] font-medium leading-snug">{round.card.front}</p>
+          <p className="mb-4 mt-2 text-[17px] font-medium leading-snug">{round.question}</p>
 
           <div className="grid gap-2">
             {round.options.map((option, index) => {
