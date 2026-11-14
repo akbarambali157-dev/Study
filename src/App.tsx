@@ -117,29 +117,33 @@ export function App() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-30 border-b border-line bg-app/90 backdrop-blur-md surface-elevated">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-3 sm:px-6 lg:px-8">
-          <NavLink to="/" className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-2xl bg-gradient-to-br from-forest to-forest-500 font-display text-[15px] font-bold text-white shadow-sm">S</span>
-            <span className="hidden sm:block">
-              <span className="block font-display text-[15px] font-semibold leading-none text-body">Study Hub</span>
-              <span className="mt-1 block text-[11px] leading-none text-muted">Learn · share · research</span>
+      <header className="hub-topbar sticky top-0 z-30">
+        <div className="hub-topbar-inner mx-auto flex w-full max-w-7xl items-center gap-3 px-3 sm:px-6 lg:px-8">
+          <NavLink to="/" className="hub-brand group flex shrink-0 items-center gap-2.5" aria-label="Study Hub home">
+            <span className="hub-brand-mark" aria-hidden="true">
+              <BookOpen className="size-[1.15rem]" strokeWidth={2.2} />
+              <span className="hub-brand-spark"><span /></span>
+            </span>
+            <span className="hub-brand-copy">
+              <span className="block font-display text-[15px] font-bold leading-none tracking-tight text-body">Study Hub</span>
+              <span className="mt-1 hidden text-[10px] font-medium leading-none tracking-[.13em] text-muted sm:block">YOUR CAMPUS, CONNECTED</span>
             </span>
           </NavLink>
-          <nav className="ml-4 hidden items-center gap-1 sm:flex" aria-label="Main">
+          <div className="hub-topbar-divider hidden lg:block" aria-hidden="true" />
+          <nav className="hub-desktop-nav ml-1 hidden items-center gap-1 sm:flex" aria-label="Main">
             {navItems.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(
-                'rounded-lg px-3 py-2 text-sm font-medium transition',
-                isActive ? 'bg-surface-2 text-body' : 'text-muted hover:bg-surface-2/60 hover:text-body',
+                'hub-nav-link relative rounded-xl px-3 py-2 text-[13px] font-semibold transition',
+                isActive ? 'is-active' : 'text-muted',
               )}>
                 {item.label}
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {profile && profile.streakDays > 0 ? (
-              <span className="hidden items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-[#8a5a00] dark:text-gold sm:inline-flex" title={`${profile.streakDays}-day streak`}>
-                <Flame className="size-3.5" /><span className="tnum">{profile.streakDays}</span>
+              <span className="hub-streak" title={`${profile.streakDays}-day streak`}>
+                <Flame className="size-3.5" /><span className="tnum">{profile.streakDays}</span><span className="hidden sm:inline">day streak</span>
               </span>
             ) : null}
             <IconButton label="Keyboard shortcuts" onClick={openShortcuts}><Command className="size-4" /></IconButton>
