@@ -255,6 +255,24 @@ export async function touchStreak(): Promise<number> {
   return streakDays
 }
 
+/** Award a small one-time daily Rush participation bonus across all decks. */
+export async function awardDailyRushBonus(): Promise<boolean> {
+  const profile = (await db.profile.get('me')) ?? {
+    id: 'me',
+    displayName: 'Student',
+    xp: 0,
+    streakDays: 0,
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  if (profile.lastRushBonusDate === today) return false
+  await db.profile.put({
+    ...profile,
+    xp: Math.max(0, profile.xp + 10),
+    lastRushBonusDate: today,
+  })
+  return true
+}
+
 /* ── inquiries (the learning trail) ──────────────────────────────────── */
 
 export async function logInquiry(
