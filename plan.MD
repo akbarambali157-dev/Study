@@ -1093,3 +1093,12 @@ This ledger records what has actually been changed and checked. It does not conv
 - Run BYOK connection test and generation separately from hosted mode.
 - Test RLS with a second account and verify no cross-account object or page access.
 - Confirm cloud sync can fail while local BYOK generation succeeds.
+
+
+### PDF mobile-browser diagnostic refinement — 14 November 2026
+- PDF extraction tracks validation, file-read, PDF-open, page-read, metadata and cleanup stages.
+- Unexpected browser/PDF.js exceptions are wrapped in a typed PdfError with the original exception class and safe, truncated message.
+- File reading uses Blob.arrayBuffer when available and FileReader as a compatibility fallback.
+- Worker cleanup failures cannot overwrite the original extraction failure.
+- User-facing diagnostics include stage and original exception class; they do not include file contents.
+- The exact TypeError root cause remains unconfirmed until the next real-device diagnostic is observed.

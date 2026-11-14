@@ -160,7 +160,9 @@ export function UploadPage() {
                       err instanceof PdfError
                         ? err.message
                         : 'This PDF could not be read. It may be damaged or password-protected.',
-                    errorDiagnostic: err instanceof PdfError ? `PDF · ${err.code}` : `PDF-UNKNOWN · ${err instanceof Error ? err.name : 'unknown'}`,
+                    errorDiagnostic: err instanceof PdfError
+                      ? `PDF · stage ${err.stage} · ${err.code}${err.originalName ? ` · ${err.originalName}` : ''}`
+                      : `PDF-UNKNOWN · ${err instanceof Error ? err.name : typeof err}${err instanceof Error && err.message ? ` · ${err.message.slice(0, 180)}` : ''}`,
                   },
                 }
               : f,
