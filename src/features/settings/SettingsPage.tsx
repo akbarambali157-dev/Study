@@ -144,15 +144,11 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   const signOut = async () => {
     if (!supabase || !window.confirm('Sign out of Study Hub? Offline study materials will remain on this device. Clear local data first if this is a shared phone or computer.')) return
-    if (pushEnabled && !navigator.onLine) {
-      toast('Connect to the internet before signing out so this device can be safely removed from your push subscriptions.', 'info')
-      return
-    }
     try {
       const { data: auth } = await supabase.auth.getUser()
       if (auth.user) {
         const endpoint = await removeCurrentDevicePushSubscription()
-        if (endpoint) {
+        if (endpoint && navigator.onLine) {
           const { error: removeError } = await supabase.from('push_subscriptions').delete().eq('user_id', auth.user.id).eq('endpoint', endpoint)
           if (removeError) throw removeError
         }
