@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
+  CalendarDays,
+  Smartphone,
   Command,
   Compass,
   Flame,
@@ -26,6 +28,8 @@ const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
   { to: '/community', label: 'Research', icon: Newspaper, end: false },
   { to: '/library', label: 'Library', icon: BookOpen, end: false },
+  { to: '/planner', label: 'Planner', icon: CalendarDays, end: false },
+  { to: '/install', label: 'Install', icon: Smartphone, end: false }
   { to: '/discover', label: 'Discover', icon: Globe2, end: false },
   { to: '/trail', label: 'Trail', icon: Compass, end: false },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
