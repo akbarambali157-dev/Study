@@ -1211,3 +1211,11 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Latest GitHub Actions build/type-check passed for commit `1dfc604de6585a90264403551708655b41b372af`.
 - Vercel production remains on the earlier `79e6904` header-only deployment; the broader design changes are committed to `main` but are not yet live because the recent deployment attempts hit the Vercel build-rate limit.
 - Visual browser/device QA remains outstanding. In particular, check small iPhone widths, dark mode, long material titles, and the PWA home-screen icon before calling the redesign complete.
+
+
+## 26. Branded app icon completion — 14 November 2026
+
+- Replaced `public/apple-touch-icon.png` with a 180×180 PNG rendered from the approved Study Hub SVG brand mark, so iOS home-screen installs use the current branding.
+- Added the SVG brand mark as an `any`-purpose icon in the PWA manifest. Existing PNG manifest sizes remain as compatibility fallbacks.
+- The browser favicon and app header already use `studyhub-icon.svg`.
+- Remaining validation: wait for the production deployment to become available, then verify iOS Add to Home Screen and Android installation on actual devices. Browser-based visual QA is not yet complete.
