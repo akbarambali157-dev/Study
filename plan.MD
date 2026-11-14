@@ -1404,3 +1404,61 @@ The latest code is committed to `main`. Vercel's Git integration is still return
 - GitHub Actions CI and Validate Study Hub both passed for commit 2db9e8513532d430c4372b3ed06dac2ddc6ac74f.
 - Vercel still reports build-rate-limit for this newer commit. Latest READY production remains 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34. The new client-side iOS guard and other recent frontend changes are not live until a matching READY deployment exists.
 - Real push delivery still awaits a registered iOS Home Screen or Android device. The server-side VAPID endpoint and database claim rules are verified, but this is not an end-to-end device test.
+
+---
+
+## 30. Latest user testing feedback and next UI pass — 14 November 2026
+
+This section records the latest hands-on feedback from the product owner. It updates the practical acceptance picture; it does not claim that the requested UI changes have already been implemented.
+
+### Confirmed by current user testing
+
+- [x] Offline study-data synchronisation is working well in the user's current tests.
+- [x] PDF upload and processing are working well for the user's tested files. Current practical limit reported by the user: approximately 50 MB.
+- [x] AI question/answer functionality is working in the user's current tests.
+- [x] Questions can still be asked from Notes while offline in the current implementation/tested experience. This is not the desired final offline behaviour; see the UX requirement below.
+- [x] iPhone testing is underway.
+- [x] An Android device has been tested. The user's Redmi 10A is considered a useful low-end benchmark, but the user reports that the Android experience tested so far is poor. Feedback from another Android tester is still pending.
+
+These are user-reported acceptance results, not independent laboratory or automated test results. Keep the 50 MB practical limit visible in product copy and validation; do not imply support above it without separate testing.
+
+### Next UI and experience work
+
+**Settings navigation redesign**
+- [ ] Remove the current settings side/slider navigation pattern.
+- [ ] Make long settings categories open as their own focused page or slide-in screen, with a clear back path to the settings overview.
+- [ ] Keep compact settings categories that contain only one toggle as simple inline controls.
+- [ ] Preserve existing settings behaviour and permissions while changing presentation; do not imply a nonfunctional setting works merely because its UI is redesigned.
+
+**Admin user identification**
+- [ ] In the admin user list, display each user's display name and stable user ID together.
+- [ ] Keep the ID copyable and visually secondary to the user's name.
+- [ ] Do not expose private account data beyond what the admin role is authorised to see.
+
+**Offline-aware navigation and controls**
+- [ ] When offline, hide online-only destinations and entry points, including Community and other network-dependent social features, rather than leaving dead-end options visible.
+- [ ] Keep local-first study tools available offline.
+- [ ] Disable or hide AI/network question input while offline and show a concise offline explanation; do not allow a question to appear to submit when no request can reach the server.
+- [ ] Restore online-only destinations and controls when connectivity returns, without losing local work.
+- [ ] Use actual connectivity/request state rather than assuming that navigator.onLine alone proves the service is reachable.
+
+**Overall UI polish**
+- [ ] Continue a cohesive visual-design pass across the app: clearer hierarchy, stronger spacing and typography, consistent cards and controls, refined empty/loading/error states, and more deliberate mobile layouts.
+- [ ] Prioritise practical readability and responsiveness over decorative animation.
+- [ ] Check both installed iPhone and Android layouts, including the Redmi 10A viewport.
+
+### Android acceptance still open
+
+- [ ] Await the additional Android tester's report.
+- [ ] Re-test the reported poor Android experience on the Redmi 10A and capture the specific slow or broken screens.
+- [ ] Check cold launch, navigation transitions, feed/community visibility, Settings navigation, PDF opening, offline mode and memory/scroll performance.
+- [ ] Do not mark Android acceptance complete based only on the fact that the app opens on one Android device.
+
+### Revised immediate priority
+
+1. Implement the Settings navigation redesign and admin name + user ID display.
+2. Implement a consistent offline-aware experience that hides online-only community/social features and prevents offline AI submission.
+3. Complete the UI polish pass, using the iPhone and Redmi 10A as primary responsive test devices.
+4. Incorporate the pending Android tester's feedback and re-test.
+5. Keep the broader future roadmap separate from this usability/release pass.
+
