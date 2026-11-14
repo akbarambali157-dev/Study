@@ -36,8 +36,8 @@ function providerEndpoint(raw?: string): string {
   const url = new URL(raw.trim())
   if (url.protocol !== 'https:') throw new Error('Provider endpoints must use HTTPS.')
   const host = url.hostname.toLowerCase()
-  const allowed = host === 'api.anthropic.com' || host === 'brewkeg.dev' || host.endsWith('.brewkeg.dev')
-  if (!allowed) throw new Error('This provider endpoint is not on the approved host list.')
+  const allowed = host === 'api.anthropic.com' || host === 'brewkeg.dev'
+  if (!allowed || url.pathname !== '/' && url.pathname !== '/v1') throw new Error('Use the official Anthropic or BrewKeg HTTPS endpoint.')
   const path = url.pathname.replace(/\/+$/, '').replace(/\/v1$/, '')
   return `${url.origin}${path}/v1/messages`
 }
@@ -71,16 +71,30 @@ serve(async (req) => {
 
   const action = typeof body.action === 'string' ? body.action : 'generate'
   if (action === 'status') {
-    const { data, error } = await admin.from('user_provider_credentials').select('provider,updated_at').eq('user_id', userId).maybeSingle()
+    const { data, error } = await admin.from('user_provider_credentials').select('provider,base_url,updated_at').eq('user_id', userId).maybeSingle()
     if (error) return json({ error: 'Credential status is temporarily unavailable.', code: 'VAULT_STATUS_ERROR' }, 503, requestId)
-    return json({ configured: Boolean(data), provider: data?.provider ?? null, updated_at: data?.updated_at ?? null }, 200, requestId)
+    return json({ configured: Boolean(data), provider: data?.provider ?? null, base_url: data?.base_url ?? null, updated_at: data?.updated_at ?? null }, 200, requestId)
   }
   if (action === 'save') {
     const key = typeof body.api_key === 'string' ? body.api_key.trim() : ''
     if (key.length < 24 || key.length > 500 || /\s/.test(key) || !/^[A-Za-z0-9._~+/=-]+$/.test(key)) {
       return json({ error: 'That key format is not recognised. Paste the complete provider key without spaces.', code: 'INVALID_KEY_FORMAT' }, 400, requestId)
     }
-    const { error } = await admin.rpc('store_user_provider_credential', { p_user_id: userId, p_secret: key })
+    const baseUrl = typeof body.base_url === 'string' && body.base_url.trim()
+      ? body.base_url.trim().replace(/\/+$/, '')
+      : key.startsWith('sk-ant-') ? 'https://api.anthropic.com' : 'https://brewkeg.dev'
+    try {
+      const endpoint = new URL(baseUrl)
+      const expectedHost = key.startsWith('sk-ant-') ? 'api.anthropic.com' : 'brewkeg.dev'
+      if (endpoint.protocol !== 'https:' || endpoint.hostname !== expectedHost || (endpoint.pathname !== '/' && endpoint.pathname !== '/v1')) {
+        throw new Error('The selected provider endpoint does not match this credential type.')
+      }
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid provider endpoint.', code: 'INVALID_PROVIDER_URL' }, 400, requestId)
+    }
+    const { error } = await admin.rpc('store_user_provider_credential', {
+      p_user_id: userId, p_secret: key, p_base_url: baseUrl,
+    })
     if (error) {
       console.error('BYOK vault save failed', { requestId, code: error.code })
       return json({ error: 'The secure credential vault could not save your key. Your previous key was not replaced.', code: 'VAULT_SAVE_ERROR' }, 503, requestId)
@@ -96,8 +110,13 @@ serve(async (req) => {
     return json({ configured: false, deleted: true }, 200, requestId)
   }
 
-  const { data: key, error: keyError } = await admin.rpc('get_user_provider_credential', { p_user_id: userId })
-  if (keyError || typeof key !== 'string' || !key) return json({ error: 'Add your private API key in Settings before using personal-key mode.', code: 'BYOK_NOT_CONFIGURED' }, 400, requestId)
+  const [{ data: key, error: keyError }, { data: credential, error: credentialError }] = await Promise.all([
+    admin.rpc('get_user_provider_credential', { p_user_id: userId }),
+    admin.from('user_provider_credentials').select('base_url').eq('user_id', userId).maybeSingle(),
+  ])
+  if (keyError || credentialError || typeof key !== 'string' || !key || !credential?.base_url) {
+    return json({ error: 'Add your private API key in Settings before using personal-key mode.', code: 'BYOK_NOT_CONFIGURED' }, 400, requestId)
+  }
 
   const prompt = typeof body.prompt === 'string' ? body.prompt : ''
   const system = typeof body.system === 'string' ? body.system : ''
@@ -109,8 +128,14 @@ serve(async (req) => {
   if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 12_000) return json({ error: 'max_tokens must be between 1 and 12000.', code: 'INVALID_TOKEN_LIMIT' }, 400, requestId)
 
   let endpoint: string
-  try { endpoint = providerEndpoint(typeof body.base_url === 'string' ? body.base_url : undefined) }
-  catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid provider URL.', code: 'INVALID_PROVIDER_URL' }, 400, requestId) }
+  try {
+    const savedBaseUrl = credential.base_url as string
+    const expectedHost = key.startsWith('sk-ant-') ? 'api.anthropic.com' : 'brewkeg.dev'
+    if (new URL(savedBaseUrl).hostname !== expectedHost) throw new Error('Saved provider endpoint does not match the credential type.')
+    endpoint = providerEndpoint(savedBaseUrl)
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Invalid saved provider URL.', code: 'INVALID_PROVIDER_URL' }, 400, requestId)
+  }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' }
   if (key.startsWith('sk-ant-')) headers['x-api-key'] = key
