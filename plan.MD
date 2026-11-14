@@ -799,3 +799,211 @@ Make the PWA experience a first-class requirement from the beginning of the mobi
 ---
 
 **Priority reminder:** First make the current learning foundation reliable (especially PDF processing, retrieval, AI connection testing, authentication and data isolation). Then build the mobile/PWA foundation. Only after that should the larger community, matching, messaging and engagement systems be rolled out.
+
+---
+
+## 21. Latest product and reliability requirements — 14 November 2026
+
+This section records the latest user-confirmed requirements. It supplements earlier sections and takes precedence where priorities differ. These are requirements to implement and verify, not claims that the features are already fixed.
+
+### 21.1 Critical blocker: PDF upload and processing end to end
+
+PDF support remains broken and is a release blocker. Audit and test the entire workflow, not just the upload control:
+
+1. File selection, PDF validation, size limits and useful errors for corrupt/unsupported files.
+2. Authenticated upload to the intended Supabase Storage bucket and path.
+3. Storage policies that restrict each student to files they are entitled to access.
+4. Correct database metadata and exact object-path association.
+5. Text extraction from multi-page PDFs and explicit handling of image-only/scanned PDFs where OCR may be required.
+6. Indexing and retrieval, including resolution of the previously reported object-store KeyPath/source-not-indexed issue.
+7. Ensure AI features receive the actual extracted/retrieved document content, not empty content or a stale/mismatched object key.
+8. Persistent processing status, progress, retry and failure states; prevent duplicate uploads/processing on retries.
+9. Verify document open/download and every dependent workflow: notes, summaries, flashcards, quizzes and other learning outputs.
+10. Test interrupted networks, expired sessions, large supported files and multiple accounts.
+
+Required states: selecting, validating, uploading, uploaded, extracting, indexing, ready, partially readable, failed and retryable. Explain failures and the next action.
+
+PDF release gate:
+- [ ] Upload a text PDF on iPhone Safari, Android and desktop.
+- [ ] Verify the stored object and database path refer to the same file.
+- [ ] Verify extracted text is non-empty and belongs to that file.
+- [ ] Verify indexing and retrieval return content from that file.
+- [ ] Generate a learning output and verify it is grounded in the PDF.
+- [ ] Test multi-page, large supported, corrupt and scanned/image-only PDFs.
+- [ ] Test interrupted upload, expired authentication and retry.
+- [ ] Verify account A cannot read account B's private documents.
+- [ ] Verify deletion handles object, index and metadata safely.
+
+A successful Storage upload alone is not proof that PDF support works. The complete upload → extraction → indexing → retrieval → learning-output path must pass.
+
+### 21.2 Critical blocker: hosted/public AI and private BYOK must both work
+
+The hosted/public-key path currently returns malformed data, and the private BYOK path also fails. Diagnose and test both modes independently.
+
+Audit the Settings connection test, browser → Supabase Edge Function → BrewKeg/provider path, credential selection, provider URL/endpoint, model identifier, headers, request body, content type, status, provider error body, streaming/non-streaming handling, JSON parsing, structured-output schema, truncation, empty responses, retries and duplicate requests.
+
+Do not assume every provider returns the same response envelope. Add a provider adapter/normalisation layer that converts supported provider responses into one internal response shape before feature code consumes them.
+
+The Settings Test Connection action must not demand a strict JSON object merely to prove connectivity. Use a small plain-text request, verify a successful response contains usable non-empty text, and show the active connection mode/provider/model with safe diagnostics. Keep strict schema validation for features that genuinely need structured output, with explicit validation and graceful error handling.
+
+BYOK security requirements:
+- Handle private keys only through a secure server-side/protected secret path. Never expose them in frontend bundles, URLs, logs, analytics or public repository files.
+- Confirm that a BYOK request actually uses the user's configured key; do not silently fall back to the hosted key.
+- Clearly show which mode is active: hosted service or private key.
+- Do not store private keys in ordinary profile fields or unprotected browser storage.
+- Never ask the user to paste private keys into chat.
+- Ensure one user's credential cannot be used by another user.
+- Redact credentials, authorization headers and private document content from logs.
+
+AI acceptance gate:
+- [ ] Hosted/public connection test returns valid plain-text success.
+- [ ] Private BYOK connection test works independently.
+- [ ] Invalid/expired keys show a clear safe error.
+- [ ] HTTP 200 with empty, malformed or unusable content is not treated as successful inference.
+- [ ] Structured outputs validate and fail gracefully.
+- [ ] Safe diagnostics identify selected provider/model without exposing secrets.
+- [ ] No cross-account credential use.
+- [ ] No runaway retries or duplicate AI calls.
+- [ ] Test both paths on the deployed production app.
+
+### 21.3 Refined visual design and coherent design system
+
+The current interface is not yet sufficiently polished. A full visual refinement pass is an explicit workstream.
+
+Goals:
+- Clean, modern, distinctive and cohesive academic product identity.
+- Strong hierarchy, readable typography and consistent spacing.
+- Restrained, intentional use of colour, surfaces, borders, shadows and depth.
+- Reusable design tokens and components for buttons, inputs, cards, menus, dialogs, tabs, navigation and feedback.
+- Useful loading, empty, error, success, offline and disabled states.
+- Responsive layouts designed for real phone widths first, then tablet and desktop.
+- Accessible contrast, focus states, keyboard support and reduced-motion support.
+- Avoid both bare/minimal screens and overcrowded dashboards.
+- Avoid generic admin-dashboard styling, visual clutter and distracting engagement tricks.
+
+Audit the actual rendered experience on a phone after changes. Do not call the redesign complete based only on code review or desktop screenshots.
+
+### 21.4 Home page animations and idle states
+
+Make Home feel alive and welcoming through purposeful, lightweight motion:
+- Subtle section entrance and transition effects.
+- Skeleton loading states that match the final layout.
+- Clear pressed, selected, hover and focus feedback.
+- Small confirmations after meaningful actions.
+- Restrained animated visual accents only where they improve the experience.
+- Thoughtful empty/idle states for new accounts, no documents, no tasks, no messages and no community activity.
+- Contextual next-step prompts with dismiss controls where appropriate.
+- Clear offline/connection-lost state and retry action.
+
+Respect the user's reduced-motion preference. Avoid continuous distracting motion, layout shifts, large animation bundles and battery/network-heavy effects. Idle states must be useful rather than blank placeholders. Keep performance suitable for lower-powered phones and variable network conditions.
+
+### 21.5 Modular Settings
+
+Replace the long mixed Settings experience with an overview and focused modules:
+
+1. Account & identity — name, email, account details and security actions.
+2. Academic profile — institution, faculty, department, level, session, interests and visibility.
+3. AI & providers — hosted/public mode, BYOK, active provider/model, test connection and safe diagnostics.
+4. Appearance — theme and supported visual/motion preferences.
+5. Notifications — categories, quiet hours, push permission and device subscriptions.
+6. Privacy & safety — discoverability, messaging permissions, blocks and data controls.
+7. Storage & documents — document list, upload status and processing errors.
+8. Offline & app — install instructions, offline state, app version and update status.
+9. Help & about — troubleshooting, app information and feedback.
+
+Each module needs a clear title and explanation, related controls grouped together, validation and save feedback, loading/error/success states, mobile-friendly navigation and a clear route back. Avoid duplicated settings with conflicting values. Do not show decorative toggles that do not actually work.
+
+### 21.6 Registration and profile prefill
+
+Sign-up must collect the student's name and email, then prefill those values into the academic profile form after authentication.
+
+- Collect display/full name and email during email/password registration.
+- Where social sign-in is enabled, use provider-supplied name/email where permitted; handle missing values explicitly.
+- Save the name to the correct profile field during account creation or first authenticated profile initialisation.
+- Prefill name and email in profile onboarding; do not ask the student to type the same details twice.
+- Treat email as an account/authentication attribute. Display it read-only or change it only through a verified account flow, not as an ordinary profile edit.
+- Let the student complete academic details afterward: institution, faculty, department, level, session and interests.
+- Provide a clear profile-completion step and allow safe continuation when some academic details are unknown.
+- Handle existing accounts, missing provider metadata, duplicate accounts, email verification and interrupted onboarding.
+- Backfill missing names safely; never overwrite a chosen display name with a blank provider value.
+- Validate server-side and ensure users can update only their own profile.
+
+Acceptance: create a new email/password account and, where available, a social-provider account; verify name/email are saved once and prefilled. Sign out/in to verify persistence. Test existing accounts and incomplete provider metadata.
+
+### 21.7 Profile interactions and direct messaging
+
+Students can currently view other profiles but have no obvious way to interact. An eligible profile must offer clear next steps:
+- Message / Send message.
+- Follow or connect, if that feature is enabled.
+- Collaboration invitation when the profile owner opted in.
+- Clear unavailable/restricted states when messaging is disabled or a block exists.
+- Report and block controls.
+
+Messaging must be a discoverable, usable feature:
+- Add a Messages destination reachable from the top bar and another student's profile.
+- Provide inbox/conversation list, empty state, unread indicators and conversation view.
+- Support one-to-one text messages, history, sending/receiving, loading/error/retry states.
+- Use Supabase Realtime or another suitable approach for timely updates, with safe reconnect/polling fallback.
+- Add message requests/contact controls so students are not forced to receive messages from everyone.
+- Enforce membership, blocking and RLS on the server/database; hiding a button is not access control.
+- Exclude private conversations from public profile/feed queries and shared caches.
+- Do not add group messaging until one-to-one messaging and safety controls are reliable.
+
+Messaging acceptance gate: test two separate accounts/sessions; start a conversation from a profile; send and receive messages; refresh and verify history; verify unread state; test requests, blocking and unauthorised conversation access.
+
+### 21.8 Reliable updates on installed phones
+
+Students should not remain stuck on an old app version after a new production deployment. PWA update handling is a first-class requirement.
+
+- Display a running app version/build identifier in About or app diagnostics.
+- Use version-aware service-worker updates and correct asset-cache invalidation.
+- Check for updates at app startup and when returning to foreground where supported.
+- Make a newly available version visible.
+- Apply updates automatically when safe (app idle, no unsaved draft or critical action), or offer a clear Update available action if immediate replacement could interrupt work.
+- Reload into the new version after applying it and verify the build identifier changed.
+- Prevent stale app-shell HTML from continuing to reference old hashed assets.
+- Preserve offline support while ensuring new deployments replace old cached assets.
+- Provide manual refresh/retry and troubleshooting if an update is stuck.
+- Never silently discard drafts, uploads or messages in progress.
+- Test installed Home Screen PWA behaviour on real iPhones and Android devices; a normal browser refresh is not sufficient evidence.
+
+Acceptance: deploy a new build while the PWA remains installed on a phone; reopen/foreground it; verify update detection and safe application; confirm the displayed build identifier matches the new deployment. Repeat with weak/offline connectivity and unsaved work.
+
+### 21.9 Revised implementation order
+
+The following order makes the current blockers explicit. Do not expand into broad social features while the learning foundation is failing.
+
+| Order | Workstream | Required outcome | Priority |
+|---|---|---|---|
+| 1 | PDF pipeline | Upload → storage → extraction → indexing → retrieval → learning output works end to end | Blocker |
+| 2 | AI/provider reliability | Hosted/public and private BYOK paths work; normalised responses and safe errors | Blocker |
+| 3 | Auth/profile onboarding | Name/email collected once and prefilled; existing accounts preserved; security verified | Blocker |
+| 4 | UI/design system | Cohesive visual redesign, responsive layouts and reusable components | High |
+| 5 | Modular Settings | Dedicated settings modules with working controls | High |
+| 6 | Home experience | Purposeful animations, skeletons, empty/idle states and reduced-motion support | High |
+| 7 | Messaging/profile actions | Safe direct interaction from another student's profile | High |
+| 8 | PWA update reliability | Installed phone app detects and applies new builds safely | High |
+| 9 | PWA/offline/push completion | Installability, offline safety and notification flows pass acceptance tests | High |
+| 10 | Research Feed and Course Hubs | Community features built on reliable auth, profiles and moderation | High |
+| 11 | Matching, Research Circles and collaboration | Opt-in academic discovery and project collaboration | Medium |
+| 12 | Later learning intelligence and achievements | Expand after reliability and core experience are stable | Later |
+
+Parallel work is acceptable only where it does not compromise or obscure critical reliability fixes. Complete each workstream end to end and test it before marking it done.
+
+### 21.10 Definition of done and reporting discipline
+
+For each workstream, report separately:
+- Files, database schema and functions changed.
+- Behaviour implemented.
+- Automated checks and results.
+- Manual tests, environment/device and account scenarios.
+- Remaining unverified items or blockers.
+- Exact Git commit pushed to main.
+- Whether Vercel detected and deployed that commit.
+- Production deployment state and build identifier.
+
+A Vercel deployment marked READY proves the deployment completed; it does not prove PDF processing, AI inference, authentication, messaging or phone update behaviour works. Do not call a feature fixed until its acceptance tests pass against the deployed app.
+
+Never expose API keys or service-role credentials in frontend code, commits, screenshots, logs or analytics. Never ask the user to paste private keys into chat.
+
+**Immediate next action:** audit and reproduce the PDF upload/processing failure and both AI credential-mode failures; identify root causes, fix them and pass their acceptance tests before moving on to the visual redesign and new interaction features.
