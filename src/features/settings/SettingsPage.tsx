@@ -128,7 +128,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
   }
 
   const exportAll = async () => {
-    const [documents, notes, keyPoints, decks, cards, reviews, inquiries, profile] =
+    const [documents, notes, keyPoints, decks, cards, reviews, inquiries, profile, studyTasks, studyGoals] =
       await Promise.all([
         db.documents.toArray(),
         db.notes.toArray(),
@@ -138,6 +138,8 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         db.reviews.toArray(),
         db.inquiries.toArray(),
         db.profile.toArray(),
+        db.studyTasks.toArray(),
+        db.studyGoals.toArray(),
       ])
     // Page text is deliberate left out: it can be hundreds of KB per document
     // and the export is meant to be portable, not a backup of the PDFs.
@@ -151,6 +153,8 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       reviews,
       inquiries,
       profile,
+      studyTasks,
+      studyGoals,
     }
     downloadFile(
       'oou-study-hub-export.json',
@@ -452,7 +456,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
       {/* ── data ──────────────────────────────────────────────────────── */}
       <section className="mb-6">
-        <SectionTitle hint="No account, no server — so this is the whole story">
+        <SectionTitle hint="Export a portable copy of your local study data">
           Your data
         </SectionTitle>
         <Card>
@@ -476,7 +480,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
           </div>
           {confirmWipe ? (
             <p className="mt-2 text-[13px] text-clay">
-              This erases documents, notes, cards, grades, tests, the trail and your key from
+              This erases documents, notes, cards, grades, tests, planner tasks, learning goals, the trail and your key from
               this browser. It cannot be undone.
             </p>
           ) : null}
