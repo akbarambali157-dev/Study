@@ -1,8 +1,33 @@
-import * as pdfjs from 'pdfjs-dist'
+import type * as pdfjsTypes from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { db } from './db'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
+
+/**
+ * PDF.js 6 uses Map.prototype.getOrInsertComputed, a newer Map upsert
+ * method not yet present in some iOS Safari/WebKit releases. Install a small
+ * spec-compatible fallback before loading PDF.js so its metadata cache works.
+ */
+function ensureMapUpsertSupport(): void {
+  const mapPrototype = Map.prototype as Map<KnownKey, unknown> & {
+    getOrInsertComputed?: (key: KnownKey, callback: (key: KnownKey) => unknown) => unknown
+  }
+  if (typeof mapPrototype.getOrInsertComputed === 'function') return
+
+  Object.defineProperty(Map.prototype, 'getOrInsertComputed', {
+    configurable: true,
+    writable: true,
+    value: function <K, V>(this: Map<K, V>, key: K, callback: (key: K) => V): V {
+      if (this.has(key)) return this.get(key) as V
+      const value = callback(key)
+      this.set(key, value)
+      return value
+    },
+  })
+}
+
+type KnownKey = string | number | symbol | object | null | undefined
 
 export interface ExtractedPdf {
   pages: string[]
@@ -56,7 +81,7 @@ export async function extractPdf(
   onProgress?: (page: number, total: number) => void,
 ): Promise<ExtractedPdf> {
   let stage: PdfStage = 'validate'
-  let loadingTask: pdfjs.PDFDocumentLoadingTask | null = null
+  let loadingTask: pdfjsTypes.PDFDocumentLoadingTask | null = null
 
   try {
     if (!file || typeof file !== 'object') {
@@ -87,6 +112,9 @@ export async function extractPdf(
     }
 
     stage = 'pdf-open'
+    ensureMapUpsertSupport()
+    const pdfjs = await import('pdfjs-dist')
+    pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
     loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer), useWorkerFetch: false })
     const doc = await loadingTask.promise
 
