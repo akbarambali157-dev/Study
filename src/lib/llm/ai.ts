@@ -215,11 +215,7 @@ async function generateStructuredViaProxy<T>(
         : error instanceof AiError ? error : mapError(error)
       if (mapped.code === 'aborted') throw mapped
 
-      const shouldRetry =
-        mapped.retryable && attempt < attempts - 1
-      if (!shouldRetry) throw mapped
-
-      await sleep(1500 * (attempt + 1))
+      throw mapped
     } finally {
       timeout.cleanup()
     }
