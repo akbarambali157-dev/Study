@@ -39,6 +39,8 @@ type Reaction = {
   reaction: ReactionType
 }
 
+const FEED_PAGE_SIZE = 20
+
 const FILTERS = [
   { value: 'all', label: 'All research' },
   { value: 'idea', label: 'Ideas' },
@@ -83,6 +85,8 @@ export function FeedPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [authorName, setAuthorName] = useState('Student')
   const [loading, setLoading] = useState(true)
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false)
+  const [hasMorePosts, setHasMorePosts] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>('all')
   const [composerOpen, setComposerOpen] = useState(false)
@@ -127,10 +131,11 @@ export function FeedPage() {
         .from('research_posts')
         .select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at')
         .order('created_at', { ascending: false })
-        .limit(50)
+        .range(0, FEED_PAGE_SIZE - 1)
       if (postError) throw postError
       const rows = (postRows ?? []) as Post[]
       setPosts(rows)
+      setHasMorePosts(rows.length === FEED_PAGE_SIZE)
       // Fetch comment bodies only when a thread is opened.
       setComments([])
       setCommentCounts({})
@@ -157,6 +162,35 @@ export function FeedPage() {
   useEffect(() => {
     void loadFeed()
   }, [loadFeed])
+
+  const loadMorePosts = async () => {
+    if (!supabase || loadingMorePosts || !hasMorePosts) return
+    setLoadingMorePosts(true)
+    try {
+      const { data, error } = await supabase.from('research_posts')
+        .select('id,author_id,author_name,title,body,post_type,discipline,tags,created_at')
+        .order('created_at', { ascending: false })
+        .range(posts.length, posts.length + FEED_PAGE_SIZE - 1)
+      if (error) throw error
+      const nextPosts = (data ?? []) as Post[]
+      if (nextPosts.length) {
+        const { data: reactionRows, error: reactionError } = await supabase.from('research_reactions')
+          .select('id,post_id,user_id,reaction')
+          .in('post_id', nextPosts.map((post) => post.id))
+        if (reactionError) throw reactionError
+        setPosts((current) => {
+          const existing = new Set(current.map((post) => post.id))
+          return [...current, ...nextPosts.filter((post) => !existing.has(post.id))]
+        })
+        setReactions((current) => [...current, ...((reactionRows ?? []) as Reaction[])])
+      }
+      setHasMorePosts(nextPosts.length === FEED_PAGE_SIZE)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'More research posts could not be loaded.', 'error')
+    } finally {
+      setLoadingMorePosts(false)
+    }
+  }
 
   const toggleComments = async (postId: string) => {
     const opening = !openComments[postId]
@@ -493,7 +527,7 @@ export function FeedPage() {
                 </div>
                 {openComments[post.id] ? (
                   <div className="mt-3 border-t border-line pt-3">
-                    {postComments.length ? <div className="mb-3 space-y-3">{postComments.map((comment) => <div key={comment.id} className="flex gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-[11px] font-semibold">{comment.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/70 px-3 py-2"><div className="flex flex-wrap items-baseline gap-2"><span className="text-xs font-semibold">{comment.author_name}</span><span className="text-[10px] text-muted">{timeAgo(comment.created_at)}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p></div></div>)}</div> : <p className="mb-3 text-xs text-muted">No comments yet. Add a constructive thought or question.</p>}
+                    {loadingCommentsPost === post.id && !loadedCommentPosts.has(post.id) ? <p className="mb-3 text-xs text-muted">Loading comments…</p> : postComments.length ? <div className="mb-3 space-y-3">{postComments.map((comment) => <div key={comment.id} className="flex gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-[11px] font-semibold">{comment.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/70 px-3 py-2"><div className="flex flex-wrap items-baseline gap-2"><span className="text-xs font-semibold">{comment.author_name}</span><span className="text-[10px] text-muted">{timeAgo(comment.created_at)}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p></div></div>)}</div> : <p className="mb-3 text-xs text-muted">No comments yet. Add a constructive thought or question.</p>}
                     {commentCounts[post.id] !== undefined && postComments.length < commentCounts[post.id] ? <button type="button" disabled={loadingCommentsPost === post.id} onClick={() => void loadMoreComments(post.id)} className="mb-3 rounded-lg px-3 py-2 text-xs font-semibold text-indigo-600 disabled:opacity-50">{loadingCommentsPost === post.id ? 'Loading…' : 'Load more comments'}</button> : null}
                      <form onSubmit={(event) => { event.preventDefault(); void submitComment(post.id) }} className="flex gap-2">
                       <input value={commentDrafts[post.id] ?? ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))} maxLength={2000} placeholder="Write a helpful comment…" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 text-sm" />
@@ -506,6 +540,7 @@ export function FeedPage() {
           })}
         </div>
       )}
+      {hasMorePosts ? <div className="mt-5 text-center"><Button variant="secondary" disabled={loadingMorePosts} onClick={() => void loadMorePosts()}>{loadingMorePosts ? 'Loading posts…' : 'Load more research posts'}</Button></div> : null}
 
       <p className="mt-6 flex items-center gap-2 text-xs text-muted"><Check className="size-3.5 text-emerald-500" /> Be curious, be constructive, credit original work and report content that doesn't belong here. <ArrowUpRight className="size-3.5" /></p>
     </div>
