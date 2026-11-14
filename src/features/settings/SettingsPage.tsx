@@ -31,6 +31,7 @@ import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, supportsWebPush } from '@/lib/push'
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -609,9 +610,14 @@ function NotificationPreferences() {
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim() ?? ''
   useEffect(() => {
     let active = true
     const load = async () => {
+      setPushSupported(supportsWebPush())
       if (!supabase) { if (active) setLoading(false); return }
       const { data: auth, error: authError } = await supabase.auth.getUser()
       if (authError) throw authError
@@ -624,13 +630,21 @@ function NotificationPreferences() {
         const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id })
         if (insertError) throw insertError
       }
-      if (active) { setUserId(user.id); setPrefs(initial); setLoading(false) }
+      let hasSubscription = false
+      if (supportsWebPush()) {
+        try {
+          const registration = await navigator.serviceWorker.ready
+          hasSubscription = Boolean(await registration.pushManager.getSubscription())
+        } catch { hasSubscription = false }
+      }
+      if (active) { setUserId(user.id); setPrefs(initial); setPushEnabled(hasSubscription); setLoading(false) }
     }
     void load().catch(error => { if (active) { setLoading(false); toast(error instanceof Error ? error.message : 'Notification preferences could not be loaded.', 'error') } })
     return () => { active = false }
   }, [])
   const change = async (key: keyof NotificationPrefs, value: boolean) => {
     if (!supabase || !userId || saving) return
+    const previous = prefs
     const next = { ...prefs, [key]: value }
     setPrefs(next)
     setSaving(true)
@@ -638,12 +652,48 @@ function NotificationPreferences() {
       const { error } = await supabase.from('notification_preferences').upsert({ user_id: userId, ...next, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
       if (error) throw error
     } catch (error) {
-      setPrefs(prefs)
+      setPrefs(previous)
       toast(error instanceof Error ? error.message : 'Preference could not be saved.', 'error')
     } finally { setSaving(false) }
   }
+  const enablePush = async () => {
+    if (!supabase || !userId || !vapidKey || pushBusy) return
+    setPushBusy(true)
+    try {
+      const subscription = await registerCurrentDeviceForPush(vapidKey)
+      const details = subscription.toJSON()
+      const p256dh = details.keys?.p256dh
+      const authSecret = details.keys?.auth
+      if (!p256dh || !authSecret) throw new Error('The browser did not return the required encryption keys.')
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id: userId, endpoint: subscription.endpoint, p256dh, auth_secret: authSecret,
+        expiration_time: subscription.expirationTime ? new Date(subscription.expirationTime).toISOString() : null,
+        user_agent: navigator.userAgent.slice(0, 300), updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,endpoint' })
+      if (error) throw error
+      setPushEnabled(true)
+      toast('This device is registered. Push delivery will begin once the server notification sender is configured.', 'info')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'This device could not be registered for notifications.', 'error')
+    } finally { setPushBusy(false) }
+  }
+  const disablePush = async () => {
+    if (!supabase || !userId || pushBusy) return
+    setPushBusy(true)
+    try {
+      const endpoint = await removeCurrentDevicePushSubscription()
+      if (endpoint) {
+        const { error } = await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpoint)
+        if (error) throw error
+      }
+      setPushEnabled(false)
+      toast('Push subscription removed from this device.', 'success')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The device subscription could not be removed.', 'error')
+    } finally { setPushBusy(false) }
+  }
   if (loading) return <Card className="p-4 text-sm text-muted">Loading notification preferences…</Card>
-  if (!userId) return <Card className="p-4 text-sm text-muted">Sign in to save notification preferences. Push delivery will be enabled after the notification sender is configured.</Card>
+  if (!userId) return <Card className="p-4 text-sm text-muted">Sign in to save notification preferences and register this device.</Card>
   return <Card className="divide-y divide-line p-0">
     <ToggleRow title="Pause all notifications" body="Temporarily turn off notification categories without changing each preference." checked={prefs.pause_all} onChange={value => void change('pause_all', value)} />
     <ToggleRow title="Direct messages" body="Notify me when a student sends a message." checked={prefs.direct_messages} onChange={value => void change('direct_messages', value)} />
@@ -654,6 +704,11 @@ function NotificationPreferences() {
     <ToggleRow title="Course discussions" body="Notify me about activity in courses I follow." checked={prefs.course_discussions} onChange={value => void change('course_discussions', value)} />
     <ToggleRow title="Suggested connections" body="Allow occasional suggestions for relevant academic peers." checked={prefs.suggested_connections} onChange={value => void change('suggested_connections', value)} />
     <ToggleRow title="Product announcements" body="Receive important Study Hub product updates." checked={prefs.product_announcements} onChange={value => void change('product_announcements', value)} />
-    <p className="px-4 py-3 text-[11px] text-muted">These preferences are stored with your account. Actual push delivery is not active until a server-side notification sender and VAPID credentials are configured.</p>
+    <div className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">This device's push subscription</p><p className="mt-1 text-xs text-muted">{pushEnabled ? 'This browser has a registered subscription.' : 'Register this device to prepare it for Web Push.'}</p></div>
+        {pushEnabled ? <Button size="sm" variant="secondary" disabled={pushBusy} onClick={() => void disablePush()}>{pushBusy ? 'Working…' : 'Disable on this device'}</Button> : <Button size="sm" disabled={!pushSupported || !vapidKey || pushBusy} onClick={() => void enablePush()}>{pushBusy ? 'Registering…' : 'Enable on this device'}</Button>}
+      </div>
+      {!pushSupported ? <p className="mt-2 text-[11px] text-muted">This browser does not support Web Push.</p> : !vapidKey ? <p className="mt-2 text-[11px] text-muted">Web Push is not configured yet. Add the public VITE_VAPID_PUBLIC_KEY to Vercel. A server-side sender and private VAPID key are also required before messages can be delivered.</p> : <p className="mt-2 text-[11px] text-muted">On iPhone and iPad, install Study Hub to the Home Screen before enabling Web Push. Registration is separate from actual delivery.</p>}
+    </div>
   </Card>
 }
