@@ -2,7 +2,6 @@ import type * as pdfjsTypes from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { db } from './db'
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
 
 /**
  * PDF.js 6 uses Map.prototype.getOrInsertComputed, a newer Map upsert
