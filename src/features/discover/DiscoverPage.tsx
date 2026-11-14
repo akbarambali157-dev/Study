@@ -88,7 +88,7 @@ export function DiscoverPage() {
     const isSaved = savedIds.includes(row.id)
     const result = isSaved
       ? await supabase.from('saved_public_materials').delete().eq('user_id', userId).eq('material_id', row.id)
-      : await supabase.from('saved_public_materials').upsert({ user_id: userId, material_id: row.id }, { onConflict: 'user_id,material_id' })
+      : await supabase.from('saved_public_materials').insert({ user_id: userId, material_id: row.id })
     if (result.error) toast(result.error.message, 'error')
     else {
       setSavedIds((old) => isSaved ? old.filter((id) => id !== row.id) : [...old, row.id])
