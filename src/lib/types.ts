@@ -32,6 +32,8 @@ export interface DocumentRec {
   sizeBytes?: number
   remoteId?: string
   storagePath?: string
+  /** Account that owns the remote private PDF; prevents cross-account cleanup. */
+  remoteOwnerId?: string
   syncStatus?: 'local' | 'indexed' | 'failed'
   /** Visibility applies only to generated study materials; source PDF remains private. */
   publicMaterialId?: string
