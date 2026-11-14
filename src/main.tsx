@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
+import './lib/apiKey' // Purge legacy plaintext BYOK credentials on app startup.
 import './styles/globals.css'
 import './styles/visual-refresh.css'
 import './styles/community.css'
