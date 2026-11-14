@@ -1136,7 +1136,7 @@ This ledger records repository and deployment evidence. A code path is not relea
 - 192px/512px icons and Apple touch icon asset.
 - Safe-area-aware mobile navigation.
 - Standalone display metadata and installation guidance for iPhone/iPad and Android.
-- Account-owned notification preference records and preference controls.
+- Account-owned notification preference records and controls for categories, global pause and local-time quiet-hour windows.
 - Per-device Web Push subscription registration and removal, with browser permission requested only after the student presses the button.
 - App-wide capture of the deferred install prompt so the installation guide still works when opened after initial page load.
 
@@ -1169,5 +1169,5 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Planner and learning progress remain device-local unless explicitly synced; browser storage is not a cross-device backup.
 - BYOK keys are stored in the browser by design; they are not a server-side secrets vault.
 - Academic profiles default to private; public discovery is not implemented.
-- Notification preferences and per-device push subscription registration/removal are implemented; actual push delivery still needs the VAPID secrets and server-side sender.
+- Notification categories, global pause, quiet-hour settings and per-device push subscription registration/removal are implemented. Quiet-hour enforcement and actual push delivery still need the server-side sender and VAPID secrets.
 - Supabase security advisor currently reports leaked-password protection disabled.
