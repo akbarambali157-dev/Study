@@ -22,7 +22,7 @@ export function requiresHomeScreenInstallForPush(): boolean {
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   if (!isIOS) return false
-  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+  const standalone = (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   return !standalone
 }
