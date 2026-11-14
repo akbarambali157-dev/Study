@@ -41,6 +41,13 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,mjs}'],
+        globIgnores: [
+          '**/pdf.worker*.mjs',
+          // Keep the dashboard/app shell offline-ready. Optional routes and
+          // heavy engines are cached on first use instead of every install.
+          '**/assets/{AuthPage,AdminPage,DiscoverPage,PublicMaterialQuizPage,ProfileSetupPage,PlannerPage,InstallPage,FeedPage,LibraryPage,UploadPage,DocPage,DeckStudyPage,CardRushPage,TestPage,TrailPage,SettingsPage,SharedPage}-*.js',
+          '**/assets/{sdk,pdf,schema,json-schema-processors,pipeline,ai,supabase}-*.js',
+        ],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
           {
@@ -49,6 +56,14 @@ export default defineConfig({
             options: {
               cacheName: 'pdf-worker',
               expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            urlPattern: /\\/assets\\/.*\\.(?:js|mjs)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'studyhub-feature-code',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],
