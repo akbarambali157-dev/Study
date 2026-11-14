@@ -24,7 +24,7 @@ import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
-import { getVapidPublicKey, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, supportsWebPush } from '@/lib/push'
+import { getVapidPublicKey, getCurrentDevicePushEndpoint, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, supportsWebPush } from '@/lib/push'
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -145,13 +145,19 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
   const signOut = async () => {
     if (!supabase || !window.confirm('Sign out of Study Hub? Offline study materials will remain on this device. Clear local data first if this is a shared phone or computer.')) return
     try {
+      const endpoint = await getCurrentDevicePushEndpoint()
+      if (endpoint && !navigator.onLine) {
+        toast('Connect to the internet before signing out so this device can be safely removed from your push subscriptions.', 'info')
+        return
+      }
       const { data: auth } = await supabase.auth.getUser()
-      if (auth.user) {
-        const endpoint = await removeCurrentDevicePushSubscription()
-        if (endpoint && navigator.onLine) {
-          const { error: removeError } = await supabase.from('push_subscriptions').delete().eq('user_id', auth.user.id).eq('endpoint', endpoint)
-          if (removeError) throw removeError
-        }
+      if (auth.user && endpoint) {
+        const { error: removeError } = await supabase.from('push_subscriptions').delete()
+          .eq('user_id', auth.user.id).eq('endpoint', endpoint)
+        if (removeError) throw removeError
+      }
+      if (endpoint) {
+        try { await removeCurrentDevicePushSubscription() } catch { /* Server row is already removed; a stale browser token cannot receive new pushes. */ }
       }
       const { error } = await supabase.auth.signOut()
       if (error) throw error
