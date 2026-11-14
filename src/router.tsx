@@ -21,6 +21,8 @@ export const router = createHashRouter([
       { path: 'profile-setup', element: <ProfileSetupPage /> },
       { path: 'planner', lazy: async () => ({ Component: (await import('./features/planner/PlannerPage')).PlannerPage }) },
       { path: 'install', lazy: async () => ({ Component: (await import('./features/install/InstallPage')).InstallPage }) }
+      { path: 'planner', lazy: async () => ({ Component: (await import('./features/planner/PlannerPage')).PlannerPage }) },
+      { path: 'install', lazy: async () => ({ Component: (await import('./features/install/InstallPage')).InstallPage }) }
       {
         path: 'community',
         lazy: async () => ({
