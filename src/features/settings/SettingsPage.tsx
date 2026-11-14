@@ -26,7 +26,7 @@ import {
 import { estimateGenerationCost, formatUsd, MODELS } from '@/lib/cost'
 import { db, saveSettings, wipeEverything } from '@/lib/db'
 import { useSettings } from '@/lib/hooks'
-import { downloadFile } from '@/lib/export'
+import { downloadFile } from '@/lib/export'\nimport { checkForPwaUpdate } from '@/lib/pwa'
 import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
@@ -180,8 +180,15 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Settings" subtitle="Shared AI provider, your model and your data." />
-      <Card className="mb-6">
+      <PageHeading title="Settings" subtitle="Manage your account, learning experience, privacy and app preferences." />
+      <nav aria-label="Settings modules" className="sticky top-[4.5rem] z-20 mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-line bg-app/95 p-2 backdrop-blur-sm">
+        {[
+          ['account','Account'],['academic','Academic'],['ai','AI'],['appearance','Appearance'],
+          ['notifications','Notifications'],['privacy','Privacy'],['storage','Storage'],['offline','Offline & app'],['help','Help'],
+        ].map(([id,label]) => <a key={id} href={`#settings-${id}`} className="shrink-0 rounded-xl px-3 py-2 text-xs font-semibold text-muted transition hover:bg-surface-2 hover:text-body">{label}</a>)}
+      </nav>
+      <section id="settings-account" className="mb-6 scroll-mt-28">
+      <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Student account</h2>
@@ -190,10 +197,14 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
           <Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button>
         </div>
       </Card>
+      </section>
+      <section id="settings-academic" className="mb-6 scroll-mt-28">
+        <Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Academic profile and discovery</h2><p className="mt-1 text-[13px] text-muted">Manage research interests, skills, profile visibility, message requests and collaboration availability.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Open academic profile</Button></div></Card>
+      </section>
 
       {/* ── API key ────────────────────────────────────────────────────── */}
-      <section className="mb-6">
-        <SectionTitle hint="Who pays for the model">
+      <section id="settings-ai" className="mb-6 scroll-mt-28">
+        <SectionTitle hint="Hosted provider or your own configured key">
           API key
         </SectionTitle>
         <Card>
@@ -396,7 +407,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       </section>
 
       {/* ── model ─────────────────────────────────────────────────────── */}
-      <section className="mb-6">
+      <section className="mb-6 scroll-mt-28">
         <SectionTitle hint="What a 40-page handout costs to process">
           Model
         </SectionTitle>
@@ -437,8 +448,8 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       </section>
 
       {/* ── preferences ───────────────────────────────────────────────── */}
-      <section className="mb-6">
-        <SectionTitle>Preferences</SectionTitle>
+      <section id="settings-appearance" className="mb-6 scroll-mt-28">
+        <SectionTitle>Appearance & learning preferences</SectionTitle>
         <Card className="divide-y divide-line p-0">
           <ToggleRow
             title="Learning trail"
@@ -456,13 +467,13 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
 
-      <section className="mb-6">
+      <section id="settings-notifications" className="mb-6 scroll-mt-28">
         <SectionTitle hint="Choose what Study Hub may notify you about">Notifications</SectionTitle>
         <NotificationPreferences />
       </section>
 
       {/* ── data ──────────────────────────────────────────────────────── */}
-      <section className="mb-6">
+      <section id="settings-storage" className="mb-6 scroll-mt-28">
         <SectionTitle hint="Export a portable copy of your local study data">
           Your data
         </SectionTitle>
@@ -497,8 +508,23 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
 
+      <section id="settings-privacy" className="mb-6 scroll-mt-28">
+        <SectionTitle hint="Control your academic visibility and unwanted contact">Privacy & safety</SectionTitle>
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Academic profile visibility</p><p className="text-xs text-muted">Your profile is private until you opt in to student discovery.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Manage visibility</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Blocked students</p><p className="text-xs text-muted">Review or unblock accounts you have blocked.</p></div><BlockedUsersSettings /></div>
+        </Card>
+      </section>
+      <section id="settings-offline" className="mb-6 scroll-mt-28">
+        <SectionTitle hint="Prepare this device for weak networks and offline study">Offline & app</SectionTitle>
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Connection status</p><p className="text-xs text-muted">{navigator.onLine ? 'Online — cloud features are available.' : 'Offline — saved local study materials remain available.'}</p></div><Chip tone={navigator.onLine ? 'green' : 'gold'}>{navigator.onLine ? 'Online' : 'Offline'}</Chip></div>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/install')}>Installation & offline guide</Button><Button size="sm" variant="secondary" onClick={() => void checkForPwaUpdate()}>Check for app updates</Button></div>
+          <p className="text-[11px] text-muted">Study Hub {__APP_VERSION__} · Build {__BUILD_ID__}</p>
+        </Card>
+      </section>
       {/* ── shortcuts ─────────────────────────────────────────────────── */}
-      <section>
+      <section id="settings-help" className="scroll-mt-28">
         <SectionTitle hint="Press ? anywhere for this list">Keyboard</SectionTitle>
         <Card className="p-0">
           <div className="divide-y divide-line">
