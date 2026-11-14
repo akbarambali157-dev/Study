@@ -60,8 +60,8 @@ export function MessagesPage() {
       setInbox(conversationRows.flatMap((conversation) => {
         const membership = membershipMap.get(conversation.id)
         const peerId = conversation.created_by === uid ? conversation.recipient_id : conversation.created_by
-        const student = profileMap.get(peerId) ?? { user_id: peerId, display_name: membership.display_name || 'Student', institution: '', department: '', level: '' }
         if (!membership || blockedIds.has(peerId)) return []
+        const student = profileMap.get(peerId) ?? { user_id: peerId, display_name: membership.display_name || 'Student', institution: '', department: '', level: '' }
         const latest = latestMap.get(conversation.id)
         return [{ conversation, membership, student, latest, unread: Boolean(latest && latest.sender_id !== uid && (!membership.last_read_at || latest.created_at > membership.last_read_at)) }]
       }))
