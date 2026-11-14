@@ -192,7 +192,14 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
           type: 'application/pdf',
           lastModified: cached.savedAt || Date.now(),
         })
-        const remote = await uploadDocumentToCloud(file, document)
+        // Persist the idempotency key and storage path before network I/O.
+        // If the app closes mid-upload, the next attempt targets the same
+        // private object and metadata row instead of creating duplicates.
+        const remoteId = document.remoteId ?? crypto.randomUUID()
+        const safeName = file.name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'document.pdf'
+        const storagePath = document.storagePath ?? `${data.session.user.id}/${remoteId}/${safeName}`
+        await database.documents.update(document.id, { remoteId, storagePath, syncStatus: 'local' })
+        const remote = await uploadDocumentToCloud(file, { ...document, remoteId, storagePath })
         if (!remote) {
           result.skipped++
           continue
