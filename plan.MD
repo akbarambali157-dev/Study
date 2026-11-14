@@ -1137,12 +1137,14 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Safe-area-aware mobile navigation.
 - Standalone display metadata and installation guidance for iPhone/iPad and Android.
 - Account-owned notification preference records and preference controls.
+- Per-device Web Push subscription registration and removal, with browser permission requested only after the student presses the button.
+- App-wide capture of the deferred install prompt so the installation guide still works when opened after initial page load.
 
 **Remaining release gates**
 - Install and launch on a physical iPhone and Android device.
 - Verify offline shell, offline local study data and reconnect behaviour.
 - Verify update prompt while a student has unsaved work.
-- Complete push subscription UX and end-to-end push delivery. Subscription/preference schema is provisioned, but a server-side sender and VAPID credentials are not configured.
+- Complete end-to-end push delivery. Browser registration and account storage are implemented, but the server-side sender, private VAPID signing key and public VAPID environment variable are not configured. Registration alone does not send notifications.
 - Confirm account-specific caches are cleared on logout/account switch.
 
 ### Version 1.2 — Learning experience
@@ -1153,6 +1155,7 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Card Rush and local XP/streak tracking.
 - Public-material saving and Rush progress.
 - Local-first study planner with tasks, learning goals and recent test results.
+- Topic-level mastery calculated from recorded quiz answers and linked key points.
 - Planner tasks and goals included in local JSON export.
 
 **Remaining release gates**
