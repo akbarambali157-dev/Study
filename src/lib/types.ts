@@ -120,6 +120,14 @@ export interface QuizQuestion {
   answerIndex: number
   explanation: string
   page?: number
+  /** Original objective questions are kept verbatim rather than rewritten by AI. */
+  sourceType?: 'original' | 'generated'
+  sourceNumber?: number
+  sourceAnswerText?: string
+  /** AI review is advisory; answerIndex remains the answer supplied by the source. */
+  verificationStatus?: 'correct' | 'incorrect' | 'ambiguous' | 'context_dependent'
+  verifiedAnswerIndex?: number | null
+  verificationNote?: string
   dirty?: boolean
 }
 
