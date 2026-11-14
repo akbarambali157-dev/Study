@@ -51,7 +51,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'status' } })
       if (!active) return
       if (error) toast('Private-key status could not be checked. Sign in again or retry.', 'error')
-      else setCredentialConfigured(data?.configured === true)
+      else { setCredentialConfigured(data?.configured === true); if (typeof data?.base_url === 'string') setBaseUrl(data.base_url) }
       setCredentialLoading(false)
     }
     void checkCredential().catch(() => { if (active) setCredentialLoading(false) })
@@ -116,7 +116,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
     }
     if (!supabase) { toast('Sign in before saving a private provider key.', 'error'); return }
     try {
-      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'save', api_key: trimmed } })
+      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'save', api_key: trimmed, base_url: trimmed.startsWith('sk-ant-') ? 'https://api.anthropic.com' : 'https://brewkeg.dev' } })
       if (error || data?.saved !== true) {
         toast(typeof data?.error === 'string' ? data.error : 'The secure credential vault could not save your key.', 'error')
         return
