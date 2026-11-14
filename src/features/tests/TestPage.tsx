@@ -499,7 +499,9 @@ export function TestPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeading
-        title={`Question ${index + 1} of ${questions.length}`}
+        title={current.sourceNumber
+          ? `Question ${current.sourceNumber} · ${index + 1} of ${questions.length}`
+          : `Question ${index + 1} of ${questions.length}`}
         subtitle={mode === 'exam' ? 'Exam mode — no feedback until the end' : deck.title}
         back={back}
         actions={<Chip>{mode === 'exam' ? 'Exam' : 'Guided'}</Chip>}
