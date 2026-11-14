@@ -152,14 +152,15 @@ async function uploadPdfResumable(
 let pendingSync: Promise<{ synced: number; skipped: number; failed: number }> | null = null
 
 /**
- * Retry private PDF uploads saved on this device. The document's local
+ * Upload private PDFs saved on this device when the student explicitly asks.
+ * The document's local
  * syncStatus is the durable queue: retries reuse its remote ID/storage path,
  * and uploadDocumentToCloud rebuilds the page index idempotently.
  *
  * Generated notes/cards remain local-first; this only syncs the private
  * original PDF and its extracted page index.
  */
-export function syncPendingDocuments(): Promise<{ synced: number; skipped: number; failed: number }> {
+export function syncPendingDocuments(documentId?: string): Promise<{ synced: number; skipped: number; failed: number }> {
   if (pendingSync) return pendingSync
   pendingSync = (async () => {
     const result = { synced: 0, skipped: 0, failed: 0 }
@@ -171,8 +172,9 @@ export function syncPendingDocuments(): Promise<{ synced: number; skipped: numbe
 
     const documents = await (await import('./db')).db.documents
       .where('source').equals('upload').toArray()
+    const pendingDocuments = documentId ? documents.filter((document) => document.id === documentId) : documents
 
-    for (const document of documents) {
+    for (const document of pendingDocuments) {
       if (document.syncStatus === 'indexed' || document.status === 'extracting') {
         result.skipped++
         continue
