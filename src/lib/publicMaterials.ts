@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import type { Card, Deck } from '@/lib/types'
 import type { NavigateFunction } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 
 export interface PublicStudyMaterial {
   id: string
@@ -46,4 +47,18 @@ export async function launchPublicMaterialRush(
     await db.cards.bulkPut(cards)
   })
   navigate(`/deck/${deckId}/rush?publicMaterial=${encodeURIComponent(material.id)}`)
+}
+
+
+/** Returns a short-lived download URL only for a currently public contribution. */
+export async function getPublicMaterialDownloadUrl(materialId: string): Promise<string> {
+  if (!supabase) throw new Error('The community library is not connected.')
+  const { data, error } = await supabase.functions.invoke('public-material-download', {
+    body: { materialId },
+  })
+  if (error) throw new Error(error.message || 'The original PDF could not be prepared for download.')
+  if (!data || typeof data.signedUrl !== 'string') {
+    throw new Error('This contributor has not made the original PDF available.')
+  }
+  return data.signedUrl
 }
