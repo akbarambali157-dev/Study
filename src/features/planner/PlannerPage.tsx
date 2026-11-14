@@ -21,6 +21,8 @@ export function PlannerPage() {
   const goals = useLiveQuery(() => db.studyGoals.orderBy('createdAt').reverse().toArray(), [], [])
   const attempts = useLiveQuery(() => db.attempts.orderBy('createdAt').reverse().limit(8).toArray(), [], [])
   const documents = useLiveQuery(() => db.documents.toArray(), [], [])
+  const questions = useLiveQuery(() => db.questions.toArray(), [], [])
+  const keyPoints = useLiveQuery(() => db.keyPoints.toArray(), [], [])
   const [title, setTitle] = useState('')
   const [dueAt, setDueAt] = useState(today())
   const [kind, setKind] = useState<StudyTask['kind']>('study')
@@ -28,6 +30,24 @@ export function PlannerPage() {
   const [goalTarget, setGoalTarget] = useState('5')
   const [busy, setBusy] = useState(false)
   const sorted = useMemo(() => [...tasks].sort((a,b) => a.completed !== b.completed ? Number(a.completed)-Number(b.completed) : a.dueAt.localeCompare(b.dueAt)), [tasks])
+  const topicStats = useMemo(() => {
+    const questionById = new Map(questions.map(question => [question.id, question]))
+    const pointById = new Map(keyPoints.map(point => [point.id, point]))
+    const totals = new Map<string, { title: string; correct: number; total: number }>()
+    for (const attempt of attempts) {
+      for (const answer of attempt.answers) {
+        const question = questionById.get(answer.questionId)
+        if (!question?.keyPointId) continue
+        const point = pointById.get(question.keyPointId)
+        if (!point) continue
+        const current = totals.get(point.id) ?? { title: point.heading, correct: 0, total: 0 }
+        current.total += 1
+        if (answer.correct) current.correct += 1
+        totals.set(point.id, current)
+      }
+    }
+    return [...totals.values()].sort((a,b) => b.total-a.total).slice(0,6)
+  }, [attempts, keyPoints, questions])
   const pending = tasks.filter(t => !t.completed)
   const overdue = pending.filter(t => t.dueAt < today())
   const dueToday = pending.filter(t => t.dueAt === today())
@@ -83,6 +103,7 @@ export function PlannerPage() {
           <form onSubmit={addGoal} className="space-y-3"><label className="block text-xs font-medium text-muted">Goal<input value={goalTitle} onChange={e=>setGoalTitle(e.target.value)} maxLength={100} required placeholder="e.g. Complete five revision sessions" className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body"/></label><label className="block text-xs font-medium text-muted">Target sessions<input type="number" min="1" max="100" value={goalTarget} onChange={e=>setGoalTarget(e.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body"/></label><Button type="submit" variant="secondary" block>Set goal</Button></form>
           <div className="mt-4 space-y-3">{goals.length===0?<p className="text-xs text-muted">Your goals will appear here. Keep them realistic and flexible.</p>:goals.map(goal=>{const pct=Math.min(100,Math.round(goal.completedSessions/goal.targetSessions*100));return <div key={goal.id} className="rounded-xl border border-line p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-medium">{goal.title}</p><button type="button" onClick={()=>void db.studyGoals.delete(goal.id)} aria-label="Delete goal" className="text-muted hover:text-clay"><Trash2 className="size-4"/></button></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400" style={{width:pct+'%'}}/></div><div className="mt-2 flex items-center justify-between text-[11px] text-muted"><span>{goal.completedSessions}/{goal.targetSessions} sessions</span><span>{pct}%</span></div><Button size="sm" variant="secondary" className="mt-2" disabled={goal.completedSessions>=goal.targetSessions} onClick={()=>void recordSession(goal)}>Record a session</Button></div>})}</div>
         </Card>
+        <Card className="p-4 sm:p-5"><h2 className="mb-3 font-semibold">Topic mastery</h2>{topicStats.length===0?<p className="text-xs text-muted">Complete tests linked to key topics to build your mastery overview.</p>:<ul className="space-y-3">{topicStats.map(topic=>{const pct=Math.round(topic.correct/topic.total*100);return <li key={topic.title}><div className="flex items-center justify-between gap-3"><p className="min-w-0 truncate text-sm font-medium">{topic.title}</p><span className="shrink-0 text-xs text-muted">{pct}% · {topic.total} answers</span></div><div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400" style={{width:pct+'%'}}/></div></li>})}</ul>}<p className="mt-3 text-[11px] text-muted">Based on recorded answers, not a guarantee of complete subject mastery.</p></Card>
         <Card className="p-4 sm:p-5"><h2 className="mb-3 font-semibold">Recent test results</h2>{attempts.length===0?<p className="text-xs text-muted">Complete a practice test to see your history here.</p>:<ul className="space-y-3">{attempts.map(attempt=>{const doc=documents.find(d=>d.id===attempt.documentId);const pct=attempt.total?Math.round(attempt.score/attempt.total*100):0;return <li key={attempt.id} className="flex items-center justify-between gap-3 border-b border-line pb-2 last:border-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{doc?.title??'Study material'}</p><p className="text-[11px] text-muted">{new Date(attempt.createdAt).toLocaleDateString()} · {attempt.mode} mode</p></div><Chip tone={pct>=70?'green':'neutral'}>{pct}%</Chip></li>})}</ul>}<Link to="/library" className="mt-3 inline-flex text-xs font-semibold text-forest-400 hover:underline">Open your library</Link></Card>
       </section>
     </div>
