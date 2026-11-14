@@ -206,7 +206,7 @@ async function generateStructuredViaProxy<T>(
         throw new AiError(mapped.message, mapped.code, mapped.retryable, errBody?.request_id ?? resp.headers.get('x-request-id') ?? undefined)
       }
 
-      const payload = await resp.json() as {content?:unknown;output_text?:unknown;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
+      const payload = await resp.json() as {content?:unknown;output_text?:unknown;request_id?:string;usage?:{input_tokens?:number;output_tokens?:number;prompt_tokens?:number;completion_tokens?:number}}
       const content = extractText(payload.content ?? payload.output_text ?? payload)
       const usage = { input_tokens: Number(payload.usage?.input_tokens ?? payload.usage?.prompt_tokens ?? 0), output_tokens: Number(payload.usage?.output_tokens ?? payload.usage?.completion_tokens ?? 0) }
       let candidate: unknown
