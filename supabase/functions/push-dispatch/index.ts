@@ -11,6 +11,10 @@ const cors = {
 const APP_ORIGIN = "https://study-platform-delta.vercel.app";
 const categoryForType: Record<string, string> = {
   direct_message: "direct_messages",
+  post_reply: "replies",
+  post_reaction: "reactions",
+  course_update: "course_discussions",
+  system: "product_announcements",
   message: "direct_messages",
   research_reply: "replies",
   reply: "replies",
@@ -95,11 +99,24 @@ Deno.serve(async (req: Request) => {
     console.error("Push dispatch secrets are unavailable", { code: configError?.code });
     return json(503, { error: "Push delivery is not configured." });
   }
+  let body: { action?: string; notification_id?: string };
+  try { body = await req.json(); } catch { return json(400, { error: "Invalid request body." }); }
+
+  // The VAPID public key is public by design. Keep the private signing key
+  // and dispatch token server-only in Vault.
+  if (body.action === "public-key") {
+    try {
+      const keys = await webpush.importVapidKeys(config.vapid_jwks);
+      const publicKey = await webpush.exportApplicationServerKey(keys);
+      return json(200, { publicKey });
+    } catch (error) {
+      console.error("VAPID public key export failed", { name: error instanceof Error ? error.name : "unknown" });
+      return json(503, { error: "Push registration is not configured." });
+    }
+  }
+
   const supplied = req.headers.get("Authorization") ?? "";
   if (supplied !== `Bearer ${config.dispatch_token}`) return json(401, { error: "Unauthorized." });
-
-  let body: { notification_id?: string };
-  try { body = await req.json(); } catch { return json(400, { error: "Invalid request body." }); }
   const notificationId = typeof body.notification_id === "string" ? body.notification_id : "";
   if (!/^[0-9a-f-]{36}$/i.test(notificationId)) return json(400, { error: "A notification ID is required." });
 
@@ -135,7 +152,7 @@ Deno.serve(async (req: Request) => {
   const targetPath = safeTargetPath(notification.target_path);
   const payload = JSON.stringify({
     title: String(notification.title ?? "Study Hub").slice(0, 100),
-    body: String(notification.body ?? "You have a new notification.").slice(0, 240),
+    body: notification.notification_type === "direct_message" ? "You have a new message." : String(notification.body ?? "You have a new notification.").slice(0, 240),
     url: targetPath,
     tag: `studyhub-${notification.notification_type}`,
   });
