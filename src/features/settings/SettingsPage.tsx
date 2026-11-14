@@ -109,33 +109,38 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   const saveKey = async () => {
     const trimmed = keyInput.trim()
-    if (!trimmed) {
-      toast('Paste a key first.', 'error')
-      return
-    }
+    if (!trimmed) { toast('Paste a key first.', 'error'); return }
     if (!looksLikeApiKey(trimmed)) {
-      toast('That does not look like an API key. It should start with sk-ant- or be an issued token.', 'error')
+      toast('That does not look like a complete provider key. Check the value and try again.', 'error')
       return
     }
     if (!supabase) { toast('Sign in before saving a private provider key.', 'error'); return }
-    const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'save', api_key: trimmed } })
-    if (error || data?.saved !== true) {
-      toast(typeof data?.error === 'string' ? data.error : 'The secure credential vault could not save your key.', 'error')
-      return
+    try {
+      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'save', api_key: trimmed } })
+      if (error || data?.saved !== true) {
+        toast(typeof data?.error === 'string' ? data.error : 'The secure credential vault could not save your key.', 'error')
+        return
+      }
+      setCredentialConfigured(true)
+      setKeyInput('')
+      setUseProxy(false)
+      await saveSettings({ useProxy: false })
+      toast('Your key is encrypted in your account vault. It is never stored in this browser.', 'success')
+    } catch {
+      toast('The secure credential vault could not be reached. Your key was not saved.', 'error')
     }
-    setCredentialConfigured(true)
-    setKeyInput('')
-    setUseProxy(false)
-    await saveSettings({ useProxy: false })
-    toast('Your key is encrypted in your account vault. It is never stored in this browser.', 'success')
   }
 
   const removeKey = async () => {
     if (!supabase) return
-    const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'delete' } })
-    if (error || data?.deleted !== true) { toast('The saved key could not be removed from the secure vault.', 'error'); return }
-    setCredentialConfigured(false)
-    toast('Private provider key removed from your account vault.', 'success')
+    try {
+      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'delete' } })
+      if (error || data?.deleted !== true) { toast('The saved key could not be removed from the secure vault.', 'error'); return }
+      setCredentialConfigured(false)
+      toast('Private provider key removed from your account vault.', 'success')
+    } catch {
+      toast('The secure credential vault could not be reached. The key was not changed.', 'error')
+    }
   }
 
   const exportAll = async () => {
