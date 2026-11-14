@@ -629,13 +629,14 @@ type NotificationPrefs = {
   quiet_hours_enabled: boolean
   quiet_hours_start: string
   quiet_hours_end: string
+  time_zone: string
   pause_all: boolean
 }
 const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   direct_messages: true, replies: true, mentions: true, reactions: true,
   collaboration_invites: true, course_discussions: false, suggested_connections: false,
   product_announcements: false, quiet_hours_enabled: false,
-  quiet_hours_start: '22:00', quiet_hours_end: '07:00', pause_all: false,
+  quiet_hours_start: '22:00', quiet_hours_end: '07:00', time_zone: 'UTC', pause_all: false,
 }
 function NotificationPreferences() {
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
@@ -662,9 +663,10 @@ function NotificationPreferences() {
         ...(data ?? {}),
         quiet_hours_start: typeof data?.quiet_hours_start === 'string' ? data.quiet_hours_start.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_start,
         quiet_hours_end: typeof data?.quiet_hours_end === 'string' ? data.quiet_hours_end.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_end,
+        time_zone: typeof data?.time_zone === 'string' ? data.time_zone : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'),
       }
       if (!data) {
-        const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id })
+        const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id, time_zone: initial.time_zone })
         if (insertError) throw insertError
       }
       let hasSubscription = false
@@ -709,7 +711,7 @@ function NotificationPreferences() {
       }, { onConflict: 'user_id,endpoint' })
       if (error) throw error
       setPushEnabled(true)
-      toast('This device is registered. Push delivery will begin once the server notification sender is configured.', 'info')
+      toast('This device is registered for Study Hub push notifications.', 'success')
     } catch (error) {
       toast(error instanceof Error ? error.message : 'This device could not be registered for notifications.', 'error')
     } finally { setPushBusy(false) }
@@ -784,7 +786,7 @@ function NotificationPreferences() {
           />
         </label>
       </div>
-      <p className="mt-2 text-[11px] text-muted">Quiet hours are saved to your account. They will take effect when the server-side notification sender is enabled.</p>
+      <p className="mt-2 text-[11px] text-muted">Quiet hours use {prefs.time_zone || 'your device timezone'} and are enforced by the server-side sender. In-app notifications remain available at all times.</p>
     </div>
     <div className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">This device's push subscription</p><p className="mt-1 text-xs text-muted">{pushEnabled ? 'This browser has a registered subscription.' : 'Register this device to prepare it for Web Push.'}</p></div>
