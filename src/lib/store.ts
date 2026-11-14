@@ -51,8 +51,15 @@ export async function deleteDocument(id: string): Promise<boolean> {
   const deckIds = decks.map((d) => d.id)
   let ownerId = document?.remoteOwnerId
   if (document?.remoteId && !ownerId && supabase) {
-    const { data } = await supabase.auth.getUser()
-    ownerId = data.user?.id
+    // Older local records may predate remoteOwnerId. Resolve ownership through
+    // the signed-in user's RLS-visible metadata row; never guess from the
+    // current account, because the local database can survive account changes.
+    const { data: auth } = await supabase.auth.getUser()
+    if (auth.user) {
+      const { data: remote } = await supabase.from('study_documents')
+        .select('id').eq('id', document.remoteId).maybeSingle()
+      if (remote) ownerId = auth.user.id
+    }
   }
 
   await db.transaction(
