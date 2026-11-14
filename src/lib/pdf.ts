@@ -120,7 +120,7 @@ export async function extractPdf(
     if (!doc.numPages) throw new PdfError('This PDF contains no pages.', 'empty', stage)
     if (doc.numPages > MAX_PAGES) {
       throw new PdfError(
-        `This PDF has ${doc.numPages} pages. The limit is ${MAX_PAGES}, the current limit is 400 pages to keep processing reliable.`,
+        `This PDF has ${doc.numPages} pages. The maximum supported is ${MAX_PAGES} pages.`,
         'toolarge',
         stage,
       )
