@@ -141,12 +141,12 @@ export async function generateStudyMaterial(
   // overloaded, move the remainder of this document to the selected model.
   const mapModel = options.mapModel ?? CHEAP_MODEL
   let activeMapModel = mapModel
-  const callMap = (prompt: string, maxTokens: number) =>
+  const callMap = (prompt: string, maxTokens: number, withModel: AiModel) =>
     generateStructured({
       schema: ChunkMapSchema,
       system: SYSTEM_BASE,
       prompt,
-      model: activeMapModel,
+      model: withModel,
       maxTokens,
       effort: 'low',
       baseUrl,
@@ -154,18 +154,19 @@ export async function generateStudyMaterial(
       useProxy,
     })
   const callMapWithFallback = async (prompt: string, maxTokens: number) => {
+    const firstModel = activeMapModel
     try {
-      const result = await callMap(prompt, maxTokens)
-      return { ...result, usedModel: activeMapModel }
+      const result = await callMap(prompt, maxTokens, firstModel)
+      return { ...result, usedModel: firstModel }
     } catch (error) {
       const canUseSelectedModel =
         error instanceof AiError &&
         (error.code === 'model-unavailable' || error.code === 'overloaded') &&
-        activeMapModel !== model
+        firstModel !== model
       if (!canUseSelectedModel) throw error
       activeMapModel = model
-      const result = await callMap(prompt, maxTokens)
-      return { ...result, usedModel: activeMapModel }
+      const result = await callMap(prompt, maxTokens, model)
+      return { ...result, usedModel: model }
     }
   }
 
