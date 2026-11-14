@@ -142,7 +142,10 @@ export async function generateStudyMaterial(
   onStage?.('map', `${chunks.length} section${chunks.length === 1 ? '' : 's'}`)
   let mapped = 0
 
-  const maps = await pool(chunks, MAP_CONCURRENCY, async (chunk) => {
+  // The shared hosted provider is more reliable when its chunk requests are
+  // serialized. BYOK users retain the normal two-request concurrency.
+  const mapConcurrency = useProxy ? 1 : MAP_CONCURRENCY
+  const maps = await pool(chunks, mapConcurrency, async (chunk) => {
     ensureNotAborted(signal)
 
     const call = (withModel: AiModel) =>

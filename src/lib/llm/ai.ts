@@ -141,7 +141,9 @@ export interface StructuredRequest<T> {
 async function generateStructuredViaProxy<T>(
   request: StructuredRequest<T>,
 ): Promise<{ data: T; usage: AiUsage }> {
-  const attempts = 2
+  // Provider overloads are transient. Give hosted requests three attempts with
+  // a longer backoff; a 503 means the upstream did not accept the generation.
+  const attempts = 3
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -234,13 +236,22 @@ async function generateStructuredViaProxy<T>(
         mapped.retryable && attempt < attempts - 1
       if (!shouldRetry) throw mapped
 
-      await sleep(900 * (attempt + 1))
+      await sleep(1500 * (attempt + 1))
     } finally {
       timeout.cleanup()
     }
   }
 
-  throw mapError(lastError)
+  const finalError = mapError(lastError)
+  if (finalError.code === 'overloaded') {
+    throw new AiError(
+      'Hosted AI is temporarily overloaded. Your PDF was read successfully; wait a minute and retry generation.',
+      'overloaded',
+      true,
+      finalError.requestId,
+    )
+  }
+  throw finalError
 }
 
 /**
