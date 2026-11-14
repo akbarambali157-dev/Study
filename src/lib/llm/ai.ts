@@ -146,7 +146,6 @@ async function generateStructuredViaProxy<T>(
           model: request.model,
           max_tokens: request.maxTokens ?? 8000,
           effort: request.effort ?? 'medium',
-          ...(mode === 'byok' && request.baseUrl ? { base_url: request.baseUrl } : {}),
           output_config: {
             format: zodOutputFormat(request.schema),
             effort: request.effort ?? 'medium',
@@ -290,7 +289,7 @@ export async function generateText(request:TextRequest):Promise<{text:string;usa
   const response=await fetch(mode==='hosted'?aiProxyUrl():byokProxyUrl(),{
    method:'POST',
    headers:{'Content-Type':'application/json',apikey:publicKey,Authorization:`Bearer ${token}`},
-   body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32,...(mode==='byok'&&request.baseUrl?{base_url:request.baseUrl}:{})}),
+   body:JSON.stringify({system:request.system,prompt:request.prompt,model:request.model,max_tokens:request.maxTokens??32,}),
    signal:timeout.signal,
   })
   const payload=await response.json().catch(()=>null)
