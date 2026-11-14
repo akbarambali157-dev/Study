@@ -156,6 +156,28 @@ export function FeedPage() {
     [filter, posts],
   )
 
+  // Build per-post indexes once. Filtering the complete comments/reactions
+  // arrays inside every rendered post made feed rendering quadratic.
+  const commentsByPost = useMemo(() => {
+    const grouped = new Map<string, Comment[]>()
+    for (const comment of comments) {
+      const list = grouped.get(comment.post_id)
+      if (list) list.push(comment)
+      else grouped.set(comment.post_id, [comment])
+    }
+    return grouped
+  }, [comments])
+
+  const reactionsByPost = useMemo(() => {
+    const grouped = new Map<string, Reaction[]>()
+    for (const reaction of reactions) {
+      const list = grouped.get(reaction.post_id)
+      if (list) list.push(reaction)
+      else grouped.set(reaction.post_id, [reaction])
+    }
+    return grouped
+  }, [reactions])
+
   const submitPost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase || !userId) {
@@ -202,12 +224,12 @@ export function FeedPage() {
     }
     setBusyPost(postId)
     try {
-      const { error } = await supabase.from('research_comments').insert({
+      const { data, error } = await supabase.from('research_comments').insert({
         post_id: postId, author_id: userId, author_name: authorName.slice(0, 80), body: value,
-      })
+      }).select('id,post_id,author_id,author_name,body,created_at').single()
       if (error) throw error
+      if (data) setComments((current) => [...current, data as Comment])
       setCommentDrafts((current) => ({ ...current, [postId]: '' }))
-      await loadFeed()
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Your comment could not be added.', 'error')
     } finally {
@@ -224,13 +246,19 @@ export function FeedPage() {
         const { error } = await supabase.from('research_reactions').delete().eq('post_id', postId).eq('user_id', userId)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('research_reactions').upsert(
+        const { data, error } = await supabase.from('research_reactions').upsert(
           { post_id: postId, user_id: userId, reaction },
           { onConflict: 'post_id,user_id' },
-        )
+        ).select('id,post_id,user_id,reaction').single()
         if (error) throw error
+        if (data) setReactions((current) => [
+          ...current.filter((item) => !(item.post_id === postId && item.user_id === userId)),
+          data as Reaction,
+        ])
       }
-      await loadFeed()
+      if (current?.reaction === reaction) {
+        setReactions((items) => items.filter((item) => !(item.post_id === postId && item.user_id === userId)))
+      }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Your reaction could not be saved.', 'error')
     } finally {
@@ -243,8 +271,10 @@ export function FeedPage() {
     try {
       const { error } = await supabase.from('research_posts').delete().eq('id', postId).eq('author_id', userId)
       if (error) throw error
+      setPosts((current) => current.filter((post) => post.id !== postId))
+      setComments((current) => current.filter((comment) => comment.post_id !== postId))
+      setReactions((current) => current.filter((reaction) => reaction.post_id !== postId))
       toast('Post deleted.', 'success')
-      await loadFeed()
     } catch (error) {
       toast(error instanceof Error ? error.message : 'The post could not be deleted.', 'error')
     }
@@ -370,8 +400,8 @@ export function FeedPage() {
       ) : (
         <div className="space-y-4">
           {visiblePosts.map((post) => {
-            const postComments = comments.filter((comment) => comment.post_id === post.id)
-            const postReactions = reactions.filter((reaction) => reaction.post_id === post.id)
+            const postComments = commentsByPost.get(post.id) ?? []
+            const postReactions = reactionsByPost.get(post.id) ?? []
             const mine = postReactions.find((reaction) => reaction.user_id === userId)
             return (
               <Card key={post.id} className="community-post overflow-hidden p-4 sm:p-5">
