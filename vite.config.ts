@@ -40,6 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['/push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,mjs}'],
         globIgnores: [
           '**/pdf.worker*.mjs',
