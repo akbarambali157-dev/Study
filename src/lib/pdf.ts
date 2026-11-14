@@ -1,6 +1,8 @@
 import type * as pdfjsTypes from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { db } from './db'
+import { MAX_PAGES, MAX_PDF_BYTES, MAX_PDF_SIZE_LABEL } from './pdfLimits'
+export { MAX_PAGES } from './pdfLimits'
 
 
 /**
@@ -69,8 +71,6 @@ async function readFileBuffer(file: File): Promise<ArrayBuffer> {
   })
 }
 
-export const MAX_PAGES = 120
-
 /**
  * Extracts text page by page. Pages are the unit of citation everywhere else in
  * the app, so this must never merge or renumber them.
@@ -89,8 +89,8 @@ export async function extractPdf(
     if (file.size === 0) {
       throw new PdfError('This PDF file is empty. Choose a different file.', 'empty', stage)
     }
-    if (file.size > 30 * 1024 * 1024) {
-      throw new PdfError('This PDF is larger than 30 MB. Compress it or split it into smaller files, then try again.', 'toolarge', stage)
+    if (file.size > MAX_PDF_BYTES) {
+      throw new PdfError(`This PDF is larger than ${MAX_PDF_SIZE_LABEL}. Choose a smaller file or split it into parts, then try again.`, 'toolarge', stage)
     }
 
     const iteratorApi = (globalThis as typeof globalThis & {
@@ -120,7 +120,7 @@ export async function extractPdf(
     if (!doc.numPages) throw new PdfError('This PDF contains no pages.', 'empty', stage)
     if (doc.numPages > MAX_PAGES) {
       throw new PdfError(
-        `This PDF has ${doc.numPages} pages. The limit is ${MAX_PAGES}, because a document this long would cost a lot to process and lose focus.`,
+        `This PDF has ${doc.numPages} pages. The limit is ${MAX_PAGES}, the current limit is 400 pages to keep processing reliable.`,
         'toolarge',
         stage,
       )
