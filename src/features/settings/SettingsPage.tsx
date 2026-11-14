@@ -35,6 +35,8 @@ export function SettingsPage() {
   const [keyInput, setKeyInput] = useState('')
   const [credentialConfigured, setCredentialConfigured] = useState(false)
   const [credentialLoading, setCredentialLoading] = useState(true)
+  const [accountEmail, setAccountEmail] = useState('')
+  const [accountName, setAccountName] = useState('')
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl ?? '')
   const [useProxy, setUseProxy] = useState(settings.useProxy ?? true)
   const [confirmWipe, setConfirmWipe] = useState(false)
@@ -48,6 +50,9 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       if (!supabase) { setCredentialLoading(false); return }
       const { data: auth } = await supabase.auth.getUser()
       if (!auth.user) { setCredentialLoading(false); return }
+      setAccountEmail(auth.user.email ?? '')
+      const { data: profile } = await supabase.from('student_profiles').select('display_name').eq('user_id', auth.user.id).maybeSingle()
+      setAccountName(profile?.display_name ?? String(auth.user.user_metadata?.display_name ?? ''))
       const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'status' } })
       if (!active) return
       if (error) toast('Private-key status could not be checked. Sign in again or retry.', 'error')
@@ -143,6 +148,25 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
     }
   }
 
+  const signOut = async () => {
+    if (!supabase || !window.confirm('Sign out of Study Hub? Offline study materials will remain on this device. Clear local data first if this is a shared phone or computer.')) return
+    try {
+      const { data: auth } = await supabase.auth.getUser()
+      if (auth.user) {
+        const endpoint = await removeCurrentDevicePushSubscription()
+        if (endpoint) {
+          await supabase.from('push_subscriptions').delete().eq('user_id', auth.user.id).eq('endpoint', endpoint)
+        }
+      }
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      toast('You have been signed out. Local study data remains on this device.', 'success')
+      navigate('/auth')
+    } catch {
+      toast('Sign-out could not be completed. Please try again.', 'error')
+    }
+  }
+
   const exportAll = async () => {
     const [documents, notes, keyPoints, decks, cards, reviews, inquiries, profile, studyTasks, studyGoals] =
       await Promise.all([
@@ -204,9 +228,10 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Student account</h2>
-            <p className="mt-1 text-[13px] text-muted">Update your name, faculty, department, level and programme details.</p>
+            <p className="mt-1 text-[13px] text-muted">{accountName || 'Student'}{accountEmail ? ` · ${accountEmail}` : ''}</p>
+            <p className="mt-1 text-[11px] text-muted">Email is managed by your verified sign-in account. Academic details are editable in your profile.</p>
           </div>
-          <Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button><Button size="sm" variant="ghost" onClick={() => void signOut()}>Sign out</Button></div>
         </div>
       </Card>
       </section>
@@ -374,8 +399,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
             </div>
             <p className="mt-1.5 text-[12px] text-muted">
               Leave this empty for a personal Anthropic key (sk-ant-…). For a gateway-issued
-              token, enter that provider’s Anthropic-compatible API base URL here. The key and
-              endpoint must belong to the same provider.
+              token, enter the HTTPS Anthropic-compatible BrewKeg endpoint here. Only Anthropic and BrewKeg endpoints are accepted by the secure proxy.
             </p>
           </div>
           ) : (
