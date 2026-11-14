@@ -7,7 +7,7 @@ import { CitationChip } from '@/components/ui/CitationChip'
 import { Card, Chip, EmptyState, Progress, Skeleton } from '@/components/ui/misc'
 import { useDeck } from '@/lib/hooks'
 import { record } from '@/lib/inquiries'
-import { saveGameRun, touchStreak } from '@/lib/store'
+import { awardDailyRushBonus, saveGameRun, touchStreak } from '@/lib/store'
 import type { Card as CardRec, GameRun } from '@/lib/types'
 import { cn, shuffle, uid } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -56,6 +56,7 @@ export function CardRushPage() {
   const [chosen, setChosen] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [lastRun, setLastRun] = useState<GameRun | null>(null)
+  const [dailyBonusEarned, setDailyBonusEarned] = useState(false)
 
   const startedAt = useRef(0)
   const deadline = useRef(0)
@@ -99,9 +100,11 @@ export function CardRushPage() {
         xp,
         createdAt: new Date().toISOString(),
       }
-      setLastRun(run)
       await saveGameRun(run)
       await touchStreak()
+      const dailyBonus = await awardDailyRushBonus()
+      setDailyBonusEarned(dailyBonus)
+      setLastRun({ ...run, xp: xp + (dailyBonus ? 10 : 0) })
       if (publicMaterialId && supabase) {
         const { data: auth } = await supabase.auth.getUser()
         if (auth.user) {
@@ -136,6 +139,7 @@ export function CardRushPage() {
     setCorrect(0)
     setAsked(0)
     setLastRun(null)
+    setDailyBonusEarned(false)
     setFeedback(null)
     setRemaining(RUN_MS)
     startedAt.current = Date.now()
@@ -289,9 +293,10 @@ export function CardRushPage() {
               <div className="tnum font-display text-xl font-semibold text-forest-400">
                 +{lastRun.xp}
               </div>
-              <div className="text-[11px] text-muted">XP</div>
+              <div className="text-[11px] text-muted">XP earned</div>
             </div>
           </div>
+          {dailyBonusEarned ? <p className="mt-3 text-xs font-semibold text-forest-400">Includes your +10 daily Rush participation bonus.</p> : null}
         </Card>
 
         <div className="flex flex-wrap gap-2">
