@@ -521,3 +521,17 @@ main#main :is(button, [role="button"]):active { transform: translateY(1px); }
   .hub-discover-card, .hub-library-card { transition: none; }
   .hub-discover-card:hover, .hub-library-card:hover { transform: none; }
 }
+
+
+/* iPhone safe-area: keep the sticky header below the status-bar / Dynamic Island region. */
+.hub-topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  scroll-margin-top: env(safe-area-inset-top, 0px);
+}
+@supports (padding-top: constant(safe-area-inset-top)) {
+  .hub-topbar { padding-top: constant(safe-area-inset-top); }
+}
+@media (max-width: 639px) {
+  .hub-topbar { position: sticky; top: 0; }
+  .hub-topbar-inner { min-height: 3.9rem; }
+}
