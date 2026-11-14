@@ -5,6 +5,7 @@ import {
   Bookmark,
   Layers,
   Search,
+  RefreshCw,
   Target,
   Trash2,
   Upload,
@@ -26,6 +27,7 @@ export function LibraryPage() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [visibleCount, setVisibleCount] = useState(20)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -70,6 +72,19 @@ export function LibraryPage() {
     if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too.`)) return
     await deleteDocument(id)
     toast('Deleted.', 'success')
+  }
+
+  const syncDocument = async (id: string) => {
+    if (!navigator.onLine) { toast('Connect to the internet before syncing this private PDF.', 'info'); return }
+    setSyncingId(id)
+    try {
+      const result = await import('@/lib/documentSync').then(({ syncPendingDocuments }) => syncPendingDocuments(id))
+      if (result.synced) toast('Private PDF and page index synced to your account.', 'success')
+      else if (result.failed) toast('Cloud sync failed. Your local copy is still available; try again later.', 'error')
+      else toast('No local PDF copy was found to sync. Your extracted study text remains on this device.', 'info')
+    } catch {
+      toast('Cloud sync could not start. Your local study copy is safe.', 'error')
+    } finally { setSyncingId(null) }
   }
 
   return (
@@ -147,6 +162,11 @@ export function LibraryPage() {
                       </div>
 
                       <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                        {doc.syncStatus === 'local' || doc.syncStatus === 'failed' ? (
+                          <Button size="sm" variant="secondary" disabled={syncingId === doc.id} onClick={() => void syncDocument(doc.id)} icon={<RefreshCw className="size-3.5" />}>
+                            {syncingId === doc.id ? 'Syncing…' : 'Sync PDF'}
+                          </Button>
+                        ) : null}
                         {deck ? (
                           <>
                             <Button
