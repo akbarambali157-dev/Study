@@ -15,7 +15,8 @@ export function ProfileSetupPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [form, setForm] = useState({
     displayName: '', institution: 'Olabisi Onabanjo University', faculty: '', department: '',
-    level: '', programme: '', academicSession: '',
+    level: '', programme: '', academicSession: '', researchInterests: '', skills: '', projectGoals: '',
+    discoverable: false, profileVisibility: 'private' as 'private' | 'public', messagePolicy: 'requests' as 'everyone' | 'requests' | 'nobody', collaborationAvailable: false,
   })
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export function ProfileSetupPage() {
       const user = auth?.data.user ?? null
       let remote: Record<string, unknown> | null = null
       if (supabase && user) {
-        const { data, error } = await supabase.from('student_profiles').select('display_name,institution,faculty,department,level,programme,academic_session').eq('user_id', user.id).maybeSingle()
+        const { data, error } = await supabase.from('student_profiles').select('display_name,institution,faculty,department,level,programme,academic_session,research_interests,skills,project_goals,discoverable,profile_visibility,message_policy,collaboration_available').eq('user_id', user.id).maybeSingle()
         if (error) throw error
         remote = data as Record<string, unknown> | null
       }
@@ -41,6 +42,13 @@ export function ProfileSetupPage() {
         level: String(remote?.level ?? local?.level ?? ''),
         programme: String(remote?.programme ?? local?.programme ?? ''),
         academicSession: String(remote?.academic_session ?? local?.academicSession ?? ''),
+        researchInterests: Array.isArray(remote?.research_interests) ? (remote.research_interests as string[]).join(', ') : '',
+        skills: Array.isArray(remote?.skills) ? (remote.skills as string[]).join(', ') : '',
+        projectGoals: Array.isArray(remote?.project_goals) ? (remote.project_goals as string[]).join(', ') : '',
+        discoverable: remote?.discoverable === true,
+        profileVisibility: remote?.profile_visibility === 'public' ? 'public' : 'private',
+        messagePolicy: remote?.message_policy === 'everyone' || remote?.message_policy === 'nobody' ? remote.message_policy : 'requests',
+        collaborationAvailable: remote?.collaboration_available === true,
       })
     }
     void load().catch(error => { if (active) toast(error instanceof Error ? error.message : 'Profile could not be loaded.', 'error') })
@@ -63,6 +71,11 @@ export function ProfileSetupPage() {
           institution: form.institution.trim().slice(0, 120), faculty: form.faculty.trim().slice(0, 120),
           department: form.department.trim().slice(0, 120), level: form.level.trim().slice(0, 30),
           programme: form.programme.trim().slice(0, 120), academic_session: form.academicSession.trim().slice(0, 30),
+          research_interests: form.researchInterests.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
+          skills: form.skills.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
+          project_goals: form.projectGoals.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
+          discoverable: form.discoverable, profile_visibility: form.discoverable ? form.profileVisibility : 'private',
+          message_policy: form.messagePolicy, collaboration_available: form.collaborationAvailable,
         }, { onConflict: 'user_id' })
         if (error) throw error
         const { error: metadataError } = await supabase.auth.updateUser({ data: { display_name: form.displayName.trim(), full_name: form.displayName.trim() } })
@@ -97,6 +110,15 @@ export function ProfileSetupPage() {
           <label className="text-sm font-medium">Current level<select value={form.level} onChange={e => update('level', e.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400"><option value="">Select your level</option>{['100','200','300','400','500','600','Postgraduate'].map(level => <option key={level} value={level}>{level}</option>)}</select></label>
           <label className="text-sm font-medium">Programme / course<input value={form.programme} onChange={e => update('programme', e.target.value)} maxLength={120} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="e.g. B.Sc. Business Administration" /></label>
           <label className="text-sm font-medium sm:col-span-2">Academic session<input value={form.academicSession} onChange={e => update('academicSession', e.target.value)} maxLength={30} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="e.g. 2026/2027" /></label>
+          <label className="text-sm font-medium sm:col-span-2">Research interests<input value={form.researchInterests} onChange={e => update('researchInterests', e.target.value)} maxLength={500} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="Comma-separated topics, e.g. public finance, education policy" /></label>
+          <label className="text-sm font-medium sm:col-span-2">Skills<input value={form.skills} onChange={e => update('skills', e.target.value)} maxLength={500} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="Comma-separated skills, e.g. statistics, literature search" /></label>
+          <label className="text-sm font-medium sm:col-span-2">Project goals<input value={form.projectGoals} onChange={e => update('projectGoals', e.target.value)} maxLength={500} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm outline-none focus:border-forest-400" placeholder="What kinds of academic projects interest you?" /></label>
+          <div className="rounded-2xl border border-line bg-surface-2/50 p-4 sm:col-span-2">
+            <h3 className="text-sm font-semibold">Discovery and contact preferences</h3>
+            <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={form.discoverable} onChange={e => setForm(current => ({ ...current, discoverable: e.target.checked, profileVisibility: e.target.checked ? 'public' : 'private' }))} className="mt-1 size-4 accent-forest" /><span><strong>Let other students discover my academic profile</strong><span className="block text-xs text-muted">Off by default. Only opted-in profiles appear in student matching.</span></span></label>
+            <label className="mt-3 block text-sm font-medium">Who can start a conversation?<select value={form.messagePolicy} onChange={e => setForm(current => ({ ...current, messagePolicy: e.target.value as typeof current.messagePolicy }))} className="mt-1.5 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm"><option value="requests">Message requests (recommended)</option><option value="everyone">Allow messages from discoverable students</option><option value="nobody">Nobody</option></select></label>
+            <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={form.collaborationAvailable} onChange={e => setForm(current => ({ ...current, collaborationAvailable: e.target.checked }))} className="mt-1 size-4 accent-forest" /><span><strong>Open to collaboration</strong><span className="block text-xs text-muted">Show this on your discoverable academic profile.</span></span></label>
+          </div>
           <div className="pt-2 sm:col-span-2"><Button type="submit" disabled={busy} className="w-full" icon={<Save className="size-4" />}>{busy ? 'Saving profile…' : 'Save profile'}</Button></div>
         </form>
       </Card>
