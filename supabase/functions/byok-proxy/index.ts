@@ -80,12 +80,17 @@ serve(async (req) => {
     if (key.length < 24 || key.length > 500 || /\s/.test(key) || !/^[A-Za-z0-9._~+/=-]+$/.test(key)) {
       return json({ error: 'That key format is not recognised. Paste the complete provider key without spaces.', code: 'INVALID_KEY_FORMAT' }, 400, requestId)
     }
+    const isAnthropicKey = key.startsWith('sk-ant-')
+    const isBrewKegKey = key.startsWith('bk_live_')
+    if (!isAnthropicKey && !isBrewKegKey) {
+      return json({ error: 'Use a key beginning with sk-ant- or bk_live_.', code: 'INVALID_KEY_FORMAT' }, 400, requestId)
+    }
     const baseUrl = typeof body.base_url === 'string' && body.base_url.trim()
       ? body.base_url.trim().replace(/\/+$/, '')
-      : key.startsWith('sk-ant-') ? 'https://api.anthropic.com' : 'https://brewkeg.dev'
+      : isAnthropicKey ? 'https://api.anthropic.com' : 'https://brewkeg.dev'
     try {
       const endpoint = new URL(baseUrl)
-      const expectedHost = key.startsWith('sk-ant-') ? 'api.anthropic.com' : 'brewkeg.dev'
+      const expectedHost = isAnthropicKey ? 'api.anthropic.com' : 'brewkeg.dev'
       if (endpoint.protocol !== 'https:' || endpoint.hostname !== expectedHost || (endpoint.pathname !== '/' && endpoint.pathname !== '/v1')) {
         throw new Error('The selected provider endpoint does not match this credential type.')
       }
@@ -130,6 +135,7 @@ serve(async (req) => {
   let endpoint: string
   try {
     const savedBaseUrl = credential.base_url as string
+    if (!key.startsWith('sk-ant-') && !key.startsWith('bk_live_')) throw new Error('The saved credential format is not supported.')
     const expectedHost = key.startsWith('sk-ant-') ? 'api.anthropic.com' : 'brewkeg.dev'
     if (new URL(savedBaseUrl).hostname !== expectedHost) throw new Error('Saved provider endpoint does not match the credential type.')
     endpoint = providerEndpoint(savedBaseUrl)
