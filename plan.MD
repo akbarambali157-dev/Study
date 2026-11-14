@@ -1335,3 +1335,63 @@ This follow-up records corrections made after the audit above. It does not close
 - No valid provider key or push subscription is currently stored for an end-to-end user test. No physical iPhone or Android device has been tested in this run.
 
 **Release decision:** These code and database hardening changes are implemented and automated checks pass. v1.0/v1.1 remain in progress until the real-account PDF/AI tests, cross-account tests, real-device PWA/offline tests and actual push delivery tests pass. The broader roadmap items listed in section 29 remain future work; they are not silently marked complete.
+
+---
+
+## 29. Implementation and verification update — 14 November 2026
+
+This section records the implementation pass made after the original roadmap. It does **not** mark device-level release acceptance as complete where a real device, second account, or live provider credential is required.
+
+### Implemented in the repository
+
+- [x] Reduced Library memory spikes: document summaries are now collected through an IndexedDB cursor, so extracted PDF page arrays are not retained together in the Library overview.
+- [x] Reduced planner reads to questions, key points and documents referenced by recent attempts.
+- [x] Kept Library rendering incremental (20 items at a time).
+- [x] Added PDF.js 6 compatibility helpers for Map upsert and Iterator Helpers on both the main thread and dedicated PDF worker. The PDF worker is bundled separately.
+- [x] Added a durable local queue for remote PDF deletion. Local document deletion is atomic with queue insertion; cloud object, page-index and metadata cleanup retries only for the original owner account.
+- [x] Kept offline document creation local-first and retained explicit user control over uploading private PDFs when connectivity returns.
+- [x] Moved personal provider credentials out of browser storage into Supabase Vault. Legacy browser-stored key entries are purged at app startup. The authenticated BYOK Edge Function stores and retrieves a user's own credential server-side and restricts supported endpoints to Anthropic or BrewKeg.
+- [x] Routed both hosted and BYOK generation through authenticated server-side proxies. Paid generation requests are no longer automatically retried after ambiguous failures.
+- [x] Added direct student conversations, pending message requests, block/report controls, read state and notification creation.
+- [x] Added research-post bookmarks, author follows, private-post visibility and threaded replies.
+- [x] Added Course Hubs and Research Circles with public joining, private invitations, membership controls and group discussions.
+- [x] Added server-side Web Push dispatch through pg_net, with VAPID signing material and dispatch token held in Vault. The browser receives only the public VAPID key. Push self-tests, notification preferences, quiet hours, category mapping, duplicate-delivery claims and stale-subscription cleanup are wired.
+- [x] Added account details and sign-out handling; private in-memory inbox and notification state is cleared on sign-out.
+- [x] Added/updated SQL migration files to match the applied database changes.
+
+### Supabase Edge Functions
+
+| Function | Active version | Purpose |
+|---|---:|---|
+| ai-proxy | 11 | Hosted AI requests |
+| public-material-download | 2 | Validated private/public material downloads |
+| byok-proxy | 5 | Vault-backed personal provider keys |
+| push-dispatch | 5 | Server-side Web Push delivery |
+| push-test | 1 | User-initiated push self-test |
+
+### Verification completed
+
+- [x] GitHub CI type-check and production build passed on commit `30ab04c64219d77f6aa126ccd38ef84cb03c1230`.
+- [x] Independent Study Hub validation workflow passed on the same commit.
+- [x] Supabase Vault create/read/delete round-trip was tested using a temporary non-provider test value and the temporary secret was deleted.
+- [x] Supabase security advisor no longer reports client-readable BYOK credentials. The push-delivery log is explicitly denied to browser roles.
+
+### Release gates still requiring real-world acceptance
+
+These are intentionally **not** marked complete:
+
+- [ ] Upload, retrieve, re-open and delete representative PDFs end-to-end using a real signed-in account, including a large file and an interrupted connection.
+- [ ] Run hosted-AI and Vault-backed BYOK connection tests with valid provider credentials. Never paste provider keys into chat or commit them to Git.
+- [ ] Test two separate student accounts for message requests, blocking, reporting, private posts, group invitations and private-group isolation.
+- [ ] Register at least one real Android/iOS browser subscription and verify the complete notification → pg_net → Edge Function → device delivery path, including quiet hours and unsubscribe.
+- [ ] Test install, update, airplane-mode launch, cached PDF reading and queued deletion on physical low-memory Android devices and supported iOS Safari versions.
+- [ ] Complete cross-device synchronisation for notes, flashcards, review history, quiz attempts and planner data. Current offline support remains local-first; the private PDF/page-index upload path is not a substitute for full study-data sync.
+- [ ] Complete a real-device performance profile (cold start, scrolling, memory, PDF processing and mobile-data-on behaviour).
+
+### Remaining roadmap work
+
+The later roadmap items are not represented as finished by this pass: server-authoritative XP/achievements, richer study intelligence and recommendations, course/group chat, and full cross-device study-data synchronisation still require their own designs, migrations, implementation and acceptance tests.
+
+### Deployment status at this update
+
+The latest code is committed to `main`. Vercel's Git integration is still returning `build-rate-limit` for newer commits; the latest production deployment is older than the current branch. Do not treat these changes as live until a production deployment for the current commit reaches **READY** and the production alias is verified.
