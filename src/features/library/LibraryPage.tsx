@@ -70,8 +70,7 @@ export function LibraryPage() {
   }, [query])
 
   const remove = async (id: string, title: string) => {
-    const target = library.find((item) => item.doc.id === id)?.doc
-    if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too${target?.remoteId ? ' and its private cloud PDF and page index will also be deleted' : ''}.`)) return
+    if (!window.confirm(`Delete “${title}”? Its notes, cards and test go too. Any private cloud copy will also be deleted or queued for cleanup.`)) return
     const cloudCleanupPending = await deleteDocument(id)
     if (cloudCleanupPending) toast('Removed from this device. Private cloud cleanup is queued for the next connection.', 'info')
     else toast('Document and its study materials deleted.', 'success')
