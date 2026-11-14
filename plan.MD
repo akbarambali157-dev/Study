@@ -1462,3 +1462,11 @@ These are user-reported acceptance results, not independent laboratory or automa
 4. Incorporate the pending Android tester's feedback and re-test.
 5. Keep the broader future roadmap separate from this usability/release pass.
 
+---
+
+## 31. UI redesign plan
+
+- [x] Created the implementation-ready, performance-first UI specification in [`UI_DESIGN_PLAN.md`](UI_DESIGN_PLAN.md).
+- [ ] Implement the redesign in phases; this documentation commit does not itself change the application UI.
+- [ ] Animations preference: ON by default; OFF preserves the current static interface. Respect operating-system reduced-motion settings.
+- [ ] Use iPhone and Redmi 10A as key responsive/performance test devices and incorporate the pending Android tester's feedback.
