@@ -271,3 +271,40 @@ main#main :is(button, [role="button"]):active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   main#main :is(button, [role="button"], input, select, textarea) { transition: none; }
 }
+
+
+/* ── Page hierarchy: calm, repeatable, and easy to scan ────────────────── */
+.page-heading {
+  position: relative;
+  padding-bottom: 1.15rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+.page-heading-title {
+  color: var(--text);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.page-heading-subtitle {
+  max-width: 46rem;
+  line-height: 1.65;
+}
+.page-section-heading {
+  min-height: 2.1rem;
+}
+.page-section-title {
+  color: var(--text);
+  line-height: 1.2;
+}
+.page-heading > div > div:last-child {
+  min-width: 0;
+}
+.page-heading a:focus-visible,
+.page-section-heading a:focus-visible {
+  border-radius: .5rem;
+}
+@media (max-width: 639px) {
+  .page-heading { padding-bottom: .95rem; margin-bottom: 1.15rem; }
+  .page-heading-title { font-size: clamp(1.65rem, 7vw, 2rem); }
+  .page-heading-subtitle { font-size: .82rem; }
+  .page-section-heading { align-items: flex-start; }
+}
