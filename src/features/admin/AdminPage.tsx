@@ -19,9 +19,10 @@ export function AdminPage(){
    supabase.rpc('admin_usage_summary'),
    supabase.from('ai_usage').select('id,user_id,model,input_tokens,output_tokens,status_code,duration_ms,created_at').order('created_at',{ascending:false}).limit(1000),
    supabase.from('ai_user_limits').select('user_id,daily_request_limit,suspended,reason'),
-   supabase.from('ai_system_limits').select('global_daily_limit').eq('id',true).single()
+   supabase.from('ai_system_limits').select('global_daily_limit').eq('id',true).maybeSingle()
   ])
   if(summaryResult.error||recentResult.error||limitsResult.error||globalResult.error){setError(summaryResult.error?.message||recentResult.error?.message||limitsResult.error?.message||globalResult.error?.message||'Could not load operations data.');setLoading(false);return}
+  if(!globalResult.data){setError('The global AI limits row is not visible to this session. Confirm that your admin role is in App Metadata, then sign out and back in. If the issue continues, the global settings row or its admin read policy needs repair.');setLoading(false);return}
   setSummary((summaryResult.data??[])as UsageSummary[]);setRecent((recentResult.data??[])as UsageRow[])
   const byUser:Record<string,UserLimit>={};for(const item of (limitsResult.data??[])as UserLimit[])byUser[item.user_id]=item
   setLimits(byUser);setGlobalLimit(globalResult.data.global_daily_limit);setGlobalDraft(String(globalResult.data.global_daily_limit));setLoading(false)
