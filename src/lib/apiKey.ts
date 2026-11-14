@@ -1,4 +1,12 @@
 /** BYOK secrets are stored in Supabase Vault and are never persisted in browser storage. */
+if (typeof window !== 'undefined') {
+  try {
+    window.sessionStorage.removeItem('oou.anthropic.key.session')
+    window.localStorage.removeItem('oou.anthropic.key.local')
+  } catch {
+    // Storage may be unavailable in private browsing; no key is read or written.
+  }
+}
 export function looksLikeApiKey(key: string): boolean {
   const trimmed = key.trim()
   if (trimmed.length < 24 || trimmed.length > 500 || /\s/.test(trimmed)) return false
