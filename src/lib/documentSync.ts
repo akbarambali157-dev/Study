@@ -25,6 +25,7 @@ export interface CloudDocumentRef {
   remoteId: string
   storagePath: string
   syncStatus: 'indexed'
+  remoteOwnerId: string
 }
 
 function failure(stage: DocumentSyncStage, code: string, error: unknown, retryable = false): DocumentSyncError {
@@ -198,8 +199,8 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
         const remoteId = document.remoteId ?? crypto.randomUUID()
         const safeName = file.name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'document.pdf'
         const storagePath = document.storagePath ?? `${data.session.user.id}/${remoteId}/${safeName}`
-        await database.documents.update(document.id, { remoteId, storagePath, syncStatus: 'local' })
-        const remote = await uploadDocumentToCloud(file, { ...document, remoteId, storagePath })
+        await database.documents.update(document.id, { remoteId, storagePath, remoteOwnerId: data.session.user.id, syncStatus: 'local' })
+        const remote = await uploadDocumentToCloud(file, { ...document, remoteId, storagePath, remoteOwnerId: data.session.user.id })
         if (!remote) {
           result.skipped++
           continue
@@ -292,7 +293,7 @@ export async function uploadDocumentToCloud(
       .eq('id', remoteId).eq('owner_id', userId)
     if (readyError) throw failure('finalize', 'DOCUMENT_FINALIZE_FAILED', readyError, true)
 
-    return { remoteId, storagePath, syncStatus: 'indexed' }
+    return { remoteId, storagePath, syncStatus: 'indexed', remoteOwnerId: userId }
   } catch (error) {
     if (isRetry) {
       await supabase.from('study_documents')
@@ -412,4 +413,53 @@ export async function deleteCloudDocument(remoteId: string): Promise<void> {
   const { error: metadataError } = await supabase.from('study_documents').delete()
     .eq('id', remoteId).eq('owner_id', auth.user.id)
   if (metadataError) throw failure('metadata', 'CLOUD_METADATA_DELETE_FAILED', metadataError, true)
+}
+
+
+export async function deleteRemoteDocument(input: { remoteId: string; storagePath?: string; ownerId: string }): Promise<boolean> {
+  if (!supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) return false
+  const { data: auth, error: authError } = await supabase.auth.getUser()
+  if (authError || !auth.user || auth.user.id !== input.ownerId) return false
+
+  let storagePath = input.storagePath
+  if (!storagePath) {
+    const { data, error } = await supabase.from('study_documents')
+      .select('storage_path').eq('id', input.remoteId).eq('owner_id', input.ownerId).maybeSingle()
+    if (error) throw failure('metadata', 'DELETE_METADATA_LOOKUP_FAILED', error, true)
+    storagePath = data?.storage_path
+  }
+
+  if (storagePath) {
+    const { error } = await supabase.storage.from(BUCKET).remove([storagePath])
+    if (error) throw failure('storage-upload', 'PRIVATE_OBJECT_DELETE_FAILED', error, true)
+  }
+  const { error: pagesError } = await supabase.from('study_document_pages')
+    .delete().eq('document_id', input.remoteId).eq('owner_id', input.ownerId)
+  if (pagesError) throw failure('page-index', 'PAGE_INDEX_DELETE_FAILED', pagesError, true)
+  const { error: metadataError } = await supabase.from('study_documents')
+    .delete().eq('id', input.remoteId).eq('owner_id', input.ownerId)
+  if (metadataError) throw failure('metadata', 'DOCUMENT_METADATA_DELETE_FAILED', metadataError, true)
+  return true
+}
+
+/** Flush only this signed-in account's durable remote-deletion queue. */
+export async function flushPendingCloudDeletions(): Promise<{ deleted: number; pending: number }> {
+  const result = { deleted: 0, pending: 0 }
+  if (!supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) return result
+  const { data: auth, error } = await supabase.auth.getUser()
+  if (error || !auth.user) return result
+  const database = (await import('./db')).db
+  const queue = await database.pendingCloudDeletions.where('ownerId').equals(auth.user.id).toArray()
+  for (const item of queue) {
+    try {
+      const deleted = await deleteRemoteDocument({ remoteId: item.id, storagePath: item.storagePath, ownerId: item.ownerId })
+      if (deleted) {
+        await database.pendingCloudDeletions.delete(item.id)
+        result.deleted++
+      } else result.pending++
+    } catch {
+      result.pending++
+    }
+  }
+  return result
 }
