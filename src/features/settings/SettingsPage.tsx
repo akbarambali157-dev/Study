@@ -701,7 +701,7 @@ function NotificationPreferences() {
     } finally { setPushBusy(false) }
   }
   const changeTime = async (key: 'quiet_hours_start' | 'quiet_hours_end', value: string) => {
-    if (!supabase || !userId || saving || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)) return
+    if (!supabase || !userId || saving || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return
     const previous = prefs
     const next = { ...prefs, [key]: value }
     setPrefs(next)
