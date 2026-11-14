@@ -75,13 +75,27 @@ export function App() {
     const timer = window.setTimeout(() => {
       void import('@/lib/supabase').then(({ supabase }) => {
         if (!mounted || !supabase) return
+        const syncPending = () => {
+          if (!navigator.onLine) return
+          void import('@/lib/documentSync')
+            .then(({ syncPendingDocuments }) => syncPendingDocuments())
+            .catch(() => undefined)
+        }
         void supabase.auth.getUser().then(({ data }) => {
-          if (mounted) setIsAdmin(data.user?.app_metadata?.role === 'admin')
+          if (!mounted) return
+          setIsAdmin(data.user?.app_metadata?.role === 'admin')
+          if (data.user) syncPending()
         })
         const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (mounted) setIsAdmin(session?.user.app_metadata?.role === 'admin')
+          if (!mounted) return
+          setIsAdmin(session?.user.app_metadata?.role === 'admin')
+          if (session?.user) syncPending()
         })
-        unsubscribe = () => data.subscription.unsubscribe()
+        window.addEventListener('online', syncPending)
+        unsubscribe = () => {
+          window.removeEventListener('online', syncPending)
+          data.subscription.unsubscribe()
+        }
       }).catch(() => undefined)
     }, 250)
 
