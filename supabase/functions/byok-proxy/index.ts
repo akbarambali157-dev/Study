@@ -25,7 +25,7 @@ function extractText(value: any): string {
   return ''
 }
 function safeProviderError(status: number): { message: string; code: string; http: number } {
-  if (status === 401 || status === 403) return { message: 'The provider rejected your saved key. Replace it in Settings.', code: 'BYOK_AUTH_ERROR', http: 401 }
+  if (status === 401 || status === 403) return { message: 'The provider rejected your saved key. Replace it in Settings.', code: 'BYOK_AUTH_ERROR', http: 502 }
   if (status === 404) return { message: 'The selected model or provider endpoint was not found.', code: 'MODEL_UNAVAILABLE', http: 400 }
   if (status === 429) return { message: 'Your provider rate limit was reached. Wait before trying again.', code: 'RATE_LIMIT', http: 429 }
   if (status === 529 || status === 503 || status >= 500) return { message: 'The provider is temporarily unavailable. Try again later.', code: 'PROVIDER_OVERLOADED', http: 503 }
