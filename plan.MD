@@ -1219,3 +1219,12 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Added the SVG brand mark as an `any`-purpose icon in the PWA manifest. Existing PNG manifest sizes remain as compatibility fallbacks.
 - The browser favicon and app header already use `studyhub-icon.svg`.
 - Remaining validation: wait for the production deployment to become available, then verify iOS Add to Home Screen and Android installation on actual devices. Browser-based visual QA is not yet complete.
+
+
+## 27. iPhone safe-area and status-bar layout — 14 November 2026
+
+- The sticky top bar now reserves `env(safe-area-inset-top)`, preventing its brand and controls from sitting underneath the iPhone status bar / Dynamic Island region when the installed web app uses `viewport-fit=cover`.
+- The iOS standalone status-bar style follows the selected light/dark theme for readable status icons/text.
+- The existing bottom navigation continues to reserve `safe-area-inset-bottom` for the home indicator.
+- This does not hide iOS system status indicators or Notification Center. iOS web apps cannot force the native immersive fullscreen mode; the layout instead respects the system safe areas.
+- Physical iPhone verification remains outstanding until the latest Vercel build is deployed.
