@@ -51,6 +51,9 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.dark)
+    // Keep the iOS standalone status-bar contrast aligned with the active theme.
+    const statusBar = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')
+    if (statusBar) statusBar.content = settings.dark ? 'black' : 'default'
   }, [settings.dark])
   useEffect(() => {
     if (!supabase) return
