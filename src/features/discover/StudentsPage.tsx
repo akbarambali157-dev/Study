@@ -5,7 +5,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { startConversation } from '@/features/messages/MessagesPage'
+import { startConversation } from '@/lib/messaging'
 import { supabase } from '@/lib/supabase'
 
 type Student = {
