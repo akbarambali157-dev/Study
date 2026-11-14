@@ -3,8 +3,7 @@ import { CheckCircle2, Download, Share, Smartphone } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
-
-type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }> }
+import { clearDeferredInstallPrompt, getDeferredInstallPrompt, type PwaInstallPromptEvent } from '@/lib/pwa'
 
 export function InstallPage() {
   const [promptEvent, setPromptEvent] = useState<PwaInstallPromptEvent | null>(null)
