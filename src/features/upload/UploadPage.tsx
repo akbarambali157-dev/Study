@@ -271,6 +271,7 @@ export function UploadPage() {
             await saveDocument(savedDoc)
           }
         } catch (syncError) {
+          if (controller.signal.aborted) throw syncError
           const message = syncError instanceof Error ? redactSecrets(syncError.message) : 'Cloud sync failed.'
           const diagnostic = syncError instanceof DocumentSyncError
             ? `${syncError.diagnosticId} · ${syncError.stage} · ${syncError.code}`
