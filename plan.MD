@@ -1199,3 +1199,15 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Test Rush with small decks, duplicate card backs and decks with 10+ cards; verify a full pass before repeats and that reverse-recall distractors remain fair.
 
 **Release note:** These changes are committed to `main`, but they are not considered production-verified until the CI result and the above account-level tests pass. The broader visual redesign remains a separate workstream; navigation, Planner, Install and the earlier responsive fixes are implemented, while the cohesive redesign and remaining UI polish are still in progress.
+
+
+## 25. Core experience design refresh — 14 November 2026
+
+- Added a dedicated Study Hub identity mark at `public/studyhub-icon.svg`; replaced the legacy letter favicon and wired the mark into the persistent app header.
+- Added the SVG identity mark to the PWA manifest while retaining the existing PNG fallback assets. Browser tab and in-app brand use the new mark; the legacy iOS touch PNG remains a fallback and should be replaced with a matching PNG asset in a follow-up.
+- Refined the sticky top bar brand treatment and applied consistent visual language to Dashboard, Research community, Discover and Library.
+- Added page-specific visual wrappers and styling for the Research composer/feed, Discover knowledge-commons hero and material cards, personal Library cards and saved community materials.
+- Updated app theme color and document title to match the new identity.
+- Latest GitHub Actions build/type-check passed for commit `1dfc604de6585a90264403551708655b41b372af`.
+- Vercel production remains on the earlier `79e6904` header-only deployment; the broader design changes are committed to `main` but are not yet live because the recent deployment attempts hit the Vercel build-rate limit.
+- Visual browser/device QA remains outstanding. In particular, check small iPhone widths, dark mode, long material titles, and the PWA home-screen icon before calling the redesign complete.
