@@ -113,47 +113,55 @@ serve(async (req) => {
     })
   }
 
-  // ── Per-user request limits ──────────────────────────────────────────
-  // Keep the shared provider usable for students while preventing one account
-  // from exhausting the project's pooled API balance.
-  const minuteAgo = new Date(Date.now() - 60_000).toISOString()
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
-  const [minuteUsage, dailyUsage] = await Promise.all([
-    supabaseClient
-      .from('ai_usage')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', minuteAgo),
-    supabaseClient
-      .from('ai_usage')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', dayAgo),
-  ])
-  if (minuteUsage.error || dailyUsage.error) {
-    console.error('AI quota check failed')
+  // ── Atomic pooled quota reservation and server-side usage ledger ────
+  // Client users cannot insert or modify usage rows. Only this trusted
+  // function can reserve a request and later record its real provider usage.
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceKey) {
+    console.error('AI usage ledger is not configured')
+    return new Response(JSON.stringify({ error: 'Hosted AI usage controls are temporarily unavailable.' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const adminClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { data: reservationRows, error: reservationError } = await adminClient.rpc('reserve_ai_request', {
+    p_user_id: user.id,
+    p_model: body.model,
+    p_request_id: requestId,
+    p_user_daily_limit: 120,
+    p_global_daily_limit: 6000,
+  })
+  const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows
+  if (reservationError || !reservation) {
+    console.error('AI quota reservation failed', { requestId, code: reservationError?.code })
     return new Response(JSON.stringify({ error: 'Usage limits are temporarily unavailable. Please try again shortly.' }), {
       status: 503,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-  if ((minuteUsage.count ?? 0) >= 60) {
-    return new Response(JSON.stringify({ error: 'You have reached the short-term AI request limit. Please wait a minute and try again.' }), {
-      status: 429,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
-    })
-  }
-  if ((dailyUsage.count ?? 0) >= 500) {
-    return new Response(JSON.stringify({ error: 'You have reached today’s hosted AI allowance. Please try again tomorrow.' }), {
+  if (!reservation.allowed) {
+    const globalLimit = reservation.reason === 'global_daily_limit'
+    const suspended = reservation.reason === 'user_suspended'
+    return new Response(JSON.stringify({
+      error: suspended
+        ? 'Hosted AI access for this account has been paused. Contact Study Hub support.'
+        : globalLimit
+          ? 'The Study Hub shared AI allowance has been reached for today. Please try again tomorrow.'
+          : 'You have reached today’s hosted AI allowance. Please try again tomorrow.',
+      code: suspended ? 'USER_AI_SUSPENDED' : globalLimit ? 'GLOBAL_DAILY_LIMIT' : 'USER_DAILY_LIMIT',
+    }), {
       status: 429,
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '3600' },
     })
   }
+  const usageId = reservation.usage_id
 
   // ── Forward to brewkeg.dev ──────────────────────────────────────────
-  // Correlation ID lets support trace one failure without collecting prompts,
-  // PDFs, user credentials or other sensitive request contents.
-  const requestId = crypto.randomUUID()
   let brewkegResp: Response
   try {
     brewkegResp = await fetch(`${BREWKEG_BASE_URL}/v1/messages`, {
@@ -173,6 +181,7 @@ serve(async (req) => {
       signal: AbortSignal.timeout(90_000),
     })
   } catch (error) {
+    await adminClient.from('ai_usage').update({ status_code: 502, duration_ms: Date.now() - startedAt }).eq('id', usageId)
     console.error('AI provider transport failed', { requestId, name: error instanceof Error ? error.name : 'unknown' })
     return new Response(JSON.stringify({ error: 'could not reach model provider', code: 'PROVIDER_NETWORK_ERROR', request_id: requestId }), {
       status: 502,
@@ -190,6 +199,7 @@ serve(async (req) => {
       ? 'The hosted AI provider rejected its server-side credential. The site administrator needs to check the proxy secret.'
       : responseJson?.error?.message ?? responseJson?.message ?? 'The model provider rejected the request.'
     const providerCode = upstreamAuthFailure ? 'PROVIDER_AUTH_ERROR' : `PROVIDER_HTTP_${brewkegResp.status}`
+    await adminClient.from('ai_usage').update({ status_code: upstreamAuthFailure ? 502 : brewkegResp.status, duration_ms: Date.now() - startedAt }).eq('id', usageId)
     console.error('AI provider rejected request', {
       requestId,
       status: brewkegResp.status,
@@ -209,25 +219,20 @@ serve(async (req) => {
   }
   const content=extractProviderText(responseJson)
   if(!content){
+    await adminClient.from('ai_usage').update({ status_code: 502, duration_ms: Date.now() - startedAt }).eq('id', usageId)
     console.error('AI provider returned no text content', { requestId, status: brewkegResp.status, contentType: typeof responseJson?.content })
     return new Response(JSON.stringify({error:'The provider returned an empty or unsupported response.',code:'PROVIDER_EMPTY_RESPONSE',request_id:requestId}),{status:502,headers:{...corsHeaders,'Content-Type':'application/json','x-request-id':requestId}})
   }
   const usage={input_tokens:tokenCount(responseJson?.usage?.input_tokens,responseJson?.usage?.prompt_tokens),output_tokens:tokenCount(responseJson?.usage?.output_tokens,responseJson?.usage?.completion_tokens)}
 
-  // ── Record usage for the logged-in user ─────────────────────────────
-  try {
-    const { error: usageError } = await supabaseClient.from('ai_usage').insert({
-      user_id: user.id,
-      model: body.model,
-      input_tokens: usage.input_tokens,
-      output_tokens: usage.output_tokens,
-      status_code: brewkegResp.status,
-      created_at: new Date().toISOString(),
-    })
-    if (usageError) console.warn('AI usage tracking failed:', usageError.code)
-  } catch {
-    // Usage tracking must never break a generation
-  }
+  // ── Finalize the reserved usage row with actual provider metrics ────
+  const { error: usageError } = await adminClient.from('ai_usage').update({
+    input_tokens: usage.input_tokens,
+    output_tokens: usage.output_tokens,
+    status_code: brewkegResp.status,
+    duration_ms: Date.now() - startedAt,
+  }).eq('id', usageId)
+  if (usageError) console.warn('AI usage tracking failed:', usageError.code)
 
   // ── Return ──────────────────────────────────────────────────────────
   return new Response(
