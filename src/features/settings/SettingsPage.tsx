@@ -598,12 +598,15 @@ type NotificationPrefs = {
   suggested_connections: boolean
   product_announcements: boolean
   quiet_hours_enabled: boolean
+  quiet_hours_start: string
+  quiet_hours_end: string
   pause_all: boolean
 }
 const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   direct_messages: true, replies: true, mentions: true, reactions: true,
   collaboration_invites: true, course_discussions: false, suggested_connections: false,
-  product_announcements: false, quiet_hours_enabled: false, pause_all: false,
+  product_announcements: false, quiet_hours_enabled: false,
+  quiet_hours_start: '22:00', quiet_hours_end: '07:00', pause_all: false,
 }
 function NotificationPreferences() {
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
@@ -625,7 +628,12 @@ function NotificationPreferences() {
       if (!user) { if (active) { setUserId(null); setLoading(false) }; return }
       const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle()
       if (error) throw error
-      const initial = { ...DEFAULT_NOTIFICATION_PREFS, ...(data ?? {}) }
+      const initial = {
+        ...DEFAULT_NOTIFICATION_PREFS,
+        ...(data ?? {}),
+        quiet_hours_start: typeof data?.quiet_hours_start === 'string' ? data.quiet_hours_start.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_start,
+        quiet_hours_end: typeof data?.quiet_hours_end === 'string' ? data.quiet_hours_end.slice(0, 5) : DEFAULT_NOTIFICATION_PREFS.quiet_hours_end,
+      }
       if (!data) {
         const { error: insertError } = await supabase.from('notification_preferences').insert({ user_id: user.id })
         if (insertError) throw insertError
@@ -692,6 +700,25 @@ function NotificationPreferences() {
       toast(error instanceof Error ? error.message : 'The device subscription could not be removed.', 'error')
     } finally { setPushBusy(false) }
   }
+  const changeTime = async (key: 'quiet_hours_start' | 'quiet_hours_end', value: string) => {
+    if (!supabase || !userId || saving || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)) return
+    const previous = prefs
+    const next = { ...prefs, [key]: value }
+    setPrefs(next)
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('notification_preferences').upsert(
+        { user_id: userId, ...next, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' },
+      )
+      if (error) throw error
+    } catch (error) {
+      setPrefs(previous)
+      toast(error instanceof Error ? error.message : 'Quiet hours could not be saved.', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
   if (loading) return <Card className="p-4 text-sm text-muted">Loading notification preferences…</Card>
   if (!userId) return <Card className="p-4 text-sm text-muted">Sign in to save notification preferences and register this device.</Card>
   return <Card className="divide-y divide-line p-0">
@@ -704,6 +731,32 @@ function NotificationPreferences() {
     <ToggleRow title="Course discussions" body="Notify me about activity in courses I follow." checked={prefs.course_discussions} onChange={value => void change('course_discussions', value)} />
     <ToggleRow title="Suggested connections" body="Allow occasional suggestions for relevant academic peers." checked={prefs.suggested_connections} onChange={value => void change('suggested_connections', value)} />
     <ToggleRow title="Product announcements" body="Receive important Study Hub product updates." checked={prefs.product_announcements} onChange={value => void change('product_announcements', value)} />
+    <div className="border-t border-line p-4">
+      <ToggleRow title="Quiet hours" body="Pause push notifications during the hours you choose. Times use this device's local clock." checked={prefs.quiet_hours_enabled} onChange={value => void change('quiet_hours_enabled', value)} />
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="text-xs text-muted">
+          Start
+          <input
+            type="time"
+            value={prefs.quiet_hours_start}
+            disabled={!prefs.quiet_hours_enabled || saving}
+            onChange={event => void changeTime('quiet_hours_start', event.target.value)}
+            className="mt-1 h-10 w-full rounded-lg border border-line bg-app px-2 text-sm text-body disabled:opacity-50"
+          />
+        </label>
+        <label className="text-xs text-muted">
+          End
+          <input
+            type="time"
+            value={prefs.quiet_hours_end}
+            disabled={!prefs.quiet_hours_enabled || saving}
+            onChange={event => void changeTime('quiet_hours_end', event.target.value)}
+            className="mt-1 h-10 w-full rounded-lg border border-line bg-app px-2 text-sm text-body disabled:opacity-50"
+          />
+        </label>
+      </div>
+      <p className="mt-2 text-[11px] text-muted">Quiet hours are saved to your account. They will take effect when the server-side notification sender is enabled.</p>
+    </div>
     <div className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">This device's push subscription</p><p className="mt-1 text-xs text-muted">{pushEnabled ? 'This browser has a registered subscription.' : 'Register this device to prepare it for Web Push.'}</p></div>
         {pushEnabled ? <Button size="sm" variant="secondary" disabled={pushBusy} onClick={() => void disablePush()}>{pushBusy ? 'Working…' : 'Disable on this device'}</Button> : <Button size="sm" disabled={!pushSupported || !vapidKey || pushBusy} onClick={() => void enablePush()}>{pushBusy ? 'Registering…' : 'Enable on this device'}</Button>}
