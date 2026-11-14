@@ -123,6 +123,10 @@ export function DiscoverPage() {
   return (
     <div className="hub-discover-page mx-auto max-w-5xl">
       <PageHeading title="Discover" subtitle="A growing library of student-shared notes, original PDFs, flashcards and quizzes." />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3">
+        <div><p className="text-sm font-semibold">Find your academic community</p><p className="text-xs text-muted">Meet students with shared research interests and collaboration goals.</p></div>
+        <Button size="sm" variant="secondary" onClick={() => navigate('/students')}>Discover students</Button>
+      </div>
       <section className="hub-discover-hero mb-5 overflow-hidden rounded-3xl p-5 text-white shadow-lg sm:p-7">
         <div className="flex items-start gap-3"><span className="grid size-11 place-items-center rounded-2xl border border-white/20 bg-white/10"><Sparkles className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-emerald-100">The OOU knowledge commons</p><h2 className="mt-1 text-2xl font-semibold">Learn from the work around you.</h2><p className="mt-1 max-w-2xl text-sm text-white/75">Explore materials students have chosen to share. Some contributions include the original PDF for download; private uploads and page indexes stay protected.</p></div></div>
         <div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).length}</p><p className="text-[11px] text-white/70">Public sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.owner_id === userId).length}</p><p className="text-[11px] text-white/70">Your sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).reduce((n, row) => n + Number((row.content as MaterialContent).flashcards?.length ?? 0), 0)}</p><p className="text-[11px] text-white/70">Shared cards</p></div></div>
