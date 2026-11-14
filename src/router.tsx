@@ -16,6 +16,7 @@ export const router = createHashRouter([
       { path: 'auth', lazy: async () => ({ Component: (await import('./features/auth/AuthPage')).AuthPage }) },
       { path: 'admin', lazy: async () => ({ Component: (await import('./features/admin/AdminPage')).AdminPage }) },
       { path: 'discover', lazy: async () => ({ Component: (await import('./features/discover/DiscoverPage')).DiscoverPage }) },
+      { path: 'students', lazy: async () => ({ Component: (await import('./features/discover/StudentsPage')).StudentsPage }) },
       { path: 'discover/:id/quiz', lazy: async () => ({ Component: (await import('./features/discover/PublicMaterialQuizPage')).PublicMaterialQuizPage }) },
       { path: 'profile-setup', lazy: async () => ({ Component: (await import('./features/auth/ProfileSetupPage')).ProfileSetupPage }) },
       { path: 'planner', lazy: async () => ({ Component: (await import('./features/planner/PlannerPage')).PlannerPage }) },
