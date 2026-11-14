@@ -1171,3 +1171,31 @@ This ledger records repository and deployment evidence. A code path is not relea
 - Academic profiles default to private; public discovery is not implemented.
 - Notification categories, global pause, quiet-hour settings and per-device push subscription registration/removal are implemented. Quiet-hour enforcement and actual push delivery still need the server-side sender and VAPID secrets.
 - Supabase security advisor currently reports leaked-password protection disabled.
+
+
+## 24. Community contributions, source PDFs and Rush variety — 14 November 2026
+
+**Implemented in the repository**
+- Community sharing is now opt-in by default. Newly uploaded study sets remain private unless the uploader explicitly chooses to share them.
+- The generation pipeline returns its document-grounded topic title. The saved document and community listing use that title rather than exposing the uploaded filename.
+- A contributor can choose to include the original PDF as an additional community download.
+- Original PDFs remain in the private `study-documents` bucket. A public-material download Edge Function checks that the contribution is currently public and that the contributor explicitly enabled original-file sharing, then issues a 90-second signed URL. It never accepts an arbitrary bucket path from the browser.
+- Making a contribution private prevents new download URLs from being issued. Existing signed URLs may remain usable until their short expiry.
+- The existing generated notes, flashcards and quiz questions are stored together in the shared contribution. The new community quiz reads those stored questions; it does not call the AI provider or spend another generation request.
+- Discover now offers original-PDF download and Take quiz actions when the contribution contains those assets.
+- Card Rush now cycles through a shuffled deck before repeating a card, avoids repeating the previous pass's final card at the next pass boundary, and mixes normal and reverse-recall rounds.
+
+**Database and server**
+- Added `share_original` and `source_document_id` to `public_materials`; the source link cascades when the owner's cloud document is deleted.
+- Applied the `public_material_original_pdf_sharing` migration to Supabase project `ewqogapdsvivpgpwaxfh`.
+- Deployed `public-material-download` Edge Function version 1, ACTIVE, with JWT gateway verification disabled because it serves public contributions; the function performs its own public-record and explicit-share checks before signing.
+
+**Still to validate**
+- CI TypeScript/build result for the latest commit.
+- End-to-end upload with explicit share consent, including one contribution with PDF and one without it.
+- Verify a second signed-in account can read notes, take the stored quiz and download the PDF only when the contributor enabled it.
+- Verify private-by-default behaviour, unpublish denial, deletion cascade and expired-link behaviour.
+- Confirm topic titles are accurate across different subjects and languages; the generated title can still need contributor editing.
+- Test Rush with small decks, duplicate card backs and decks with 10+ cards; verify a full pass before repeats and that reverse-recall distractors remain fair.
+
+**Release note:** These changes are committed to `main`, but they are not considered production-verified until the CI result and the above account-level tests pass. The broader visual redesign remains a separate workstream; navigation, Planner, Install and the earlier responsive fixes are implemented, while the cohesive redesign and remaining UI polish are still in progress.
