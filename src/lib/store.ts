@@ -184,7 +184,8 @@ export async function libraryOverview() {
   // IndexedDB cursors release each full document after its lightweight summary
   // is copied. Never materialise every extracted PDF page into one JS array.
   await db.documents.orderBy('createdAt').reverse().each((document) => {
-    const { pages: _pages, ...summary } = document
+    const { pages, ...summary } = document
+    void pages
     documents.push(summary)
   })
   const decks = await db.decks.toArray()
