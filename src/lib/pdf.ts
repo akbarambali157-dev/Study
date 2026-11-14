@@ -138,7 +138,11 @@ export async function extractPdf(
         const detail = errorDetail(error)
         throw new PdfError(`Could not read page ${i}: ${detail.message.slice(0, 160)}`, 'corrupt', stage, detail.name)
       }
-      onProgress?.(i, doc.numPages)
+      // Avoid scheduling a React render for every page on long PDFs. A 400-page
+      // document now emits at most ~41 progress updates instead of 400.
+      if (i === 1 || i === doc.numPages || i % 10 === 0) {
+        onProgress?.(i, doc.numPages)
+      }
     }
 
     stage = 'metadata'
