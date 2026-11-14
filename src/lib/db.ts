@@ -15,6 +15,8 @@ import type {
   QuizAttempt,
   QuizQuestion,
   Settings,
+  StudyTask,
+  StudyGoal,
 } from './types'
 
 export class StudyHubDb extends Dexie {
@@ -34,6 +36,8 @@ export class StudyHubDb extends Dexie {
   learningProfile!: Table<LearningProfile, string>
   settings!: Table<Settings, string>
   pdfBlobs!: Table<{ id: string; blob: Blob; savedAt: number }, string>
+  studyTasks!: Table<StudyTask, string>
+  studyGoals!: Table<StudyGoal, string>
 
   constructor() {
     super('oou-study-hub')
@@ -76,6 +80,27 @@ export class StudyHubDb extends Dexie {
       learningProfile: 'id',
       settings: 'id',
       pdfBlobs: 'id, savedAt',
+    })
+
+    this.version(3).stores({
+      courses: 'id, code, createdAt',
+      documents: 'id, courseId, createdAt, status, source',
+      notes: 'id, documentId',
+      keyPoints: 'id, documentId, position',
+      orgs: 'id, documentId, keyPointId',
+      decks: 'id, documentId',
+      cards: 'id, deckId, documentId',
+      reviews: 'cardId, dueAt',
+      questions: 'id, deckId, documentId',
+      attempts: 'id, deckId, createdAt',
+      inquiries: 'id, createdAt, documentId, kind',
+      gameRuns: 'id, deckId, createdAt',
+      profile: 'id',
+      learningProfile: 'id',
+      settings: 'id',
+      pdfBlobs: 'id, savedAt',
+      studyTasks: 'id, dueAt, completed, kind, createdAt',
+      studyGoals: 'id, createdAt, updatedAt',
     })
   }
 }
