@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Bookmark, Eye, EyeOff, Search, Sparkles, Trash2, Zap } from 'lucide-react'
+import { BookOpen, Bookmark, ClipboardCheck, Download, Eye, EyeOff, Search, Sparkles, Trash2, Zap } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip, EmptyState } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
+import { getPublicMaterialDownloadUrl, launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 
 type Material = {
   id: string; owner_id: string; author_name: string; title: string; discipline: string
   page_count: number; tags: string[]; summary: string; content: Record<string, unknown>
-  is_public: boolean; created_at: string; saves_count: number; rush_count: number
+  is_public: boolean; share_original: boolean; source_document_id: string | null; created_at: string; saves_count: number; rush_count: number
 }
 type MaterialContent = {
   takeaways?: string[]
   keyPoints?: { heading: string; body: string }[]
   flashcards?: { front: string; back: string }[]
+  questions?: { stem: string; options: string[]; answerIndex: number; explanation: string; page?: number }[]
 }
 type ProgressRow = { material_id: string; rush_count: number; best_score: number; best_accuracy: number }
 
@@ -97,6 +98,18 @@ export function DiscoverPage() {
     setBusy(null)
   }
 
+  const downloadOriginal = async (row: Material) => {
+    setBusy(row.id)
+    try {
+      const url = await getPublicMaterialDownloadUrl(row.id)
+      window.location.assign(url)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The original PDF could not be downloaded.', 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const playRush = async (row: Material) => {
     try {
       await launchPublicMaterialRush(row, navigate)
@@ -109,9 +122,9 @@ export function DiscoverPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeading title="Discover" subtitle="A growing library of notes, revision cards and academic explainers from students." />
+      <PageHeading title="Discover" subtitle="A growing library of student-shared notes, original PDFs, flashcards and quizzes." />
       <section className="mb-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[#132d2a] via-[#1d4a43] to-[#375f76] p-5 text-white shadow-lg sm:p-7">
-        <div className="flex items-start gap-3"><span className="grid size-11 place-items-center rounded-2xl border border-white/20 bg-white/10"><Sparkles className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-emerald-100">The OOU knowledge commons</p><h2 className="mt-1 text-2xl font-semibold">Learn from the work around you.</h2><p className="mt-1 max-w-2xl text-sm text-white/75">Explore student-published study sets, save useful material and practise with Rush. Original PDFs and extracted page text stay private.</p></div></div>
+        <div className="flex items-start gap-3"><span className="grid size-11 place-items-center rounded-2xl border border-white/20 bg-white/10"><Sparkles className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-emerald-100">The OOU knowledge commons</p><h2 className="mt-1 text-2xl font-semibold">Learn from the work around you.</h2><p className="mt-1 max-w-2xl text-sm text-white/75">Explore materials students have chosen to share. Some contributions include the original PDF for download; private uploads and page indexes stay protected.</p></div></div>
         <div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).length}</p><p className="text-[11px] text-white/70">Public sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.owner_id === userId).length}</p><p className="text-[11px] text-white/70">Your sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).reduce((n, row) => n + Number((row.content as MaterialContent).flashcards?.length ?? 0), 0)}</p><p className="text-[11px] text-white/70">Shared cards</p></div></div>
       </section>
       <div className="relative mb-4"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search subjects, titles, tags or students…" className="h-12 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-sm outline-none focus:border-forest-400" /></div>
@@ -133,6 +146,8 @@ export function DiscoverPage() {
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button size="sm" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Explore material'}</Button>
                   <Button size="sm" variant="secondary" disabled={cards.length < 4} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
+                  {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" onClick={() => navigate(`/discover/${row.id}/quiz`)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
+                  {row.share_original ? <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void downloadOriginal(row)}><Download className="size-3.5" />Download original PDF</Button> : null}
                   <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void toggleSaved(row)}><Bookmark className="size-3.5" />{saved ? 'Saved' : 'Save to Library'}</Button>
                   {mine ? <><Button size="sm" variant="secondary" onClick={() => void visibility(row)}>{row.is_public ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}{row.is_public ? 'Make private' : 'Publish'}</Button><Button size="sm" variant="ghost" onClick={() => void remove(row)}><Trash2 className="size-3.5" /></Button></> : null}
                 </div>
@@ -142,7 +157,7 @@ export function DiscoverPage() {
                 {(content.takeaways ?? []).length > 0 ? <div><h4 className="text-xs font-bold uppercase tracking-wide text-muted">Key takeaways</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{content.takeaways?.slice(0, 8).map((value, index) => <li key={index}>{value}</li>)}</ul></div> : null}
                 {(content.keyPoints ?? []).slice(0, 8).map((point, index) => <div key={index} className="rounded-xl border border-line bg-surface p-3"><p className="text-sm font-semibold">{point.heading}</p><p className="mt-1 text-sm leading-relaxed text-muted">{point.body}</p></div>)}
                 {(content.flashcards ?? []).slice(0, 5).map((card, index) => <div key={index} className="grid grid-cols-2 gap-2 rounded-xl border border-line bg-surface p-3 text-sm"><div><p className="text-[10px] font-bold uppercase text-muted">Front</p><p className="mt-1">{card.front}</p></div><div><p className="text-[10px] font-bold uppercase text-muted">Back</p><p className="mt-1 text-muted">{card.back}</p></div></div>)}
-                <p className="text-[11px] text-muted">Only selected learning content is shared. The source PDF and full page index are not exposed.</p>
+                <p className="text-[11px] text-muted">Only the learning content selected by the contributor is shared. {row.share_original ? 'The contributor has also approved a time-limited original PDF download.' : 'The original PDF remains private.'}</p>
               </div> : null}
             </Card>
           })}
