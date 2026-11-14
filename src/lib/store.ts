@@ -180,18 +180,24 @@ export async function getQuestions(deckId: string): Promise<QuizQuestion[]> {
 /** A document counts as "ready" once its deck has at least one card. */
 export async function libraryOverview() {
   const now = new Date().toISOString()
-  const [documents, decks] = await Promise.all([
-    db.documents.orderBy('createdAt').reverse().toArray(),
-    db.decks.toArray(),
-  ])
-
+  const documents: Array<Omit<DocumentRec, 'pages'>> = []
+  // IndexedDB cursors release each full document after its lightweight summary
+  // is copied. Never materialise every extracted PDF page into one JS array.
+  await db.documents.orderBy('createdAt').reverse().each((document) => {
+    const { pages: _pages, ...summary } = document
+    documents.push(summary)
+  })
+  const decks = await db.decks.toArray()
   const deckByDoc = new Map(decks.map((deck) => [deck.documentId, deck]))
   const statsByDeck = new Map<string, { cardCount: number; dueCount: number }>()
   const latestAttemptByDeck = new Map<string, QuizAttempt>()
 
-  // Read one deck's card IDs/reviews at a time. The previous implementation
-  // materialised every card, review key and quiz attempt simultaneously,
-  // which could create a large temporary memory spike on budget phones.
+  // One descending cursor pass finds the latest attempt for every deck,
+  // rather than rescanning the full attempt history once per deck.
+  await db.attempts.orderBy('createdAt').reverse().each((attempt) => {
+    if (!latestAttemptByDeck.has(attempt.deckId)) latestAttemptByDeck.set(attempt.deckId, attempt)
+  })
+
   for (const deck of decks) {
     const cardIds = await db.cards.where('deckId').equals(deck.id).primaryKeys()
     const notDueIds = cardIds.length
@@ -201,12 +207,8 @@ export async function libraryOverview() {
     const notDue = new Set(notDueIds.map(String))
     statsByDeck.set(deck.id, {
       cardCount: cardIds.length,
-      // Cards without a review, due today or overdue all count as due.
       dueCount: cardIds.reduce((count, id) => count + (notDue.has(String(id)) ? 0 : 1), 0),
     })
-    const latest = await db.attempts.orderBy('createdAt').reverse()
-      .filter((attempt) => attempt.deckId === deck.id).first()
-    if (latest) latestAttemptByDeck.set(deck.id, latest)
   }
 
   return documents.map((doc) => {
