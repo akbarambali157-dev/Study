@@ -251,7 +251,7 @@ export function FeedPage() {
     setLoadingCommentsPost(postId)
     try {
       const { data, error } = await supabase.from('research_comments')
-        .select('id,post_id,author_id,author_name,body,created_at')
+        .select('id,post_id,author_id,author_name,body,created_at,parent_comment_id')
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
         .range(existing.length, existing.length + 49)
