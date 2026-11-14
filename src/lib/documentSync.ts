@@ -162,7 +162,7 @@ let pendingSync: Promise<PendingSyncResult> | null = null
  */
 export function syncPendingDocuments(documentId?: string): Promise<PendingSyncResult> {
   if (pendingSync) return pendingSync
-  pendingSync = (async () => {
+  const current = (async (): Promise<PendingSyncResult> => {
     const result = { synced: 0, skipped: 0, failed: 0 }
     if (typeof navigator !== 'undefined' && !navigator.onLine) return { ...result, reason: 'offline' }
     if (!supabase) return { ...result, reason: 'configuration' }
@@ -213,7 +213,8 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
     }
     return result
   })().finally(() => { pendingSync = null })
-  return pendingSync
+  pendingSync = current
+  return current
 }
 
 export async function uploadDocumentToCloud(
