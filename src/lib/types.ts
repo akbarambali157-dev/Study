@@ -215,11 +215,32 @@ export interface Profile {
   department?: string
   level?: string
   programme?: string
+  institution?: string
+  academicSession?: string
   matricNo?: string
   xp: number
   streakDays: number
   lastActive?: string
   lastRushBonusDate?: string
+}
+
+export interface StudyTask {
+  id: string
+  title: string
+  dueAt: string
+  kind: 'study' | 'revision' | 'quiz' | 'assignment'
+  completed: boolean
+  createdAt: string
+  documentId?: string
+}
+
+export interface StudyGoal {
+  id: string
+  title: string
+  targetSessions: number
+  completedSessions: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GameRun {
