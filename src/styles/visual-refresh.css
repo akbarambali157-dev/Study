@@ -535,3 +535,81 @@ main#main :is(button, [role="button"]):active { transform: translateY(1px); }
   .hub-topbar { position: sticky; top: 0; }
   .hub-topbar-inner { min-height: 3.9rem; }
 }
+
+
+/* Android / low-power mobile rendering profile.
+   Large fixed textures and backdrop filters force expensive GPU compositing
+   while scrolling. Keep the same palette and hierarchy with flat surfaces. */
+@media (max-width: 900px) and (pointer: coarse) {
+  html { scroll-behavior: auto; }
+  body { text-rendering: auto; }
+
+  .app-backdrop {
+    background: var(--bg) !important;
+  }
+  .app-backdrop::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  .hub-topbar,
+  header.sticky,
+  .community-toolbar {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--surface) !important;
+    box-shadow: 0 1px 3px rgb(0 0 0 / .08) !important;
+  }
+
+  .surface-elevated,
+  .card-surface,
+  .card-surface:hover,
+  .surface-elevated:hover {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 1px 3px rgb(0 0 0 / .07) !important;
+  }
+
+  .dashboard-content { animation: none !important; }
+  .intro-feature,
+  .metric-panel,
+  .recent-card,
+  .community-post,
+  .key-point-card,
+  .hub-discover-card,
+  .hub-library-card,
+  .hub-brand-mark,
+  .hub-nav-link::after,
+  .hub-topbar button {
+    transition: none !important;
+  }
+  .intro-feature:hover,
+  .metric-panel:hover,
+  .recent-card:hover,
+  .community-post:hover,
+  .key-point-card:hover,
+  .hub-discover-card:hover,
+  .hub-library-card:hover,
+  .hub-brand:hover .hub-brand-mark,
+  .hub-topbar button:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-card) !important;
+  }
+
+  .welcome-stage,
+  .overview-primary,
+  .community-banner {
+    box-shadow: none !important;
+  }
+}
+
+/* Also respect users who explicitly request less motion on any device. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
