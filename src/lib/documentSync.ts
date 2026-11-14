@@ -149,12 +149,12 @@ async function uploadPdfResumable(
 }
 
 
-type PendingSyncResult = { synced: number; skipped: number; failed: number; reason?: 'offline' | 'configuration' | 'signed-out' }\nlet pendingSync: Promise<PendingSyncResult> | null = null
+type PendingSyncResult = { synced: number; skipped: number; failed: number; reason?: 'offline' | 'configuration' | 'signed-out' }
+let pendingSync: Promise<PendingSyncResult> | null = null
 
 /**
  * Upload private PDFs saved on this device when the student explicitly asks.
- * The document's local
- * syncStatus is the durable queue: retries reuse its remote ID/storage path,
+ * Its local syncStatus is the durable queue: retries reuse its remote ID/storage path,
  * and uploadDocumentToCloud rebuilds the page index idempotently.
  *
  * Generated notes/cards remain local-first; this only syncs the private
