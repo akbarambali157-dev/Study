@@ -148,6 +148,65 @@ async function uploadPdfResumable(
   }
 }
 
+
+let pendingSync: Promise<{ synced: number; skipped: number; failed: number }> | null = null
+
+/**
+ * Retry private PDF uploads saved on this device. The document's local
+ * syncStatus is the durable queue: retries reuse its remote ID/storage path,
+ * and uploadDocumentToCloud rebuilds the page index idempotently.
+ *
+ * Generated notes/cards remain local-first; this only syncs the private
+ * original PDF and its extracted page index.
+ */
+export function syncPendingDocuments(): Promise<{ synced: number; skipped: number; failed: number }> {
+  if (pendingSync) return pendingSync
+  pendingSync = (async () => {
+    const result = { synced: 0, skipped: 0, failed: 0 }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return result
+    if (!supabase) return result
+
+    const { data, error } = await supabase.auth.getSession()
+    if (error || !data.session) return result
+
+    const documents = await (await import('./db')).db.documents
+      .where('source').equals('upload').toArray()
+
+    for (const document of documents) {
+      if (document.syncStatus === 'indexed' || document.status === 'extracting') {
+        result.skipped++
+        continue
+      }
+      if (typeof navigator !== 'undefined' && !navigator.onLine) break
+
+      try {
+        const database = (await import('./db')).db
+        const cached = await database.pdfBlobs.get(document.id)
+        if (!cached?.blob) {
+          result.skipped++
+          continue
+        }
+        const file = new File([cached.blob], document.fileName || 'document.pdf', {
+          type: 'application/pdf',
+          lastModified: cached.savedAt || Date.now(),
+        })
+        const remote = await uploadDocumentToCloud(file, document)
+        if (!remote) {
+          result.skipped++
+          continue
+        }
+        await database.documents.update(document.id, { ...remote, syncStatus: 'indexed' })
+        result.synced++
+      } catch {
+        await (await import('./db')).db.documents.update(document.id, { syncStatus: 'failed' }).catch(() => undefined)
+        result.failed++
+      }
+    }
+    return result
+  })().finally(() => { pendingSync = null })
+  return pendingSync
+}
+
 export async function uploadDocumentToCloud(
   file: File,
   document: DocumentRec,
