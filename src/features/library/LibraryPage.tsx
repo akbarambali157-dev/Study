@@ -82,6 +82,7 @@ export function LibraryPage() {
     try {
       const result = await import('@/lib/documentSync').then(({ syncPendingDocuments }) => syncPendingDocuments(id))
       if (result.reason === 'signed-out') toast('Sign in to sync this private PDF to your account.', 'info')
+      else if (result.reason === 'account-mismatch') toast('This cloud sync belongs to a different or older account. Sign in with the original account; your local study copy has not been changed.', 'info')
       else if (result.reason === 'configuration') toast('Cloud storage is not configured. Your local study copy is safe.', 'error')
       else if (result.reason === 'offline') toast('You are offline. Your local study copy is safe.', 'info')
       else if (result.synced) toast('Private PDF and page index synced to your account.', 'success')
