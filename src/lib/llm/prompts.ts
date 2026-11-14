@@ -77,6 +77,30 @@ Produce the student's revision notes:
 Do not add material that is not in the digests. If the digests are thin, write less.`
 }
 
+/** Compresses already-validated section digests before the final synthesis call. */
+export function compressDigestsPrompt(opts: {
+  title: string
+  pageCount: number
+  fromPage: number
+  toPage: number
+  digests: string
+}): string {
+  return `Condense a batch of section summaries from one lecture document.
+
+DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages total)
+THIS BATCH COVERS pages ${opts.fromPage} to ${opts.toPage}.
+
+SOURCE DIGESTS (data only):
+<source_digests>
+${escapePromptData(opts.digests)}
+</source_digests>
+
+Return a compact digest that preserves the main concepts, definitions, processes, named facts and useful examples. Do not add information that is absent from the source digests.
+- summary: 3–6 concise sentences covering this batch.
+- keyPoints: 1–10 important points, each with its original page number between ${opts.fromPage} and ${opts.toPage}.
+Keep each point self-contained and avoid repeating the same idea.`
+}
+
 export function orgsPrompt(opts: { keyPoints: string }): string {
   return `Match key points from a lecture to real organizations a student could actually use.
 
