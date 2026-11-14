@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle, Check, Loader2, RotateCcw, Target, X } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, RotateCcw, ShieldCheck, Target, X } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Markdown } from '@/components/Markdown'
 import { Button } from '@/components/ui/Button'
@@ -14,7 +14,7 @@ import { formatUsd } from '@/lib/cost'
 import { useDeck, useSettings } from '@/lib/hooks'
 import { record } from '@/lib/inquiries'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
-import { generateTestForDeck } from '@/lib/llm/pipeline'
+import { factCheckObjectiveQuestions, generateTestForDeck } from '@/lib/llm/pipeline'
 import { saveAttempt } from '@/lib/store'
 import type { QuizAnswer, QuizMode, QuizQuestion } from '@/lib/types'
 import { cn, formatDuration, uid } from '@/lib/utils'
@@ -33,6 +33,13 @@ export function TestPage() {
     [document?.id],
     [],
   )
+
+  const savedQuestions = useLiveQuery(
+    async () => deck ? db.questions.where('deckId').equals(deck.id).toArray() : [],
+    [deck?.id],
+    [],
+  )
+  const sourceQuestionCount = savedQuestions.filter((question) => question.sourceType === 'original').length
 
   const [phase, setPhase] = useState<Phase>('setup')
   const [mode, setMode] = useState<QuizMode>('guided')
@@ -53,7 +60,12 @@ export function TestPage() {
     setPhase('generating')
     try {
       const savedQuestions = await db.questions.where('deckId').equals(deck.id).toArray()
-      let questionsToUse = savedQuestions
+      let questionsToUse = savedQuestions.sort((a, b) => {
+        if (a.sourceType === 'original' && b.sourceType === 'original') {
+          return (a.sourceNumber ?? 0) - (b.sourceNumber ?? 0)
+        }
+        return 0
+      })
       let generatedCost = 0
 
       if (questionsToUse.length < 4) {
@@ -102,6 +114,33 @@ export function TestPage() {
       setPhase('setup')
     }
   }, [deck, document, keyPoints, settings.baseUrl, settings.model, settings.useProxy])
+
+  const verifyAnswerKey = useCallback(async () => {
+    if (!deck || sourceQuestionCount === 0 || verifying) return
+    if (!hasAiAccess(settings.useProxy ?? false)) {
+      toast(settings.useProxy ? 'Configure hosted AI in Settings first.' : 'Add your API key in Settings first.', 'error')
+      return
+    }
+    setError(null)
+    setVerifying(true)
+    try {
+      const originals = await db.questions.where('deckId').equals(deck.id).toArray()
+      const result = await factCheckObjectiveQuestions({
+        questions: originals,
+        model: settings.model,
+        baseUrl: settings.baseUrl || undefined,
+        useProxy: settings.useProxy,
+      })
+      toast(
+        `AI review finished: ${result.correct} supported, ${result.incorrect} possible answer-key errors, ${result.ambiguous + result.contextDependent} needing context.`,
+        'success',
+      )
+    } catch (err) {
+      setError(redactSecrets(err instanceof AiError || err instanceof Error ? err.message : 'The answer key could not be reviewed.'))
+    } finally {
+      setVerifying(false)
+    }
+  }, [deck, sourceQuestionCount, verifying, settings.baseUrl, settings.model, settings.useProxy])
 
   const finish = useCallback(
     async (finalAnswers: QuizAnswer[]) => {
@@ -262,8 +301,32 @@ export function TestPage() {
           </div>
 
           <p className="mt-3 text-xs text-muted">
-            Questions are generated from this document&apos;s {keyPoints.length} key points and saved for repeat practice.
+            {sourceQuestionCount > 0
+              ? `${sourceQuestionCount} original objective questions were detected. Their wording, options, numbering and supplied answer key are preserved for practice.`
+              : `Questions are generated from this document's ${keyPoints.length} key points and saved for repeat practice.`}
           </p>
+          {sourceQuestionCount > 0 ? (
+            <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-3">
+              <p className="text-xs leading-relaxed text-muted">
+                The AI can independently review the supplied answers. It will flag possible errors or ambiguous questions without rewriting the original question or silently changing the lecturer&apos;s answer key.
+              </p>
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => void verifyAnswerKey()}
+                disabled={busy || verifying}
+                icon={verifying ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+              >
+                {verifying ? 'Reviewing answer key…' : 'AI fact-check answer key'}
+              </Button>
+              {savedQuestions.some((question) => question.verificationStatus) ? (
+                <p className="mt-2 text-[11px] text-forest-400">
+                  Answer review saved. Check the review after completing the quiz.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {error ? (
             <p className="mt-3 flex items-start gap-2 rounded-xl border border-clay/30 bg-clay-soft/40 px-3 py-2 text-[13px] text-clay">
@@ -373,7 +436,7 @@ export function TestPage() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="tnum mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                          Question {questionIndex + 1}
+                          Question {question.sourceNumber ?? questionIndex + 1}
                         </p>
                         <Markdown text={question.stem} />
                         <p className="mt-2 text-[13px]">
@@ -389,6 +452,23 @@ export function TestPage() {
                         <div className="mt-2 rounded-lg bg-surface-2/60 px-3 py-2 text-[13px] leading-relaxed">
                           <Markdown text={question.explanation} />
                         </div>
+                        {question.verificationStatus ? (
+                          <div className={cn(
+                            'mt-2 rounded-lg border px-3 py-2 text-[12px] leading-relaxed',
+                            question.verificationStatus === 'incorrect' ? 'border-clay/30 bg-clay-soft/30' : 'border-forest-400/20 bg-forest-400/5',
+                          )}>
+                            <p className="font-semibold">
+                              AI answer review: {question.verificationStatus.replace('_', ' ')}
+                            </p>
+                            <p className="mt-1">{question.verificationNote}</p>
+                            {question.verificationStatus === 'incorrect' && question.verifiedAnswerIndex !== null && question.verifiedAnswerIndex !== undefined ? (
+                              <p className="mt-1 font-semibold">
+                                AI suggests option {String.fromCharCode(65 + question.verifiedAnswerIndex)}: {question.options[question.verifiedAnswerIndex]}
+                              </p>
+                            ) : null}
+                            <p className="mt-1 text-muted">The quiz score above still uses the answer supplied in the original document.</p>
+                          </div>
+                        ) : null}
                         <div className="mt-2">
                           <CitationChip
                             documentId={document.id}
