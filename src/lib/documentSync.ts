@@ -385,6 +385,7 @@ export async function restoreCloudDocument(remoteId: string): Promise<string> {
     sizeBytes: blob.size,
     remoteId,
     storagePath: metadata.storage_path,
+    remoteOwnerId: userId,
     syncStatus: 'indexed',
   }
   await db.transaction('rw', [db.documents, db.pdfBlobs], async () => {
