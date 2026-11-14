@@ -157,13 +157,13 @@ export function App() {
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8">
         <Outlet />
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-app/95 backdrop-blur-md sm:hidden" aria-label="Main">
-        <div className="mx-auto grid max-w-md grid-cols-4 items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="hub-mobile-nav fixed inset-x-0 bottom-0 z-30 sm:hidden" aria-label="Main">
+        <div className="hub-mobile-nav-inner mx-auto grid max-w-md grid-cols-4 items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
           {mobilePrimaryItems.map((item) => {
             const Icon = item.icon
             return (
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(
-                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[10px] font-semibold transition',
+                'hub-mobile-link flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[10px] font-semibold transition',
                 isActive ? 'text-forest dark:text-gold' : 'text-muted',
               )}>
                 <Icon className="size-5" />
@@ -173,13 +173,13 @@ export function App() {
           })}
           <details className="relative flex min-w-0 flex-col items-center justify-center">
             <summary className={cn(
-              'flex w-full cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[10px] font-semibold transition',
+              'hub-mobile-more flex w-full cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[10px] font-semibold transition',
               moreIsActive ? 'text-forest dark:text-gold' : 'text-muted',
             )}>
               <MoreHorizontal className="size-5" />
               <span>More</span>
             </summary>
-            <div className="absolute bottom-full right-0 mb-2 grid w-64 grid-cols-2 gap-2 rounded-2xl border border-line bg-app p-2 shadow-xl">
+            <div className="hub-mobile-more-menu absolute bottom-full right-0 mb-2 grid w-64 grid-cols-2 gap-2 rounded-2xl border border-line bg-app p-2 shadow-xl">
               {mobileMoreItems.map((item) => {
                 const Icon = item.icon
                 return (
