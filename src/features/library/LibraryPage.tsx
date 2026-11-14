@@ -166,7 +166,7 @@ export function LibraryPage() {
 
                       <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                         {doc.syncStatus === 'local' || doc.syncStatus === 'failed' ? (
-                          <Button size="sm" variant="secondary" disabled={syncingId === doc.id} onClick={() => void syncDocument(doc.id)} icon={<RefreshCw className="size-3.5" />}>
+                          <Button size="sm" variant="secondary" disabled={syncingId !== null} onClick={() => void syncDocument(doc.id)} icon={<RefreshCw className="size-3.5" />}>
                             {syncingId === doc.id ? 'Syncing…' : 'Sync PDF'}
                           </Button>
                         ) : null}
