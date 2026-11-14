@@ -32,6 +32,14 @@ Deno.serve(async (req: Request) => {
   if (subscriptionError) return json(503, { error: "This device's push registration could not be checked." });
   if (!count) return json(409, { error: "Enable push on this device first, then send a test notification." });
 
+  // Keep the self-test from becoming a notification-spam endpoint.
+  const since = new Date(Date.now() - 30_000).toISOString();
+  const { data: recent, error: recentError } = await admin.from("notifications")
+    .select("id").eq("user_id", auth.user.id).eq("notification_type", "push_test")
+    .gte("created_at", since).limit(1).maybeSingle();
+  if (recentError) return json(503, { error: "The test-notification rate limit could not be checked." });
+  if (recent) return json(429, { error: "Please wait 30 seconds before sending another test notification." });
+
   const id = crypto.randomUUID();
   const { error: insertError } = await admin.from("notifications").insert({
     user_id: auth.user.id,
