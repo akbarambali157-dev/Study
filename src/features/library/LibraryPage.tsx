@@ -96,7 +96,7 @@ export function LibraryPage() {
         />
       ) : (
         <>
-          <div className="relative mb-4">
+          <div className="hub-library-search relative mb-4">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
             <input
               ref={searchRef}
@@ -114,7 +114,7 @@ export function LibraryPage() {
             <ul className="space-y-3">
               {filtered.map(({ doc, deck, cardCount, dueCount, lastAttempt }) => (
                 <li key={doc.id}>
-                  <Card tone="elevated" className="p-4 key-point-card">
+                  <Card tone="elevated" className="hub-library-card p-4 key-point-card">
                     <div className="flex flex-wrap items-start gap-3">
                       <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-forest-400 border border-line">
                         <BookOpen className="size-5" />
@@ -243,7 +243,7 @@ function SavedPublicMaterials() {
   }
 
   return (
-    <section className="mt-8">
+    <section className="hub-saved-materials mt-8">
       <div className="mb-3 flex items-end justify-between gap-3"><div><h2 className="font-display text-lg font-semibold">Saved from Discover</h2><p className="text-xs text-muted">Community study sets you have kept for later.</p></div><span className="text-xs text-muted">{materials.length} saved</span></div>
       {loading ? <Card className="p-4 text-sm text-muted">Loading saved materials…</Card> : materials.length === 0 ? <Card className="p-4 text-sm text-muted">No community materials saved yet. Visit Discover to keep a study set here.</Card> : (
         <div className="grid gap-3 md:grid-cols-2">
