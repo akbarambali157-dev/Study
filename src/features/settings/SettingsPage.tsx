@@ -24,7 +24,7 @@ import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
-import { getVapidPublicKey, getCurrentDevicePushEndpoint, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, supportsWebPush } from '@/lib/push'
+import { getVapidPublicKey, getCurrentDevicePushEndpoint, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, requiresHomeScreenInstallForPush, supportsWebPush } from '@/lib/push'
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -651,6 +651,7 @@ function NotificationPreferences() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
+  const [pushNeedsInstall, setPushNeedsInstall] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
   const [testPushBusy, setTestPushBusy] = useState(false)
@@ -659,8 +660,10 @@ function NotificationPreferences() {
     let active = true
     const load = async () => {
       const pushAvailable = supportsWebPush()
-      setPushSupported(pushAvailable)
-      const publicKeyPromise = pushAvailable ? getVapidPublicKey().catch(() => '') : Promise.resolve('')
+      const needsInstall = requiresHomeScreenInstallForPush()
+      setPushNeedsInstall(needsInstall)
+      setPushSupported(pushAvailable && !needsInstall)
+      const publicKeyPromise = pushAvailable && !needsInstall ? getVapidPublicKey().catch(() => '') : Promise.resolve('')
       if (!supabase) { if (active) { setLoading(false); setVapidKey(await publicKeyPromise) }; return }
       const { data: auth, error: authError } = await supabase.auth.getUser()
       if (authError) throw authError
@@ -820,7 +823,7 @@ function NotificationPreferences() {
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">This device's push subscription</p><p className="mt-1 text-xs text-muted">{pushEnabled ? 'This browser has a registered subscription.' : 'Register this device to prepare it for Web Push.'}</p></div>
         {pushEnabled ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={testPushBusy || pushBusy} onClick={() => void sendTestPush()}>{testPushBusy ? 'Sending…' : 'Send test notification'}</Button><Button size="sm" variant="secondary" disabled={pushBusy} onClick={() => void disablePush()}>{pushBusy ? 'Working…' : 'Disable on this device'}</Button></div> : <Button size="sm" disabled={!pushSupported || !vapidKey || pushBusy} onClick={() => void enablePush()}>{pushBusy ? 'Registering…' : 'Enable on this device'}</Button>}
       </div>
-      {!pushSupported ? <p className="mt-2 text-[11px] text-muted">This browser does not support Web Push.</p> : !vapidKey ? <p className="mt-2 text-[11px] text-muted">The server could not provide the public VAPID key. Push delivery remains unavailable until the server configuration is restored.</p> : <p className="mt-2 text-[11px] text-muted">On iPhone and iPad, install Study Hub to the Home Screen before enabling Web Push. The public VAPID key is fetched from the server; the private signing key never reaches this device.</p>}
+      {pushNeedsInstall ? <p className="mt-2 text-[11px] text-muted">Install Study Hub to your iPhone or iPad Home Screen, then open the installed app to enable Web Push.</p> : !pushSupported ? <p className="mt-2 text-[11px] text-muted">This browser does not support Web Push.</p> : !vapidKey ? <p className="mt-2 text-[11px] text-muted">The server could not provide the public VAPID key. Push delivery remains unavailable until the server configuration is restored.</p> : <p className="mt-2 text-[11px] text-muted">On iPhone and iPad, install Study Hub to the Home Screen before enabling Web Push. The public VAPID key is fetched from the server; the private signing key never reaches this device.</p>}
     </div>
   </Card>
 }
