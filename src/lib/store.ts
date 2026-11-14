@@ -160,32 +160,42 @@ export async function libraryOverview() {
     db.decks.toArray(),
     db.cards.toArray(),
     db.reviews.toArray(),
-    db.attempts.toArray(),
+    db.attempts.orderBy('createdAt').reverse().toArray(),
   ])
 
-  const reviewByCard = new Map(reviews.map((r) => [r.cardId, r]))
+  const reviewByCard = new Map(reviews.map((review) => [review.cardId, review]))
+  const deckByDoc = new Map(decks.map((deck) => [deck.documentId, deck]))
+  const statsByDeck = new Map<string, { cardCount: number; dueCount: number }>()
+  const latestAttemptByDeck = new Map<string, QuizAttempt>()
+
+  // One pass over cards replaces a full card-array filter for every document.
   const now = Date.now()
-  const deckByDoc = new Map(decks.map((d) => [d.documentId, d]))
-  const cardsByDeck = new Map<string, Card[]>()
   for (const card of cards) {
-    const list = cardsByDeck.get(card.deckId) ?? []
-    list.push(card)
-    cardsByDeck.set(card.deckId, list)
+    const stats = statsByDeck.get(card.deckId) ?? { cardCount: 0, dueCount: 0 }
+    stats.cardCount++
+    const review = reviewByCard.get(card.id)
+    if (!review || Date.parse(review.dueAt) <= now) stats.dueCount++
+    statsByDeck.set(card.deckId, stats)
+  }
+
+  // Attempts are already newest-first from the IndexedDB index. The first
+  // entry per deck is therefore the latest; no per-document sorting is needed.
+  for (const attempt of attempts) {
+    if (!latestAttemptByDeck.has(attempt.deckId)) {
+      latestAttemptByDeck.set(attempt.deckId, attempt)
+    }
   }
 
   return documents.map((doc) => {
     const deck = deckByDoc.get(doc.id)
-    const deckCards = deck ? (cardsByDeck.get(deck.id) ?? []) : []
-    const due = deckCards.filter((c) => {
-      const r = reviewByCard.get(c.id)
-      return !r || new Date(r.dueAt).getTime() <= now
-    }).length
-    const bestAttempt = deck
-      ? attempts
-          .filter((a) => a.deckId === deck.id)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-      : undefined
-    return { doc, deck, cardCount: deckCards.length, dueCount: due, lastAttempt: bestAttempt }
+    const stats = deck ? statsByDeck.get(deck.id) : undefined
+    return {
+      doc,
+      deck,
+      cardCount: stats?.cardCount ?? 0,
+      dueCount: stats?.dueCount ?? 0,
+      lastAttempt: deck ? latestAttemptByDeck.get(deck.id) : undefined,
+    }
   })
 }
 
