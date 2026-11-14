@@ -117,6 +117,17 @@ export const QuizSchema = z.object({
 })
 export type QuizResult = z.infer<typeof QuizSchema>
 
+/** Advisory review of an answer key. It never overwrites the source answer. */
+export const ObjectiveVerificationSchema = z.object({
+  results: z.array(z.object({
+    questionId: z.string().max(80),
+    status: z.enum(['correct', 'incorrect', 'ambiguous', 'context_dependent']),
+    correctAnswerIndex: z.number().int().min(0).max(3).nullable(),
+    note: z.string().max(700),
+  })).min(1).max(20),
+})
+export type ObjectiveVerificationResult = z.infer<typeof ObjectiveVerificationSchema>
+
 // ── follow-up question about a key point ─────────────────────────────────
 export const AskSchema = z.object({
   answer: z.string().max(2500),
