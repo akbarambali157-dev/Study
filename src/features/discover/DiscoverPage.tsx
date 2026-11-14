@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 type Material = {
   id: string; owner_id: string; author_name: string; title: string; discipline: string
   page_count: number; tags: string[]; summary: string; content: Record<string, unknown>
-  is_public: boolean; created_at: string
+  is_public: boolean; created_at: string; saves_count: number; rush_count: number
 }
 type MaterialContent = {
   takeaways?: string[]
@@ -129,7 +129,7 @@ export function DiscoverPage() {
                 <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Chip tone="green">{row.discipline || 'General'}</Chip><Chip>{row.page_count} pages</Chip>{mine ? <Chip tone={row.is_public ? 'green' : 'clay'}>{row.is_public ? 'Public' : 'Private'}</Chip> : null}</div><h3 className="mt-3 font-display text-lg font-semibold">{row.title}</h3><p className="mt-1 text-xs text-muted">Shared by {row.author_name} · {new Date(row.created_at).toLocaleDateString()}</p></div><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-forest-400/10 text-forest-400"><BookOpen className="size-5" /></span></div>
                 <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted">{row.summary || 'A student-created study set.'}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">{(row.tags ?? []).slice(0, 5).map((tag) => <Chip key={tag}>{tag}</Chip>)}</div>
-                {stats ? <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted"><span>{stats.rush_count} Rush rounds</span><span>Best {stats.best_score} pts</span><span>Best accuracy {Math.round(Number(stats.best_accuracy))}%</span></div> : null}
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted"><span>{row.saves_count ?? 0} saves</span><span>{row.rush_count ?? 0} community Rush plays</span>{stats ? <><span>Your rounds: {stats.rush_count}</span><span>Your best: {stats.best_score} pts</span><span>Your accuracy: {Math.round(Number(stats.best_accuracy))}%</span></> : null}</div>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button size="sm" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Explore material'}</Button>
                   <Button size="sm" variant="secondary" disabled={cards.length < 4} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
