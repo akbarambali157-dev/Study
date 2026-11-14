@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   MessageCircle,
   Bell,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
@@ -33,6 +34,7 @@ const NAV = [
   { to: '/planner', label: 'Planner', icon: CalendarDays, end: false },
   { to: '/install', label: 'Install', icon: Smartphone, end: false },
   { to: '/discover', label: 'Discover', icon: Globe2, end: false },
+  { to: '/students', label: 'Students', icon: Users, end: false },
   { to: '/trail', label: 'Trail', icon: Compass, end: false },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
 ]
