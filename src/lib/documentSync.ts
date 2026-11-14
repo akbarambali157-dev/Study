@@ -367,6 +367,9 @@ export async function restoreCloudDocument(remoteId: string): Promise<string> {
   if (blob.size !== Number(metadata.size_bytes)) {
     throw new DocumentSyncError('The downloaded PDF size does not match its saved metadata.', 'storage-upload', 'CLOUD_PDF_SIZE_MISMATCH')
   }
+  if (await blob.slice(0, 5).text() !== '%PDF-') {
+    throw new DocumentSyncError('The cloud object is not a valid PDF file.', 'validation', 'CLOUD_OBJECT_NOT_PDF')
+  }
 
   const { db } = await import('./db')
   const existing = await db.documents.where('remoteId').equals(remoteId).filter((item) => item.remoteOwnerId === userId).first()
