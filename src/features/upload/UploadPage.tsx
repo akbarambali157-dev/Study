@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -83,9 +83,44 @@ export function UploadPage() {
   const abortRef = useRef<AbortController | null>(null)
 
   const [files, setFiles] = useState<QueuedFile[]>([])
+  const [aiAccountReady, setAiAccountReady] = useState(false)
+  const [privateCredentialReady, setPrivateCredentialReady] = useState(false)
+  const [aiAccessLoading, setAiAccessLoading] = useState(true)
   const [dragging, setDragging] = useState(false)
 
-  const keyReady = hasAiAccess(settings.useProxy ?? false)
+  useEffect(() => {
+    let active = true
+    const refreshAccess = async () => {
+      setAiAccessLoading(true)
+      if (!supabase || !hasAiAccess(settings.useProxy ?? false)) {
+        if (active) { setAiAccountReady(false); setPrivateCredentialReady(false); setAiAccessLoading(false) }
+        return
+      }
+      const { data: auth, error: authError } = await supabase.auth.getUser()
+      if (!active) return
+      if (authError || !auth.user) {
+        setAiAccountReady(false); setPrivateCredentialReady(false); setAiAccessLoading(false)
+        return
+      }
+      setAiAccountReady(true)
+      if (settings.useProxy) { setPrivateCredentialReady(false); setAiAccessLoading(false); return }
+      const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'status' } })
+      if (!active) return
+      setPrivateCredentialReady(!error && data?.configured === true)
+      setAiAccessLoading(false)
+    }
+    void refreshAccess().catch(() => {
+      if (active) { setAiAccountReady(false); setPrivateCredentialReady(false); setAiAccessLoading(false) }
+    })
+    const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      if (!session?.user) { setAiAccountReady(false); setPrivateCredentialReady(false) }
+      else void refreshAccess()
+    }).data.subscription
+    return () => { active = false; subscription?.unsubscribe() }
+  }, [settings.useProxy])
+
+  const keyReady = hasAiAccess(settings.useProxy ?? false) && aiAccountReady && (settings.useProxy || privateCredentialReady)
   const info = modelInfo(settings.model)
   const gatewayBilling = settings.useProxy || Boolean(settings.baseUrl && !settings.baseUrl.includes('api.anthropic.com'))
 
@@ -605,8 +640,17 @@ export function UploadPage() {
 
             {!keyReady && (
               <p className="mt-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-[12px]">
-                {settings.useProxy ? 'Hosted AI needs Supabase configured. Check Settings.' : <>You need your own API key first.{' '}
-                <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>{' '}— it stays in this browser.</>}
+                {aiAccessLoading
+                  ? 'Checking your account and AI connection…'
+                  : !aiAccountReady
+                    ? <>Sign in to use Study Hub AI. Your PDF and existing study materials remain available on this device.{' '}
+                      <Link to="/auth" className="font-semibold underline">Sign in</Link></>
+                    : settings.useProxy
+                      ? 'The hosted AI connection is not configured. Check Settings.'
+                      : !privateCredentialReady
+                        ? <>Add and save your private provider key in your encrypted account vault.{' '}
+                          <Link to="/settings" className="font-semibold underline">Open AI settings</Link>.</>
+                        : 'The AI connection is not available right now. Check your connection and retry.'}
               </p>
             )}
 
