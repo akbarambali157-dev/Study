@@ -1228,3 +1228,14 @@ This ledger records repository and deployment evidence. A code path is not relea
 - The existing bottom navigation continues to reserve `safe-area-inset-bottom` for the home indicator.
 - This does not hide iOS system status indicators or Notification Center. iOS web apps cannot force the native immersive fullscreen mode; the layout instead respects the system safe areas.
 - Physical iPhone verification remains outstanding until the latest Vercel build is deployed.
+
+
+## 28. Expanded PDF processing — 14 November 2026
+
+- Raised the browser PDF page ceiling from 120 to 400 and established a shared 50 MB maximum in `src/lib/pdfLimits.ts`.
+- Raised the private `study-documents` Storage bucket limit to 50 MB while preserving PDF-only uploads. Supabase Free projects are capped at 50 MB globally, so this is the largest plan-independent cap available without assuming a paid tier.
+- Replaced the standard one-shot private PDF upload with TUS resumable uploads in 6 MB chunks, using the signed-in user's access token and the private bucket. Upload cancellation is propagated to the upload request.
+- Raised database constraints for `study_documents.page_count`, `study_document_pages.page_number`, `public_materials.page_count` to 400 and `study_documents.size_bytes` to 50 MB.
+- Updated the public original-PDF download function to allow files up to 50 MB; deployed `public-material-download` version 2, ACTIVE, with the existing public-record and explicit-share checks unchanged.
+- Updated the AI pipeline to keep the inexpensive Haiku model for section mapping, fall back to the selected model if Haiku is unavailable or overloaded, and hierarchically compress validated section digests before final synthesis. This keeps long-document prompts bounded while preserving original page references.
+- Validation still required: GitHub type-check/build, a real 400-page text PDF, a 50 MB upload over TUS, and an explicitly shared original-PDF download. iOS memory use and browser stability should be checked on an actual device before treating the upper limits as fully production-verified.
