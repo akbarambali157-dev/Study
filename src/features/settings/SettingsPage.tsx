@@ -646,6 +646,7 @@ function NotificationPreferences() {
   const [pushSupported, setPushSupported] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
+  const [testPushBusy, setTestPushBusy] = useState(false)
   const [vapidKey, setVapidKey] = useState('')
   useEffect(() => {
     let active = true
@@ -734,6 +735,18 @@ function NotificationPreferences() {
       toast(error instanceof Error ? error.message : 'The device subscription could not be removed.', 'error')
     } finally { setPushBusy(false) }
   }
+  const sendTestPush = async () => {
+    if (!supabase || !userId || testPushBusy) return
+    setTestPushBusy(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('push-test', { body: {} })
+      if (error) throw error
+      if (data?.error) throw new Error(String(data.error))
+      toast('Test notification queued. Check this device in a moment.', 'success')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The test notification could not be queued.', 'error')
+    } finally { setTestPushBusy(false) }
+  }
   const changeTime = async (key: 'quiet_hours_start' | 'quiet_hours_end', value: string) => {
     if (!supabase || !userId || saving || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return
     const previous = prefs
@@ -793,7 +806,7 @@ function NotificationPreferences() {
     </div>
     <div className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">This device's push subscription</p><p className="mt-1 text-xs text-muted">{pushEnabled ? 'This browser has a registered subscription.' : 'Register this device to prepare it for Web Push.'}</p></div>
-        {pushEnabled ? <Button size="sm" variant="secondary" disabled={pushBusy} onClick={() => void disablePush()}>{pushBusy ? 'Working…' : 'Disable on this device'}</Button> : <Button size="sm" disabled={!pushSupported || !vapidKey || pushBusy} onClick={() => void enablePush()}>{pushBusy ? 'Registering…' : 'Enable on this device'}</Button>}
+        {pushEnabled ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={testPushBusy || pushBusy} onClick={() => void sendTestPush()}>{testPushBusy ? 'Sending…' : 'Send test notification'}</Button><Button size="sm" variant="secondary" disabled={pushBusy} onClick={() => void disablePush()}>{pushBusy ? 'Working…' : 'Disable on this device'}</Button></div> : <Button size="sm" disabled={!pushSupported || !vapidKey || pushBusy} onClick={() => void enablePush()}>{pushBusy ? 'Registering…' : 'Enable on this device'}</Button>}
       </div>
       {!pushSupported ? <p className="mt-2 text-[11px] text-muted">This browser does not support Web Push.</p> : !vapidKey ? <p className="mt-2 text-[11px] text-muted">The server could not provide the public VAPID key. Push delivery remains unavailable until the server configuration is restored.</p> : <p className="mt-2 text-[11px] text-muted">On iPhone and iPad, install Study Hub to the Home Screen before enabling Web Push. The public VAPID key is fetched from the server; the private signing key never reaches this device.</p>}
     </div>
