@@ -17,7 +17,7 @@ export function PageHeading({
   className?: string
 }) {
   return (
-    <div className={cn('mb-6', className)}>
+    <div className={cn('page-heading mb-6', className)}>
       {back ? (
         <Link
           to={back.to}
@@ -29,10 +29,10 @@ export function PageHeading({
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="page-heading-title font-display text-2xl font-semibold tracking-tight sm:text-3xl">
             {title}
           </h1>
-          {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
+          {subtitle ? <p className="page-heading-subtitle mt-1 text-sm text-muted">{subtitle}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
@@ -50,9 +50,9 @@ export function SectionTitle({
   action?: ReactNode
 }) {
   return (
-    <div className="mb-3 flex items-baseline justify-between gap-3">
+    <div className="page-section-heading mb-3 flex items-baseline justify-between gap-3">
       <div>
-        <h2 className="font-display text-lg font-semibold">{children}</h2>
+        <h2 className="page-section-title font-display text-lg font-semibold">{children}</h2>
         {hint ? <p className="mt-0.5 text-sm text-muted">{hint}</p> : null}
       </div>
       {action}
