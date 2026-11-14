@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Flame, Play, RotateCcw, Trophy, Zap } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +10,8 @@ import { record } from '@/lib/inquiries'
 import { saveGameRun, touchStreak } from '@/lib/store'
 import type { Card as CardRec, GameRun } from '@/lib/types'
 import { cn, shuffle, uid } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { toast } from '@/components/ui/toast'
 
 const RUN_MS = 60_000
 const BONUS_MS = 1_500
@@ -39,6 +41,8 @@ type Status = 'idle' | 'running' | 'over'
 export function CardRushPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const publicMaterialId = searchParams.get('publicMaterial')
   const { deck, cards, document } = useDeck(id)
 
   const [status, setStatus] = useState<Status>('idle')
@@ -56,6 +60,7 @@ export function CardRushPage() {
   const startedAt = useRef(0)
   const deadline = useRef(0)
   const locked = useRef(false)
+  const finished = useRef(false)
   const timer = useRef<number | null>(null)
 
   const stop = useCallback(() => {
@@ -78,6 +83,8 @@ export function CardRushPage() {
 
   const finish = useCallback(
     async (finalScore: number, finalBest: number, finalCorrect: number, finalAsked: number) => {
+      if (finished.current) return
+      finished.current = true
       stop()
       setStatus('over')
       const xp = Math.max(0, Math.round(finalScore / 10))
@@ -95,6 +102,19 @@ export function CardRushPage() {
       setLastRun(run)
       await saveGameRun(run)
       await touchStreak()
+      if (publicMaterialId && supabase) {
+        const { data: auth } = await supabase.auth.getUser()
+        if (auth.user) {
+          const { error } = await supabase.rpc('record_public_material_rush', {
+            p_material_id: publicMaterialId,
+            p_run_id: crypto.randomUUID(),
+            p_score: finalScore,
+            p_correct: finalCorrect,
+            p_total: finalAsked,
+          })
+          if (error) toast('Your Rush score was saved on this device, but community progress could not sync.', 'info')
+        }
+      }
       void record({
         kind: 'topic_open',
         documentId: document?.id,
@@ -102,12 +122,13 @@ export function CardRushPage() {
         payload: { mode: 'rush', score: finalScore },
       })
     },
-    [deck?.title, document?.id, id, stop],
+    [deck?.title, document?.id, id, publicMaterialId, stop],
   )
 
   const start = useCallback(() => {
     if (cards.length === 0) return
     stop()
+    finished.current = false
     setStatus('running')
     setScore(0)
     setCombo(0)
