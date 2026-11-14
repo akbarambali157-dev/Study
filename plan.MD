@@ -1395,3 +1395,12 @@ The later roadmap items are not represented as finished by this pass: server-aut
 ### Deployment status at this update
 
 The latest code is committed to `main`. Vercel's Git integration is still returning `build-rate-limit` for newer commits; the latest production deployment is older than the current branch. Do not treat these changes as live until a production deployment for the current commit reaches **READY** and the production alias is verified.
+
+### 29.2 Web Push device safeguards — 14 November 2026
+
+- The signed-in push self-test now has a 30-second per-account cooldown to prevent accidental repeated test notifications. Supabase push-test Edge Function version 2 is ACTIVE.
+- iOS/iPadOS browser detection now requires the app to be installed to the Home Screen before enabling Web Push. Unsupported in-tab Safari sessions receive a specific install instruction rather than a generic browser-support error.
+- Standalone-mode detection is guarded for older browsers that do not expose matchMedia.
+- GitHub Actions CI and Validate Study Hub both passed for commit 2db9e8513532d430c4372b3ed06dac2ddc6ac74f.
+- Vercel still reports build-rate-limit for this newer commit. Latest READY production remains 4ebe96edc23c5ed4f3ef74228b6a045d69abaf34. The new client-side iOS guard and other recent frontend changes are not live until a matching READY deployment exists.
+- Real push delivery still awaits a registered iOS Home Screen or Android device. The server-side VAPID endpoint and database claim rules are verified, but this is not an end-to-end device test.
