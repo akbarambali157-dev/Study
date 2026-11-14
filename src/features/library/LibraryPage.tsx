@@ -25,6 +25,7 @@ export function LibraryPage() {
   const library = useLibrary()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(20)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -52,6 +53,9 @@ export function LibraryPage() {
       `${doc.title} ${doc.fileName}`.toLowerCase().includes(needle),
     )
   }, [library, query])
+  const visible = filtered.slice(0, visibleCount)
+
+  useEffect(() => { setVisibleCount(20) }, [query])
 
   useEffect(() => {
     const needle = query.trim()
@@ -112,7 +116,7 @@ export function LibraryPage() {
             <EmptyState title="No match" body={`Nothing matches “${query}”.`} />
           ) : (
             <ul className="space-y-3">
-              {filtered.map(({ doc, deck, cardCount, dueCount, lastAttempt }) => (
+              {visible.map(({ doc, deck, cardCount, dueCount, lastAttempt }) => (
                 <li key={doc.id}>
                   <Card tone="elevated" className="hub-library-card p-4 key-point-card">
                     <div className="flex flex-wrap items-start gap-3">
@@ -185,6 +189,13 @@ export function LibraryPage() {
               ))}
             </ul>
           )}
+          {visible.length < filtered.length ? (
+            <div className="mt-4 flex justify-center">
+              <Button variant="secondary" onClick={() => setVisibleCount((count) => Math.min(count + 20, filtered.length))}>
+                Load 20 more ({filtered.length - visible.length} remaining)
+              </Button>
+            </div>
+          ) : null}
         </>
       )}
       <SavedPublicMaterials />
