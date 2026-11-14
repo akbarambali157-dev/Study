@@ -16,6 +16,17 @@ export function supportsWebPush(): boolean {
     'Notification' in window
 }
 
+/** iOS only exposes Web Push to an installed Home Screen web app. */
+export function requiresHomeScreenInstallForPush(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  if (!isIOS) return false
+  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  return !standalone
+}
+
 function decodeApplicationServerKey(value: string): Uint8Array {
   const padding = '='.repeat((4 - value.length % 4) % 4)
   const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/')
