@@ -481,8 +481,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
             </p>
           ) : null}
           <p className="mt-3 text-[12px] leading-relaxed text-muted">
-            PDFs never leave this device. Their text is sent to the model to generate notes.
-            If you have a result slip or any personal record in a PDF, do not upload it.
+            When you are signed in, the original PDF is stored in private account storage; extracted text is sent to your selected AI provider only when you generate study materials. Without an account, the local copy stays on this device. Do not upload result slips or other personal records.
           </p>
         </Card>
       </section>
