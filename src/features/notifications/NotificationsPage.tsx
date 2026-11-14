@@ -27,6 +27,14 @@ export function NotificationsPage() {
   }, [])
   useEffect(() => { void load() }, [load])
   useEffect(() => {
+    if (!supabase) return
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) { setUserId(null); setRows([]) }
+      else void Promise.resolve().then(() => load())
+    })
+    return () => data.subscription.unsubscribe()
+  }, [load])
+  useEffect(() => {
     if (!userId || !supabase) return
     const channel = supabase.channel(`notifications:${userId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload) => {
