@@ -76,6 +76,9 @@ function timeAgo(value: string): string {
 export function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [comments, setComments] = useState<Comment[]>([])
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  const [loadedCommentPosts, setLoadedCommentPosts] = useState<Set<string>>(() => new Set())
+  const [loadingCommentsPost, setLoadingCommentsPost] = useState<string | null>(null)
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [authorName, setAuthorName] = useState('Student')
@@ -114,6 +117,8 @@ export function FeedPage() {
       if (!user) {
         setPosts([])
         setComments([])
+        setCommentCounts({})
+        setLoadedCommentPosts(new Set())
         setReactions([])
         setLoading(false)
         return
@@ -126,20 +131,22 @@ export function FeedPage() {
       if (postError) throw postError
       const rows = (postRows ?? []) as Post[]
       setPosts(rows)
+      // Fetch comment bodies only when a thread is opened.
+      setComments([])
+      setCommentCounts({})
+      setLoadedCommentPosts(new Set())
+      setOpenComments({})
       if (rows.length === 0) {
-        setComments([])
         setReactions([])
         return
       }
       const ids = rows.map((post) => post.id)
-      const [commentResult, reactionResult] = await Promise.all([
-        supabase.from('research_comments').select('id,post_id,author_id,author_name,body,created_at').in('post_id', ids).order('created_at', { ascending: true }),
-        supabase.from('research_reactions').select('id,post_id,user_id,reaction').in('post_id', ids),
-      ])
-      if (commentResult.error) throw commentResult.error
-      if (reactionResult.error) throw reactionResult.error
-      setComments((commentResult.data ?? []) as Comment[])
-      setReactions((reactionResult.data ?? []) as Reaction[])
+      const { data: reactionRows, error: reactionError } = await supabase
+        .from('research_reactions')
+        .select('id,post_id,user_id,reaction')
+        .in('post_id', ids)
+      if (reactionError) throw reactionError
+      setReactions((reactionRows ?? []) as Reaction[])
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'The research feed could not be loaded.')
     } finally {
@@ -150,6 +157,58 @@ export function FeedPage() {
   useEffect(() => {
     void loadFeed()
   }, [loadFeed])
+
+  const toggleComments = async (postId: string) => {
+    const opening = !openComments[postId]
+    setOpenComments((current) => ({ ...current, [postId]: opening }))
+    if (!opening || loadedCommentPosts.has(postId) || loadingCommentsPost === postId || !supabase) return
+
+    setLoadingCommentsPost(postId)
+    try {
+      const [countResult, commentsResult] = await Promise.all([
+        supabase.from('research_comments').select('id', { count: 'exact', head: true }).eq('post_id', postId),
+        supabase.from('research_comments')
+          .select('id,post_id,author_id,author_name,body,created_at')
+          .eq('post_id', postId)
+          .order('created_at', { ascending: true })
+          .range(0, 49),
+      ])
+      if (countResult.error) throw countResult.error
+      if (commentsResult.error) throw commentsResult.error
+      setComments((current) => [
+        ...current.filter((comment) => comment.post_id !== postId),
+        ...((commentsResult.data ?? []) as Comment[]),
+      ])
+      setCommentCounts((current) => ({
+        ...current,
+        [postId]: countResult.count ?? commentsResult.data?.length ?? 0,
+      }))
+      setLoadedCommentPosts((current) => new Set(current).add(postId))
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Comments could not be loaded.', 'error')
+    } finally {
+      setLoadingCommentsPost(null)
+    }
+  }
+
+  const loadMoreComments = async (postId: string) => {
+    if (!supabase || loadingCommentsPost === postId) return
+    const existing = commentsByPost.get(postId) ?? []
+    setLoadingCommentsPost(postId)
+    try {
+      const { data, error } = await supabase.from('research_comments')
+        .select('id,post_id,author_id,author_name,body,created_at')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
+        .range(existing.length, existing.length + 49)
+      if (error) throw error
+      if (data?.length) setComments((current) => [...current, ...(data as Comment[])])
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'More comments could not be loaded.', 'error')
+    } finally {
+      setLoadingCommentsPost(null)
+    }
+  }
 
   const visiblePosts = useMemo(
     () => filter === 'all' ? posts : posts.filter((post) => post.post_type === filter),
@@ -228,7 +287,10 @@ export function FeedPage() {
         post_id: postId, author_id: userId, author_name: authorName.slice(0, 80), body: value,
       }).select('id,post_id,author_id,author_name,body,created_at').single()
       if (error) throw error
-      if (data) setComments((current) => [...current, data as Comment])
+      if (data) {
+        setComments((current) => [...current, data as Comment])
+        setCommentCounts((current) => ({ ...current, [postId]: (current[postId] ?? 0) + 1 }))
+      }
       setCommentDrafts((current) => ({ ...current, [postId]: '' }))
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Your comment could not be added.', 'error')
@@ -427,12 +489,13 @@ export function FeedPage() {
                       return <button key={item.value} type="button" disabled={busyPost === post.id} onClick={() => void toggleReaction(post.id, item.value)} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${active ? 'border-indigo-400 bg-indigo-500/10 text-indigo-600 dark:text-indigo-200' : 'border-line text-muted hover:border-indigo-300 hover:text-body'}`}><Icon className="size-3.5" />{item.label}{count > 0 ? <span className="tabular-nums">{count}</span> : null}</button>
                     })}
                   </div>
-                  <button type="button" onClick={() => setOpenComments((current) => ({ ...current, [post.id]: !current[post.id] }))} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-body"><MessageCircle className="size-3.5" />{postComments.length} comments</button>
+                  <button type="button" onClick={() => void toggleComments(post.id)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2 hover:text-body"><MessageCircle className="size-3.5" />{commentCounts[post.id] === undefined ? 'Comments' : `${commentCounts[post.id]} comments`}</button>
                 </div>
                 {openComments[post.id] ? (
                   <div className="mt-3 border-t border-line pt-3">
                     {postComments.length ? <div className="mb-3 space-y-3">{postComments.map((comment) => <div key={comment.id} className="flex gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-[11px] font-semibold">{comment.author_name.charAt(0).toUpperCase()}</span><div className="min-w-0 flex-1 rounded-xl bg-surface-2/70 px-3 py-2"><div className="flex flex-wrap items-baseline gap-2"><span className="text-xs font-semibold">{comment.author_name}</span><span className="text-[10px] text-muted">{timeAgo(comment.created_at)}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p></div></div>)}</div> : <p className="mb-3 text-xs text-muted">No comments yet. Add a constructive thought or question.</p>}
-                    <form onSubmit={(event) => { event.preventDefault(); void submitComment(post.id) }} className="flex gap-2">
+                    {commentCounts[post.id] !== undefined && postComments.length < commentCounts[post.id] ? <button type="button" disabled={loadingCommentsPost === post.id} onClick={() => void loadMoreComments(post.id)} className="mb-3 rounded-lg px-3 py-2 text-xs font-semibold text-indigo-600 disabled:opacity-50">{loadingCommentsPost === post.id ? 'Loading…' : 'Load more comments'}</button> : null}
+                     <form onSubmit={(event) => { event.preventDefault(); void submitComment(post.id) }} className="flex gap-2">
                       <input value={commentDrafts[post.id] ?? ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))} maxLength={2000} placeholder="Write a helpful comment…" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 text-sm" />
                       <Button type="submit" size="sm" disabled={busyPost === post.id || !(commentDrafts[post.id] ?? '').trim()} aria-label="Send comment"><Send className="size-4" /></Button>
                     </form>
