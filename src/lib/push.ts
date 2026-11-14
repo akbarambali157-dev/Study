@@ -1,3 +1,14 @@
+import { supabase } from './supabase'
+
+export async function getVapidPublicKey(): Promise<string> {
+  if (!supabase) throw new Error('Push notifications need an account connection.')
+  const { data, error } = await supabase.functions.invoke('push-dispatch', { body: { action: 'public-key' } })
+  if (error || typeof data?.publicKey !== 'string' || !data.publicKey) {
+    throw new Error('The server could not provide the public push key.')
+  }
+  return data.publicKey
+}
+
 export function supportsWebPush(): boolean {
   return typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
