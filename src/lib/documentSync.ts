@@ -306,3 +306,110 @@ export async function uploadDocumentToCloud(
     throw error
   }
 }
+
+
+export interface CloudDocumentSummary {
+  id: string
+  title: string
+  file_name: string
+  size_bytes: number
+  page_count: number
+  created_at: string
+  status: string
+}
+
+export async function listCloudDocuments(): Promise<CloudDocumentSummary[]> {
+  if (!supabase) return []
+  const { data: auth, error: authError } = await supabase.auth.getUser()
+  if (authError || !auth.user) throw new DocumentSyncError('Sign in to view your cloud documents.', 'session', 'AUTH_REQUIRED')
+  const { data, error } = await supabase.from('study_documents')
+    .select('id,title,file_name,size_bytes,page_count,created_at,status')
+    .eq('owner_id', auth.user.id).eq('status', 'indexed')
+    .order('created_at', { ascending: false }).limit(100)
+  if (error) throw failure('metadata', 'CLOUD_DOCUMENT_LIST_FAILED', error, true)
+  return (data ?? []) as CloudDocumentSummary[]
+}
+
+/** Restore the private source PDF and its extracted page index to this device. */
+export async function restoreCloudDocument(remoteId: string): Promise<string> {
+  if (!supabase) throw new DocumentSyncError('Cloud document restore needs an account connection.', 'configuration', 'SUPABASE_NOT_CONFIGURED')
+  const { data: auth, error: authError } = await supabase.auth.getUser()
+  if (authError || !auth.user) throw new DocumentSyncError('Sign in to restore this document.', 'session', 'AUTH_REQUIRED')
+  const userId = auth.user.id
+
+  const { data: metadata, error: metadataError } = await supabase.from('study_documents')
+    .select('id,owner_id,storage_path,file_name,title,mime_type,size_bytes,page_count,created_at,status')
+    .eq('id', remoteId).eq('owner_id', userId).maybeSingle()
+  if (metadataError || !metadata) throw failure('metadata', 'CLOUD_DOCUMENT_NOT_FOUND', metadataError ?? new Error('Document not found.'))
+  if (metadata.status !== 'indexed' || metadata.mime_type !== 'application/pdf') {
+    throw new DocumentSyncError('This cloud document is not ready to restore yet.', 'metadata', 'CLOUD_DOCUMENT_NOT_READY')
+  }
+  if (!metadata.storage_path || Number(metadata.size_bytes) < 1 || Number(metadata.size_bytes) > MAX_PDF_BYTES) {
+    throw new DocumentSyncError('The cloud document metadata is incomplete or outside the supported size limit.', 'validation', 'CLOUD_DOCUMENT_METADATA_INVALID')
+  }
+
+  const [{ data: blob, error: downloadError }, { data: pageRows, error: pageError }] = await Promise.all([
+    supabase.storage.from(BUCKET).download(metadata.storage_path),
+    supabase.from('study_document_pages').select('page_number,page_text')
+      .eq('document_id', remoteId).eq('owner_id', userId).order('page_number', { ascending: true }),
+  ])
+  if (downloadError || !blob) throw failure('storage-upload', 'CLOUD_PDF_DOWNLOAD_FAILED', downloadError ?? new Error('PDF download returned no file.'), true)
+  if (pageError) throw failure('page-index', 'CLOUD_PAGE_INDEX_READ_FAILED', pageError, true)
+  const rows = pageRows ?? []
+  if (rows.length !== Number(metadata.page_count) || rows.some((row, index) => Number(row.page_number) !== index + 1)) {
+    throw new DocumentSyncError('The saved page index is incomplete. Keep the cloud copy and contact support before deleting it.', 'page-index', 'CLOUD_PAGE_INDEX_INCOMPLETE')
+  }
+  const pages = rows.map((row) => typeof row.page_text === 'string' ? row.page_text : '')
+  if (!pages.length || pages.every((page) => !page.trim())) {
+    throw new DocumentSyncError('No searchable text was saved for this PDF. Scanned/image-only PDFs need OCR before they can be restored for study.', 'page-index', 'CLOUD_PAGE_TEXT_EMPTY')
+  }
+  if (blob.size !== Number(metadata.size_bytes)) {
+    throw new DocumentSyncError('The downloaded PDF size does not match its saved metadata.', 'storage-upload', 'CLOUD_PDF_SIZE_MISMATCH')
+  }
+
+  const { db } = await import('./db')
+  const existing = await db.documents.where('remoteId').equals(remoteId).first()
+  if (existing) return existing.id
+  const localId = `cloud-${remoteId}`
+  const fileName = String(metadata.file_name || 'restored-document.pdf').slice(0, 255)
+  const document: DocumentRec = {
+    id: localId,
+    title: String(metadata.title || fileName.replace(/\.pdf$/i, '')).slice(0, 200),
+    fileName,
+    pageCount: pages.length,
+    pages,
+    createdAt: String(metadata.created_at || new Date().toISOString()),
+    status: 'queued',
+    source: 'upload',
+    sizeBytes: blob.size,
+    remoteId,
+    storagePath: metadata.storage_path,
+    syncStatus: 'indexed',
+  }
+  await db.transaction('rw', [db.documents, db.pdfBlobs], async () => {
+    await db.documents.put(document)
+    await db.pdfBlobs.put({ id: localId, blob, savedAt: Date.now() })
+  })
+  return localId
+}
+
+/** Remove the authenticated user's private PDF, page index and metadata. */
+export async function deleteCloudDocument(remoteId: string): Promise<void> {
+  if (!supabase) throw new DocumentSyncError('Cloud deletion needs an account connection.', 'configuration', 'SUPABASE_NOT_CONFIGURED')
+  const { data: auth, error: authError } = await supabase.auth.getUser()
+  if (authError || !auth.user) throw new DocumentSyncError('Sign in before deleting the cloud copy.', 'session', 'AUTH_REQUIRED')
+  const { data: document, error: lookupError } = await supabase.from('study_documents')
+    .select('id,storage_path').eq('id', remoteId).eq('owner_id', auth.user.id).maybeSingle()
+  if (lookupError) throw failure('metadata', 'CLOUD_DELETE_LOOKUP_FAILED', lookupError, true)
+  if (!document) return
+  if (document.storage_path) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove([document.storage_path])
+    if (storageError) throw failure('storage-upload', 'CLOUD_PDF_DELETE_FAILED', storageError, true)
+  }
+  const { error: pagesError } = await supabase.from('study_document_pages').delete()
+    .eq('document_id', remoteId).eq('owner_id', auth.user.id)
+  if (pagesError) throw failure('page-index', 'CLOUD_PAGE_INDEX_DELETE_FAILED', pagesError, true)
+  const { error: metadataError } = await supabase.from('study_documents').delete()
+    .eq('id', remoteId).eq('owner_id', auth.user.id)
+  if (metadataError) throw failure('metadata', 'CLOUD_METADATA_DELETE_FAILED', metadataError, true)
+}
