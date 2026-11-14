@@ -308,3 +308,67 @@ main#main :is(button, [role="button"]):active { transform: translateY(1px); }
   .page-heading-subtitle { font-size: .82rem; }
   .page-section-heading { align-items: flex-start; }
 }
+
+
+/* ── Mobile navigation: compact dock with a clear active state ─────────── */
+.hub-mobile-nav {
+  border-top: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  box-shadow: 0 -12px 34px -28px rgb(23 26 53 / .42);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+.hub-mobile-nav-inner {
+  min-height: 4.35rem;
+  padding-top: .28rem;
+}
+.hub-mobile-link,
+.hub-mobile-more {
+  position: relative;
+  min-height: 3.65rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.hub-mobile-link svg,
+.hub-mobile-more svg {
+  transition: transform .18s ease, color .18s ease;
+}
+.hub-mobile-link[aria-current="page"] {
+  color: #4338ca;
+}
+.dark .hub-mobile-link[aria-current="page"] { color: #c7d2fe; }
+.hub-mobile-link[aria-current="page"]::before,
+.hub-mobile-more[aria-expanded="true"]::before {
+  position: absolute;
+  top: .25rem;
+  left: 50%;
+  width: 2.45rem;
+  height: 1.85rem;
+  border-radius: .75rem;
+  background: color-mix(in srgb, #6366f1 12%, var(--surface));
+  content: '';
+  transform: translateX(-50%);
+}
+.hub-mobile-link[aria-current="page"] svg,
+.hub-mobile-more.text-forest svg { transform: translateY(-1px); }
+.hub-mobile-link > *,
+.hub-mobile-more > * { position: relative; z-index: 1; }
+.hub-mobile-link span,
+.hub-mobile-more span { line-height: 1.1; }
+.hub-mobile-more-menu {
+  border-color: color-mix(in srgb, var(--line) 75%, #818cf8 25%);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 18px 50px -24px rgb(18 24 58 / .42);
+  backdrop-filter: blur(22px);
+}
+.hub-mobile-more-menu a {
+  min-height: 2.7rem;
+  border: 1px solid transparent;
+}
+.hub-mobile-more-menu a[aria-current="page"] {
+  border-color: color-mix(in srgb, #6366f1 22%, var(--line));
+  background: color-mix(in srgb, #6366f1 9%, var(--surface));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-mobile-link svg, .hub-mobile-more svg { transition: none; }
+}
