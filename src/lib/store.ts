@@ -157,36 +157,35 @@ export async function getQuestions(deckId: string): Promise<QuizQuestion[]> {
 
 /** A document counts as "ready" once its deck has at least one card. */
 export async function libraryOverview() {
-  const nowIso = new Date().toISOString()
-  const [documents, decks, cards, futureReviewIds, attempts] = await Promise.all([
+  const now = new Date().toISOString()
+  const [documents, decks] = await Promise.all([
     db.documents.orderBy('createdAt').reverse().toArray(),
     db.decks.toArray(),
-    db.cards.toArray(),
-    // Only future-due review keys are needed. Missing, due and overdue cards
-    // all count as due, so loading every review object wastes memory.
-    db.reviews.where('dueAt').above(nowIso).primaryKeys(),
-    db.attempts.orderBy('createdAt').reverse().toArray(),
   ])
 
-  const notDue = new Set(futureReviewIds)
   const deckByDoc = new Map(decks.map((deck) => [deck.documentId, deck]))
   const statsByDeck = new Map<string, { cardCount: number; dueCount: number }>()
   const latestAttemptByDeck = new Map<string, QuizAttempt>()
 
-  // One pass over cards replaces a full card-array filter for every document.
-  for (const card of cards) {
-    const stats = statsByDeck.get(card.deckId) ?? { cardCount: 0, dueCount: 0 }
-    stats.cardCount++
-    if (!notDue.has(card.id)) stats.dueCount++
-    statsByDeck.set(card.deckId, stats)
-  }
-
-  // Attempts are already newest-first from the IndexedDB index. The first
-  // entry per deck is therefore the latest; no per-document sorting is needed.
-  for (const attempt of attempts) {
-    if (!latestAttemptByDeck.has(attempt.deckId)) {
-      latestAttemptByDeck.set(attempt.deckId, attempt)
-    }
+  // Read one deck's card IDs/reviews at a time. The previous implementation
+  // materialised every card, review key and quiz attempt simultaneously,
+  // which could create a large temporary memory spike on budget phones.
+  for (const deck of decks) {
+    const cardIds = await db.cards.where('deckId').equals(deck.id).primaryKeys()
+    const reviews = cardIds.length
+      ? await db.reviews.where('cardId').anyOf(cardIds).toArray()
+      : []
+    const notDue = new Set(
+      reviews.filter((review) => review.dueAt > now).map((review) => review.cardId),
+    )
+    statsByDeck.set(deck.id, {
+      cardCount: cardIds.length,
+      // Cards without a review, due today or overdue all count as due.
+      dueCount: cardIds.reduce((count, id) => count + (notDue.has(String(id)) ? 0 : 1), 0),
+    })
+    const latest = await db.attempts.orderBy('createdAt').reverse()
+      .filter((attempt) => attempt.deckId === deck.id).first()
+    if (latest) latestAttemptByDeck.set(deck.id, latest)
   }
 
   return documents.map((doc) => {
