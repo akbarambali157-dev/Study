@@ -219,6 +219,7 @@ export interface Profile {
   xp: number
   streakDays: number
   lastActive?: string
+  lastRushBonusDate?: string
 }
 
 export interface GameRun {
