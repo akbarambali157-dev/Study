@@ -1,7 +1,6 @@
 import type { ZodType } from 'zod'
 import { aiProxyUrl, byokProxyUrl, supabase } from '../supabase'
 import type { AiModel } from '../types'
-import { sleep } from '../utils'
 
 export type AiErrorCode =
   | 'missing-key'
@@ -101,9 +100,9 @@ async function generateStructuredViaProxy<T>(
   request: StructuredRequest<T>,
   mode: 'hosted' | 'byok',
 ): Promise<{ data: T; usage: AiUsage }> {
-  // Provider overloads are transient. Give hosted requests three attempts with
-  // a longer backoff; a 503 means the upstream did not accept the generation.
-  const attempts = 3
+  // Paid generation is never retried automatically: an ambiguous network
+  // failure could mean the provider accepted the request and billed it.
+  const attempts = 1
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -166,6 +165,9 @@ async function generateStructuredViaProxy<T>(
         if (code === 'BYOK_NOT_CONFIGURED') throw new AiError('Add your private provider key in Settings first.', 'missing-key', false, requestId)
         if (code === 'BYOK_AUTH_ERROR') throw new AiError('Your saved personal key was rejected. Replace it in Settings.', 'auth', false, requestId)
         if (code === 'INVALID_PROVIDER_URL') throw new AiError('The selected provider URL is not supported. Use Anthropic or BrewKeg HTTPS endpoints.', 'unknown', false, requestId)
+        if (code === 'PROVIDER_AUTH_ERROR') throw new AiError('The hosted provider credential is not configured correctly. Contact Study Hub support.', 'auth', false, requestId)
+        if (code === 'PROVIDER_EMPTY_RESPONSE') throw new AiError('The provider returned an empty response. No learning output was saved.', 'schema', false, requestId)
+        if (code === 'PROVIDER_NETWORK_ERROR') throw new AiError('The provider could not be reached. Check the connection before retrying.', 'network', true, requestId)
         const detail = typeof errBody?.error === 'string' ? errBody.error : `Proxy returned ${resp.status}`
         const mapped = resp.status >= 500
           ? new AiError(`${mode === 'hosted' ? 'Hosted AI' : 'Your provider'} is not ready: ${redactSecrets(detail)}`, 'overloaded', resp.status === 502 || resp.status === 503, requestId)
