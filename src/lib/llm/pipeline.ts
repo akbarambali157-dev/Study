@@ -21,6 +21,7 @@ import type {
   QuizQuestion,
 } from '../types'
 import { uid } from '../utils'
+import { isObjectiveQuestionDocument, parseObjectiveQuestions } from '../objectiveQuestions'
 import { AiError, generateStructured, MAP_CONCURRENCY, type AiUsage } from './ai'
 import {
   askPrompt,
@@ -29,6 +30,7 @@ import {
   mapPrompt,
   orgsPrompt,
   quizPrompt,
+  objectiveVerificationPrompt,
   reducePrompt,
   SYSTEM_BASE,
 } from './prompts'
@@ -39,6 +41,7 @@ import {
   NotesSchema,
   OrgSchema,
   QuizSchema,
+  ObjectiveVerificationSchema,
 } from './schema'
 
 export type Stage = 'extract' | 'map' | 'reduce' | 'orgs' | 'cards' | 'quiz'
@@ -421,43 +424,66 @@ export async function generateStudyMaterial(
   await saveDeck(deck)
   await saveCards(cards)
 
-  // ── quiz: generate the first test as part of the upload pipeline ───────
+  // ── quiz: preserve source objective questions; otherwise generate ──────
   onStage?.('quiz')
-  const quizResult = await generateStructured({
-    schema: QuizSchema,
-    system: SYSTEM_BASE,
-    prompt: quizPrompt({ keyPoints: keyPointListing, pageCount, count: 8 }),
-    model,
-    maxTokens: 8000,
-    effort: 'medium',
-    baseUrl,
-    signal,
-    useProxy,
-  })
-  usage = addUsage(usage, quizResult.usage)
-  costUsd += tokensToCost(model, quizResult.usage.inputTokens, quizResult.usage.outputTokens)
+  const parsedObjectiveQuestions = parseObjectiveQuestions(doc.pages)
+  let questions: QuizQuestion[] = []
 
-  const questions: QuizQuestion[] = []
-  for (const raw of quizResult.data.questions) {
-    const keyPoint = keyPoints[raw.keyPointIndex]
-    if (!keyPoint || raw.options.length !== 4) continue
-    questions.push({
+  if (isObjectiveQuestionDocument(parsedObjectiveQuestions)) {
+    // Stems, options and numbering come directly from extracted PDF text.
+    // The supplied answer is kept as the scoring key until a student asks for
+    // an advisory AI review; the review never silently changes the source.
+    questions = parsedObjectiveQuestions.map((raw) => ({
       id: uid('q'),
       deckId,
       documentId: doc.id,
-      keyPointId: keyPoint.id,
       stem: raw.stem,
       options: raw.options,
       answerIndex: raw.answerIndex,
-      explanation: raw.explanation,
-      page: keyPoint.page ?? 1,
+      explanation: `Answer supplied by the source: ${String.fromCharCode(65 + raw.answerIndex)}. ${raw.answerText}`,
+      page: raw.page,
+      sourceType: 'original' as const,
+      sourceNumber: raw.number,
+      sourceAnswerText: raw.answerText,
+    }))
+    await saveQuestions(questions)
+  } else {
+    const quizResult = await generateStructured({
+      schema: QuizSchema,
+      system: SYSTEM_BASE,
+      prompt: quizPrompt({ keyPoints: keyPointListing, pageCount, count: 8 }),
+      model,
+      maxTokens: 8000,
+      effort: 'medium',
+      baseUrl,
+      signal,
+      useProxy,
     })
-  }
+    usage = addUsage(usage, quizResult.usage)
+    costUsd += tokensToCost(model, quizResult.usage.inputTokens, quizResult.usage.outputTokens)
 
-  if (questions.length === 0) {
-    throw new AiError('The model did not return usable test questions. Try generating again.', 'schema')
+    for (const raw of quizResult.data.questions) {
+      const keyPoint = keyPoints[raw.keyPointIndex]
+      if (!keyPoint || raw.options.length !== 4) continue
+      questions.push({
+        id: uid('q'),
+        deckId,
+        documentId: doc.id,
+        keyPointId: keyPoint.id,
+        stem: raw.stem,
+        options: raw.options,
+        answerIndex: raw.answerIndex,
+        explanation: raw.explanation,
+        page: keyPoint.page ?? 1,
+        sourceType: 'generated',
+      })
+    }
+
+    if (questions.length === 0) {
+      throw new AiError('The model did not return usable test questions. Try generating again.', 'schema')
+    }
+    await saveQuestions(questions)
   }
-  await saveQuestions(questions)
 
   return {
     usage,
