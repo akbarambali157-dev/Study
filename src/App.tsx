@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Bell,
   Users,
+  GraduationCap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProfile, useSettings } from '@/lib/hooks'
@@ -35,6 +36,7 @@ const NAV = [
   { to: '/install', label: 'Install', icon: Smartphone, end: false },
   { to: '/discover', label: 'Discover', icon: Globe2, end: false },
   { to: '/students', label: 'Students', icon: Users, end: false },
+  { to: '/groups', label: 'Groups', icon: GraduationCap, end: false },
   { to: '/trail', label: 'Trail', icon: Compass, end: false },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
 ]
