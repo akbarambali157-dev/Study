@@ -45,9 +45,9 @@ export default defineConfig({
           '**/pdf.worker*.mjs',
           // Keep the dashboard/app shell offline-ready. Optional routes and
           // heavy engines are cached on first use instead of every install.
-          // Keep every lightweight screen available offline after installation.
-          // Heavy AI/PDF engines stay out of the initial download and cache on first use.
-          '**/assets/{sdk,pdf,schema,json-schema-processors,pipeline,ai,supabase}-*.js',
+          // Keep local study screens and their shared dependencies offline-ready.
+          // Only the large direct-provider SDK and PDF engine are deferred to first use.
+          '**/assets/{sdk,pdf}-*.js',
         ],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
