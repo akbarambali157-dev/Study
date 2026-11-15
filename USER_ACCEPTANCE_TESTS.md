@@ -450,3 +450,51 @@ A release is accepted only after:
 - [ ] Relevant user acceptance tests above are PASS.
 - [ ] Remaining BLOCKED/NOT TESTED items are listed honestly and have an owner/next step.
 - [ ] No critical or high-severity defect remains open.
+
+
+## Q. V1.x authentication, Discover and Android update regressions
+
+These checks were added after reports of Android users seeing a missing update button, Settings reporting a missing Auth session, and academic profiles not appearing in student discovery. Do not mark them PASS until tested on the stated device/account.
+
+### Q1. Supabase session restoration
+- [ ] Open a fresh Android browser tab and wait for startup; confirm Settings has no transient missing-session error.
+- [ ] Close/reopen the installed Android PWA while signed in; open Settings immediately.
+- [ ] Navigate Settings, Library, Messages, Groups, Notifications and Community without being incorrectly treated as signed out.
+- [ ] Test sign-in, token refresh, expired session and logout; show a clear recovery path when a session is genuinely invalid.
+- [ ] Switch between two test accounts; confirm cloud operations always use the currently signed-in account.
+
+### Q2. Academic profile persistence and discovery
+- [ ] Create an account with academic details; after email confirmation and sign-in, verify its `student_profiles` row exists.
+- [ ] Edit and save; reload and confirm all fields, interests, skills, goals and discovery preferences persist.
+- [ ] Sign in again; confirm existing discovery preferences are preserved.
+- [ ] Keep the profile private and confirm it is not visible to another account.
+- [ ] Opt into public discovery and confirm visibility to a second account.
+- [ ] Confirm Account B cannot read or edit Account A's private profile fields.
+- [ ] Confirm an opted-in profile is never suggested to itself.
+- [ ] With only one student profile, show a helpful “no other students yet” state.
+
+### Q3. Discover public browsing
+- [ ] Open Discover signed out; public materials load without an account gate.
+- [ ] Confirm public materials remain visible if an optional identity lookup fails.
+- [ ] Try saving while signed out; show a clear sign-in action.
+- [ ] Sign in, save a material, reload and confirm it remains saved to that account.
+- [ ] Confirm private materials and private PDF objects never appear in anonymous browsing.
+
+### Q4. Android PWA update lifecycle
+- [ ] Install Study Hub on Android Chrome and record device model, OS and browser version.
+- [ ] Keep the app open while a newer production deployment becomes available; confirm the update notice appears.
+- [ ] Confirm the Update button appears even if the service-worker event occurred before the app shell mounted.
+- [ ] Background and reopen the app; confirm update detection recovers.
+- [ ] Tap Update; confirm the waiting worker activates and the app reloads onto the new build.
+- [ ] Confirm notes, cards, planner data and cached PDFs remain intact.
+- [ ] Repeat on weak network and with a draft/upload in progress; active work must not be silently discarded.
+
+### Q5. Low-memory Android PDF processing
+- [ ] On Redmi 10A, record whether the browser exposes a device-memory estimate.
+- [ ] Confirm the UI reports the adaptive PDF size/page limit selected for the device.
+- [ ] Process a supported PDF near the low-memory limit and confirm progress remains responsive.
+- [ ] Confirm a file above the adaptive limit is rejected before a large buffer is allocated.
+- [ ] Open and close several PDFs; confirm no progressive slowdown or tab reload.
+- [ ] On a device above the low-memory threshold, confirm the normal 50 MB / 400-page limit remains.
+
+**Status when added:** code and production build checks passed; all physical-device and two-account checks above remain NOT TESTED until an actual run is recorded.
