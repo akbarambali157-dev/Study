@@ -213,3 +213,38 @@ The build completed successfully but emitted a Lightning CSS warning for an unre
 - package.json currently has build and typecheck scripts but no dedicated unit/integration test runner. Add deterministic tests before expanding sync and learning logic.
 - Supabase currently reports 30 public tables, all with RLS enabled; the private study-documents bucket is limited to PDF files and 50 MiB. Policy semantics and two-account isolation still require test coverage.
 - Supabase advisors currently report leaked-password protection disabled (security warning), 34 unused indexes (informational; review query usage before changing), and no health findings.
+
+
+## 9. Authentication, Discover and Android reliability implementation (15 November 2026)
+
+### Source changes committed
+
+- `60bb293`: wait for Supabase's `INITIAL_SESSION` restoration before asking for the current user; add a shared `getAuthenticatedUser()` helper; create one academic-profile persistence helper; write signup academic details to the account.
+- `561ed90`: make profile setup require a real signed-in account when Supabase is configured; persist profile and discovery preferences to `student_profiles`; show a clear profile/discovery opt-in state.
+- `eed35db`, `1360711`, `b9aa0f8`, `4beb395`: retain PWA update state across React mounting; apply restored-session handling across Settings, Discover, profile and account flows; keep public Discover usable if optional identity lookup fails; preserve discovery preferences on sign-in.
+- `3309b6b`: on browsers exposing `navigator.deviceMemory <= 2`, cap local PDF processing at 20 MB / 150 pages and yield to the browser every ten pages. Other devices retain the 50 MB / 400-page ceiling.
+- `8b6d58a`, `0cee0eb`, `e306f8e`, `3398e86`: extend restored-session handling to Library, messaging, community, groups, notifications and private document sync; complete the authenticated identity migration.
+
+### Supabase findings
+
+- `student_profiles` has RLS enabled, authenticated-only table grants, and policies for own-profile CRUD plus opted-in public discovery.
+- `public_materials` has an `anon SELECT` grant and a SELECT policy for public rows. Public browsing does not require an account; save/progress actions do.
+- At inspection time, the project had 1 student profile (1 opted-in/public) and 4 public materials. If that single profile is the current tester's, student matching has no second account to recommend yet. This is a data-availability limit, not evidence that the profile write failed.
+- No database migration was required for this code slice; existing table columns and policies already support the intended profile fields.
+- Keep the leaked-password-protection advisor warning open until the Auth setting is enabled by an authorised project operator.
+
+### Verification
+
+- Vercel deployment `dpl_6JQRPumQ4tL2VhCRUzxHTzyRgH4G`, commit `3398e8619439b88f16da4508ba77ce2f944508be`, reached READY after `npm run build` completed.
+- The build runs `tsc -b && vite build`; the current code therefore passes the TypeScript build gate.
+- This does not prove sign-in on physical Android, account switching, anonymous public browsing, profile persistence for a real test account, or the update button on an installed PWA. Those remain explicit device/owner acceptance tests.
+
+### Remaining V1.x work — not declared complete
+
+- Exercise signup, email confirmation, password login, Google OAuth, token refresh, expired session, logout and account switching on physical Android and iPhone.
+- Run a two-account profile test: save profile A, enable discovery, sign out, sign in as B, confirm B cannot read/edit A's private fields; only opted-in public profile fields are visible.
+- Confirm public Discover shows the public materials while signed out; verify save/progress requires sign-in and returns a clear sign-in path.
+- Verify real Android PWA update notice, visible Update button, click-through, activation and no lost local study data.
+- Verify low-memory PDF behaviour on Redmi 10A; confirm the device exposes a memory hint and the adaptive cap is selected.
+- Add a deterministic unit/integration/browser test harness; current verification is TypeScript + production build, not full automated regression.
+- Continue V1.1 push/offline/update, V1.2 learning-logic, V1.3 design/performance and V1.4 sync/backup acceptance to the release gates above.
