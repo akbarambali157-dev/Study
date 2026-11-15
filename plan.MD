@@ -1506,3 +1506,14 @@ The complete manual test inventory is in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTA
 The initial UI implementation has started. Committed code includes the local Animations preference (default ON), OS reduced-motion override, static CSS baseline, focused Settings category screens with URL-backed navigation/back behaviour, online-only navigation filtering while the browser reports offline, offline route fallback, a useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint. The complete design plan is not finished: shared reachability state, full primary navigation redesign, admin display names, page-by-page visual polish, measured performance comparisons, and iPhone/Android acceptance remain open.
 
 The full user testing matrix is [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Wait for the matching production deployment before testing the new controls. The GitHub CI and validation workflows are running for the latest UI/performance commits; report their final result against the exact SHA before claiming those commits are validated.
+
+
+## 1B. Admin operations and update delivery
+
+The admin console must use Supabase Auth as the account source of truth. AI usage is an independent analytics ledger, never a proxy for total users. Admin can inspect registered accounts, academic profiles, sign-in/activity, AI usage and public study materials.
+
+User-facing release notes are managed separately from GitHub/Vercel deployment. Vercel continues to deploy code from main automatically. Admin release entries have a title, category (including Documentation), summary, details, optional docs link, version label and either manual approval or automatic publication. Published entries appear in a sequential in-app notification banner; the existing PWA update prompt remains separate.
+
+New uploads remain private by default. A Settings preference can make generated study sets public by default, while original PDFs stay private unless separately shared. Upload processing must display a persistent global progress notification that remains until a terminal task state.
+
+See [ADMIN_CONTROL_ROOM_PLAN.md](ADMIN_CONTROL_ROOM_PLAN.md) and [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md) Section S. Do not claim acceptance until the admin/non-admin and mobile device checks pass.
