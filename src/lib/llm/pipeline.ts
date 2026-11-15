@@ -55,7 +55,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   reduce: 'Building comprehensive notes',
   orgs: 'Finding related organizations',
   cards: 'Building flashcards',
-  quiz: 'Writing the test',
+  quiz: 'Preparing source questions',
 }
 
 export interface GenerationResult {
