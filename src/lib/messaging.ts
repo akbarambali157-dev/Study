@@ -6,6 +6,16 @@ export async function startConversation(recipientId: string): Promise<string> {
   if (!user) throw new Error('Sign in before starting a conversation.')
   if (user.id === recipientId) throw new Error('You cannot message your own account.')
 
+  // Existing conversations remain accessible even if the recipient later
+  // changes their preference for NEW message requests.
+  const { data: existing, error: lookupError } = await supabase
+    .from('conversations')
+    .select('id')
+    .or(`and(created_by.eq.${user.id},recipient_id.eq.${recipientId}),and(created_by.eq.${recipientId},recipient_id.eq.${user.id})`)
+    .maybeSingle()
+  if (lookupError) throw lookupError
+  if (existing?.id) return existing.id as string
+
   // Conversation creation is performed by one database RPC so the recipient
   // preference, discoverability, block checks, unique-pair handling and member
   // creation are evaluated atomically. This avoids exposing a half-created
