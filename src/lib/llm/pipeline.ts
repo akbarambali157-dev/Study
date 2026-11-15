@@ -20,6 +20,7 @@ import type {
   Org,
   QuizQuestion,
   QuizDifficulty,
+  StudyDepth,
 } from '../types'
 import { uid } from '../utils'
 import { isObjectiveQuestionDocument, parseObjectiveQuestions } from '../objectiveQuestions'
@@ -78,6 +79,7 @@ export interface PipelineOptions {
   onStage?: (stage: Stage, detail?: string) => void
   /** When true, the site provides the model via the Supabase Edge Function. */
   useProxy?: boolean
+  studyDepth?: StudyDepth
 }
 
 function addUsage(a: AiUsage, b: AiUsage): AiUsage {
@@ -126,7 +128,7 @@ async function pool<T, R>(
 export async function generateStudyMaterial(
   options: PipelineOptions,
 ): Promise<GenerationResult> {
-  const { doc, model, baseUrl, signal, onStage, useProxy } = options
+  const { doc, model, baseUrl, signal, onStage, useProxy, studyDepth = 'comprehensive' } = options
   const pages = doc.pages
   const pageCount = pages.length
 
@@ -218,6 +220,7 @@ export async function generateStudyMaterial(
           pageCount,
           title: doc.title,
           chunkText: chunk.text,
+          depth: studyDepth,
         }),
         6000,
       )
@@ -275,6 +278,7 @@ export async function generateStudyMaterial(
           title: doc.title,
           pageCount,
           digests: records.map((item) => item.text).join('\n\n'),
+          depth: studyDepth,
         }),
         model,
         maxTokens: 12000,
