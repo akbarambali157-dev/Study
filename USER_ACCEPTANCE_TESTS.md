@@ -506,6 +506,7 @@ These checks were added after reports of Android users seeing a missing update b
 - [ ] Confirm the imported item appears in the normal Library document list and opens at `/doc/:id`.
 - [ ] Confirm its shared summary appears as Short notes and shared key points appear in the normal notes/key-points view.
 - [ ] Confirm its flashcards appear in the normal Study session and support grading/spaced-repetition reviews.
+- [ ] Confirm flashcard examples, tags and page citations are retained, and contributor-shared organisations/references appear under the normal key-point view.
 - [ ] Confirm its quiz questions appear in the normal Test route, accept answers, show explanations and save a quiz attempt.
 - [ ] Confirm Rush remains optional and is not the only available study action.
 - [ ] Confirm import works even when the contributor did not share the original PDF; do not expose or attempt to download a private original.

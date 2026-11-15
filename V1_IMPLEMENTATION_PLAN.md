@@ -257,3 +257,10 @@ Commit `e35fd63014659a816e3eaa1f328237a811ea9059` adds a first-class local impor
 Discover now offers **Add to Library** independently of Rush, while saved community materials offer **Open study set**. Imported documents open in the standard document reader, and Library labels them as originating from Discover.
 
 **Release status:** source changes are committed, but build/deployment verification is blocked at present by Vercel's deployment API daily resource limit (HTTP 402; retry after 24 hours). Do not mark this change released until a successful build and deployment plus the Section R acceptance checks have passed.
+
+
+### Verification update — 15 November 2026
+
+- Follow-up implementation commits `917a452`, `57de3f9` and `c4465d2` route Discover quizzes and Rush through the imported local deck, preserve card examples/page citations/tags and contributor-shared reference links, and keep the import path idempotent.
+- GitHub Actions `CI` and `Validate Study Hub` both passed on `c4465d21fa7eeabcfcbfa10d60eddae8cdd77f2c` (runs 43694940770 and 43694940828).
+- Vercel's deployment API returned HTTP 402 `api-deployments-free-per-day` with a 24-hour retry window. The latest Vercel deployment still points to the earlier documentation commit `4393312`; this code change is therefore **not yet live**. Do not tell users it is deployed until Vercel shows the code commit as READY.

@@ -1198,3 +1198,12 @@ When the product owner changes a requirement:
 - Do not promote a feature to DONE without acceptance evidence.
 
 **Master rule:** Study Hub is complete only when the learning foundation, mobile experience, privacy, community and collaboration workflows work together reliably—not when the roadmap has merely been implemented in code.
+
+
+## 22B. Discover study workflow implementation — 15 November 2026
+
+Public community contributions now have a first-class import path into the same local document stores used by manual uploads. The importer creates a community-sourced document and note, key points, organisations/references, flashcards, and quiz questions. The standard document reader, flashcard study session, spaced-repetition reviews, quiz/test route, attempts, exports and offline IndexedDB persistence are used after import. Rush also imports and uses that same deck rather than creating a separate disconnected deck. Re-import updates the existing local document.
+
+The original PDF remains optional and private unless its contributor explicitly shares it. Community imports contain only the approved shared learning content; they do not fabricate a local copy of the original PDF.
+
+Source commits: `e35fd63`, `917a452`, `57de3f9`, `fa086c2`, `c4465d2`. Both GitHub CI workflows passed on `c4465d2`. Vercel deployment is pending because its deployment API daily quota returned HTTP 402; see `V1_IMPLEMENTATION_PLAN.md`. Do not mark the feature released until a Vercel READY deployment and Section R acceptance checks.
