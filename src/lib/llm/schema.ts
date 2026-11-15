@@ -50,7 +50,7 @@ export const NotesSchema = z.object({
         tags: z.array(z.string().max(40)).max(5),
       }),
     )
-    .min(3)
+    .min(1)
     .max(72),
 })
 export type NotesResult = z.infer<typeof NotesSchema>
