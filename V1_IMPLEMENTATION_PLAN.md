@@ -6,7 +6,7 @@
 
 ## 1. Release posture
 
-- **Version 1.0 is accepted by the product owner on 15 November 2026.** Do not leave it labelled as awaiting user acceptance.
+- **Version 1.0 had already been accepted by the product owner before this update; that acceptance was reaffirmed in the 15 November 2026 conversation.** Do not leave it labelled as awaiting user acceptance.
 - Its historical manual checklist remains a regression/security checklist. Unchecked individual boxes mean that a test has not been recorded in this document; they do not override the product owner's acceptance.
 - Do not reopen V1.0 wholesale. Reopen a specific item only for a reproducible defect, security finding, production regression or data-integrity issue.
 - V1.1–V1.4 remain under implementation and release acceptance until their own gates pass.

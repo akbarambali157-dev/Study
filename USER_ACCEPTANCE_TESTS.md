@@ -36,7 +36,7 @@ For the complete V1.x execution order and Android performance measurement contra
 
 ## B. Version 1.0 — Account, PDF and AI regression/security suite
 
-**Product-owner status: ACCEPTED on 15 November 2026.** The product owner has already accepted V1.0. The unchecked boxes below are retained as individual regression/security checks whose execution has not necessarily been recorded here; they do not mean V1.0 is awaiting the user's acceptance. Reopen V1.0 only for a reproducible regression, security issue or data-integrity defect. Do not mark individual checks PASS without recording an actual test.
+**Product-owner status: ALREADY ACCEPTED before this update; reaffirmed on 15 November 2026.** The product owner has already accepted V1.0. The unchecked boxes below are retained as individual regression/security checks whose execution has not necessarily been recorded here; they do not mean V1.0 is awaiting the user's acceptance. Reopen V1.0 only for a reproducible regression, security issue or data-integrity defect. Do not mark individual checks PASS without recording an actual test.
 
 ### B1. Authentication and profile
 - [ ] Register a new test account with an email you control.

@@ -51,7 +51,7 @@ Messages and notifications are reachable from the top bar and relevant profiles/
 
 | Version | Name | Main outcome | Status |
 |---|---|---|---|
-| 1.0 | Reliable learning foundation | PDFs, AI, accounts, profiles, saved learning materials, isolation | **ACCEPTED BY PRODUCT OWNER (15 Nov 2026); regression/security checks remain** |
+| 1.0 | Reliable learning foundation | PDFs, AI, accounts, profiles, saved learning materials, isolation | **PREVIOUSLY ACCEPTED BY PRODUCT OWNER (reaffirmed 15 Nov 2026); regression/security checks remain** |
 | 1.1 | PWA, mobile and notifications foundation | Installability, safe areas, updates, offline shell, push pipeline | Implemented substantially; device/push acceptance remains |
 | 1.2 | Learning productivity | Planner, flashcards, quizzes, mastery and progress | Core implemented; enhancements and tests remain |
 | 1.3 | Complete UI, UX and performance redesign | Cohesive design system, Settings accordions, animation preference, offline-aware shell, Android/iPhone polish | In progress; next major implementation workstream |
@@ -67,7 +67,7 @@ Messages and notifications are reachable from the top bar and relevant profiles/
 
 ## 4. Version 1.0 — Reliable learning foundation
 
-**Product-owner acceptance: ACCEPTED on 15 November 2026.** This records the user's explicit acceptance of V1.0; it does not falsely mark every historical test checkbox as individually executed. Keep the V1.0 checklist as a regression and security suite. Reopen only a specific item when evidence shows a regression, security issue or data-integrity defect.
+**Product-owner acceptance: ACCEPTED previously and reaffirmed on 15 November 2026.** This records the user's explicit acceptance of V1.0; it does not falsely mark every historical test checkbox as individually executed. Keep the V1.0 checklist as a regression and security suite. Reopen only a specific item when evidence shows a regression, security issue or data-integrity defect.
 
 The detailed remaining V1.x delivery sequence is maintained in [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md).
 
@@ -1100,7 +1100,7 @@ Release discipline:
 This snapshot reconciles the implementation ledger with the latest hands-on feedback. It is not a substitute for a fresh live check.
 
 ### Product-owner acceptance
-- **Version 1.0: ACCEPTED by the product owner on 15 November 2026.** Do not describe V1.0 as awaiting user acceptance. Retain its test matrix as a regression/security checklist; unchecked individual tests are not retroactively marked PASS.
+- **Version 1.0: previously accepted by the product owner; reaffirmed on 15 November 2026.** Do not describe V1.0 as awaiting user acceptance. Retain its test matrix as a regression/security checklist; unchecked individual tests are not retroactively marked PASS.
 
 ### User-reported working
 - Offline study-data sync is working well in current user testing.
