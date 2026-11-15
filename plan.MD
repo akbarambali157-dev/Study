@@ -1495,3 +1495,10 @@ The product owner has authorised implementation of the complete master roadmap i
 The first Version 1.3 implementation slice (15 November 2026) adds a persistent animation preference defaulting ON, respects OS reduced-motion, adds a static CSS motion baseline, hides online-only navigation when the browser reports offline, redirects offline visits to online-only routes to local Home, and hides the AI question input while offline. This is a partial implementation only; the detailed Settings redesign, shared connectivity/reachability state, admin display names, responsive visual redesign, performance measurements and physical-device acceptance remain outstanding.
 
 The complete manual test inventory is in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Update it with test results, device/build details and defects as implementation proceeds. Never ask the product owner to test a feature before its matching deployment is READY. Never request secrets or private content in test reports.
+
+
+## 34. Version 1.3 implementation progress — 15 November 2026
+
+The initial UI implementation has started. Committed code includes the local Animations preference (default ON), OS reduced-motion override, static CSS baseline, focused Settings category screens with URL-backed navigation/back behaviour, online-only navigation filtering while the browser reports offline, offline route fallback, a useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint. The complete design plan is not finished: shared reachability state, full primary navigation redesign, admin display names, page-by-page visual polish, measured performance comparisons, and iPhone/Android acceptance remain open.
+
+The full user testing matrix is [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Wait for the matching production deployment before testing the new controls. The GitHub CI and validation workflows are running for the latest UI/performance commits; report their final result against the exact SHA before claiming those commits are validated.
