@@ -43,7 +43,7 @@ export const NotesSchema = z.object({
         body: z.string().max(1200),
         example: z
           .string()
-          .max(600)
+          .max(800)
           .describe('A concrete worked example, calculation or local illustration of this point.'),
         page: z.number().int(),
         confidence: z.number().min(0).max(1),
