@@ -297,19 +297,67 @@ export async function generateStudyMaterial(
 
   // ── reduce: short notes + key points ───────────────────────────────────
   onStage?.('reduce')
-  const reduced = await generateStructured({
-    schema: NotesSchema,
-    system: SYSTEM_BASE,
-    prompt: reducePrompt({ title: doc.title, pageCount, digests }),
-    model,
-    maxTokens: 12000,
-    effort: 'medium',
-    baseUrl,
-    signal,
-    useProxy,
-  })
-  usage = addUsage(usage, reduced.usage)
-  costUsd += tokensToCost(model, reduced.usage.inputTokens, reduced.usage.outputTokens)
+  const reduceBatch = async (records: DigestRecord[], depth = 0): Promise<NotesResult[]> => {
+    ensureNotAborted(signal)
+    try {
+      const result = await generateStructured({
+        schema: NotesSchema,
+        system: SYSTEM_BASE,
+        prompt: reducePrompt({
+          title: doc.title,
+          pageCount,
+          digests: records.map((item) => item.text).join('\\n\\n'),
+        }),
+        model,
+        maxTokens: 12000,
+        effort: 'medium',
+        baseUrl,
+        signal,
+        useProxy,
+        repairSchemaErrors: true,
+      })
+      usage = addUsage(usage, result.usage)
+      costUsd += tokensToCost(model, result.usage.inputTokens, result.usage.outputTokens)
+      return [result.data]
+    } catch (error) {
+      const isSchemaFailure = error instanceof AiError && error.code === 'schema'
+      if (!isSchemaFailure || records.length < 2 || depth >= 6) throw error
+      const midpoint = Math.ceil(records.length / 2)
+      const left = records.slice(0, midpoint)
+      const right = records.slice(midpoint)
+      onStage?.('reduce', `Rebalancing a long synthesis into smaller batches · ${records.length} source sections`)
+      // Two bounded workers for personal providers; hosted requests stay serial
+      // so a shared account is not flooded by concurrent calls.
+      const concurrency = useProxy ? 1 : 2
+      const nested = await pool([left, right], concurrency, (batch) => reduceBatch(batch, depth + 1))
+      return nested.flat()
+    }
+  }
+
+  let reducedParts: NotesResult[]
+  try {
+    reducedParts = await reduceBatch(digestRecords)
+  } catch (error) {
+    if (error instanceof AiError && error.code === 'aborted') throw error
+    throw error
+  }
+  ensureNotAborted(signal)
+  const reduced = {
+    data: {
+      title: reducedParts[0]?.title || doc.title,
+      summary: reducedParts.map((part, index) => `## Part ${index + 1}\\n${part.summary}`).join('\\n\\n').slice(0, 8000),
+      takeaways: [...new Set(reducedParts.flatMap((part) => part.takeaways))].slice(0, 8),
+      keyPoints: (() => {
+        const seen = new Set<string>()
+        return reducedParts.flatMap((part) => part.keyPoints).filter((point) => {
+          const key = point.heading.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      })(),
+    },
+  }
 
   ensureNotAborted(signal)
 
