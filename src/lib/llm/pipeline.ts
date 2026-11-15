@@ -516,7 +516,11 @@ export async function generateStudyMaterial(
     useProxy,
   })
 
-  const [orgCount, cardResult] = await Promise.all([orgTask, cardTask])
+  const [orgOutcome, cardOutcome] = await Promise.allSettled([orgTask, cardTask])
+  if (cardOutcome.status === 'rejected') throw cardOutcome.reason
+  if (orgOutcome.status === 'rejected') throw orgOutcome.reason
+  const orgCount = orgOutcome.value
+  const cardResult = cardOutcome.value
   usage = addUsage(usage, cardResult.usage)
   costUsd += tokensToCost(model, cardResult.usage.inputTokens, cardResult.usage.outputTokens)
   ensureNotAborted(signal)
