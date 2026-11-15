@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { db } from '@/lib/db'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 
 type PostType = 'idea' | 'paper' | 'question' | 'discovery' | 'progress' | 'resource' | 'collaboration'
 type ReactionType = 'like' | 'insightful' | 'helpful'
@@ -120,12 +120,10 @@ export function FeedPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const [{ data: sessionData, error: sessionError }, profile] = await Promise.all([
-        supabase.auth.getSession(),
+      const [user, profile] = await Promise.all([
+        getAuthenticatedUser(),
         db.profile.get('me').catch(() => null),
       ])
-      if (sessionError) throw sessionError
-      const user = sessionData.session?.user
       setUserId(user?.id ?? null)
       const metadataName = String(user?.user_metadata?.display_name ?? user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '')
       setAuthorName(profile?.displayName && profile.displayName !== 'Student' ? profile.displayName : metadataName || user?.email?.split('@')[0] || 'Student')

@@ -5,7 +5,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 
 type Membership = { conversation_id: string; status: 'pending' | 'accepted'; member_role: 'sender' | 'recipient'; last_read_at: string | null; display_name: string }
 type Conversation = { id: string; created_by: string; recipient_id: string; updated_at: string; last_message_at: string | null }
@@ -28,9 +28,9 @@ export function MessagesPage() {
   const loadInbox = useCallback(async () => {
     if (!supabase) { setError('Messaging is not connected.'); setLoading(false); return }
     try {
-      const { data: auth, error: authError } = await supabase.auth.getUser()
-      if (authError || !auth.user) { setUserId(null); setInbox([]); setLoading(false); return }
-      const uid = auth.user.id
+      const currentUser = await getAuthenticatedUser()
+      if (!currentUser) { setUserId(null); setInbox([]); setLoading(false); return }
+      const uid = currentUser.id
       setUserId(uid)
       const { data: memberRows, error: memberError } = await supabase.from('conversation_members')
         .select('conversation_id,status,member_role,last_read_at,display_name')

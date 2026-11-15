@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip, EmptyState } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { formatRelative } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 import { launchPublicMaterialRush } from '@/lib/publicMaterials'
 
 export function LibraryPage() {
@@ -244,10 +244,9 @@ function CloudDocuments() {
   const load = async () => {
     if (!supabase) { setLoading(false); return }
     try {
-      const { data: auth, error: authError } = await supabase.auth.getUser()
-      if (authError) throw authError
-      if (!auth.user) { setOwnerId(null); setRows([]); setLoading(false); return }
-      setOwnerId(auth.user.id)
+      const user = await getAuthenticatedUser()
+      if (!user) { setOwnerId(null); setRows([]); setLoading(false); return }
+      setOwnerId(user.id)
       setRows(await listCloudDocuments())
       setError('')
     } catch (err) {
@@ -304,15 +303,15 @@ function SavedPublicMaterials() {
 
   const load = async () => {
     if (!supabase) { setLoading(false); return }
-    const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) { setMaterials([]); setLoading(false); return }
-    const { data: saved, error } = await supabase.from('saved_public_materials').select('material_id,created_at').eq('user_id', auth.user.id).order('created_at', { ascending: false })
+    const user = await getAuthenticatedUser()
+    if (!user) { setMaterials([]); setLoading(false); return }
+    const { data: saved, error } = await supabase.from('saved_public_materials').select('material_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false })
     if (error) { toast(error.message, 'error'); setLoading(false); return }
     const ids = (saved ?? []).map((item) => item.material_id)
     if (!ids.length) { setMaterials([]); setProgress({}); setLoading(false); return }
     const [{ data, error: materialsError }, { data: stats, error: statsError }] = await Promise.all([
       supabase.from('public_materials').select('id,title,discipline,summary,page_count,author_name,content').in('id', ids),
-      supabase.from('public_material_progress').select('material_id,rush_count,best_score,best_accuracy').eq('user_id', auth.user.id),
+      supabase.from('public_material_progress').select('material_id,rush_count,best_score,best_accuracy').eq('user_id', user.id),
     ])
     if (materialsError) toast(materialsError.message, 'error')
     if (statsError) toast(statsError.message, 'error')
@@ -327,9 +326,9 @@ function SavedPublicMaterials() {
   const unsave = async (id: string) => {
     if (!supabase) return
     setBusy(id)
-    const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) { toast('Sign in to manage saved materials.', 'info'); setBusy(null); return }
-    const { error } = await supabase.from('saved_public_materials').delete().eq('user_id', auth.user.id).eq('material_id', id)
+    const user = await getAuthenticatedUser()
+    if (!user) { toast('Sign in to manage saved materials.', 'info'); setBusy(null); return }
+    const { error } = await supabase.from('saved_public_materials').delete().eq('user_id', user.id).eq('material_id', id)
     if (error) toast(error.message, 'error')
     else { setMaterials((old) => old.filter((item) => item.id !== id)); toast('Removed from your library.', 'success') }
     setBusy(null)
