@@ -19,6 +19,7 @@ import type {
   Note,
   Org,
   QuizQuestion,
+  QuizDifficulty,
 } from '../types'
 import { uid } from '../utils'
 import { isObjectiveQuestionDocument, parseObjectiveQuestions } from '../objectiveQuestions'
@@ -218,7 +219,7 @@ export async function generateStudyMaterial(
           title: doc.title,
           chunkText: chunk.text,
         }),
-        4000,
+        6000,
       )
       mapped += 1
       onStage?.('map', `${mapped} sections completed (smaller sections are created automatically when needed)`)
@@ -237,7 +238,7 @@ export async function generateStudyMaterial(
 
       const [left, right] = splitChunk(chunk)
       onStage?.('map', `Breaking pages ${chunk.fromPage}–${chunk.toPage} into smaller sections`)
-      // Keep hosted requests serial to respect the shared provider's limits.
+      // The outer worker pool already caps concurrency; split retries remain sequential.
       const leftResults = await mapChunkResilient(left, depth + 1)
       const rightResults = await mapChunkResilient(right, depth + 1)
       return [...leftResults, ...rightResults]
@@ -550,46 +551,121 @@ export async function generateTestForDeck(options: {
   signal?: AbortSignal
   useProxy?: boolean
   count?: number
+  difficulty?: QuizDifficulty
 }): Promise<{ questions: QuizQuestion[]; costUsd: number; usage: AiUsage }> {
   const { deck, keyPoints, pageCount, model, baseUrl, signal, useProxy } = options
-  const count = Math.min(10, Math.max(4, options.count ?? 8))
+  const count = Math.min(100, Math.max(1, Math.round(options.count ?? 20)))
+  const difficulty = options.difficulty ?? 'progressive'
+  if (!keyPoints.length) throw new AiError('This document has no source concepts to build a test from.', 'schema')
 
-  const listing = keyPoints
-    .map((kp, i) => `[${i}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
-    .join('\n\n')
+  const batchSize = 20
+  const batches = Array.from({ length: Math.ceil(count / batchSize) }, (_, index) => ({
+    index,
+    count: Math.min(batchSize, count - index * batchSize),
+  }))
 
-  const { data, usage } = await generateStructured({
-    schema: QuizSchema,
-    system: SYSTEM_BASE,
-    prompt: quizPrompt({ keyPoints: listing, pageCount, count }),
-    model,
-    maxTokens: 8000,
-    effort: 'medium',
-    baseUrl,
-    signal,
-    useProxy,
+  const generatedBatches = await pool(batches, useProxy ? 2 : 3, async (batch) => {
+    ensureNotAborted(signal)
+    // Partition concepts across workers so long tests cover the full document
+    // instead of asking every worker to repeatedly sample the same opening topics.
+    const selected = keyPoints.filter((_, index) => index % batches.length === batch.index)
+    const sourcePoints = selected.length ? selected : keyPoints
+    const listing = sourcePoints
+      .map((kp, index) => `[${index}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
+      .join('\n\n')
+
+    const batchDifficulty: Exclude<QuizDifficulty, 'progressive'> = difficulty === 'progressive'
+      ? batches.length === 1 || batch.index === 0
+        ? 'foundational'
+        : batch.index === batches.length - 1
+          ? 'advanced'
+          : 'exam'
+      : difficulty
+
+    const result = await generateStructured({
+      schema: QuizSchema,
+      system: SYSTEM_BASE,
+      prompt: quizPrompt({ keyPoints: listing, pageCount, count: batch.count, difficulty: batchDifficulty }),
+      model,
+      maxTokens: 8000,
+      effort: 'medium',
+      baseUrl,
+      signal,
+      useProxy,
+    })
+    return { sourcePoints, data: result.data, usage: result.usage }
   })
 
+  let usage: AiUsage = { inputTokens: 0, outputTokens: 0 }
   const questions: QuizQuestion[] = []
-  for (const raw of data.questions) {
-    const keyPoint = keyPoints[raw.keyPointIndex]
-    if (!keyPoint) continue
-    if (raw.options.length !== 4) continue
-    questions.push({
-      id: uid('q'),
-      deckId: deck.id,
-      documentId: options.documentId,
-      keyPointId: keyPoint.id,
-      stem: raw.stem,
-      options: raw.options,
-      answerIndex: raw.answerIndex,
-      explanation: raw.explanation,
-      page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
-    })
+  const seenStems = new Set<string>()
+  for (const batch of generatedBatches) {
+    usage = addUsage(usage, batch.usage)
+    for (const raw of batch.data.questions) {
+      const keyPoint = batch.sourcePoints[raw.keyPointIndex]
+      if (!keyPoint || raw.options.length !== 4) continue
+      const normalisedStem = raw.stem.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      if (!normalisedStem || seenStems.has(normalisedStem)) continue
+      seenStems.add(normalisedStem)
+      questions.push({
+        id: uid('q'),
+        deckId: deck.id,
+        documentId: options.documentId,
+        keyPointId: keyPoint.id,
+        stem: raw.stem,
+        options: raw.options,
+        answerIndex: raw.answerIndex,
+        explanation: raw.explanation,
+        page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
+      })
+    }
   }
 
-  if (questions.length === 0) {
-    throw new AiError('No usable questions came back. Try again.', 'schema')
+  if (questions.length < count) {
+    const missing = count - questions.length
+    const listing = keyPoints
+      .map((kp, index) => `[${index}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
+      .join('\n\n')
+    const refill = await generateStructured({
+      schema: QuizSchema,
+      system: SYSTEM_BASE,
+      prompt: quizPrompt({
+        keyPoints: listing,
+        pageCount,
+        count: missing,
+        difficulty: difficulty === 'progressive' ? 'exam' : difficulty,
+        avoidQuestions: questions.map((question) => question.stem),
+      }),
+      model,
+      maxTokens: 8000,
+      effort: 'medium',
+      baseUrl,
+      signal,
+      useProxy,
+    })
+    usage = addUsage(usage, refill.usage)
+    for (const raw of refill.data.questions) {
+      const keyPoint = keyPoints[raw.keyPointIndex]
+      if (!keyPoint || raw.options.length !== 4) continue
+      const normalisedStem = raw.stem.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      if (!normalisedStem || seenStems.has(normalisedStem)) continue
+      seenStems.add(normalisedStem)
+      questions.push({
+        id: uid('q'),
+        deckId: deck.id,
+        documentId: options.documentId,
+        keyPointId: keyPoint.id,
+        stem: raw.stem,
+        options: raw.options,
+        answerIndex: raw.answerIndex,
+        explanation: raw.explanation,
+        page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
+      })
+    }
+  }
+
+  if (questions.length < count) {
+    throw new AiError(`The model produced ${questions.length} distinct questions out of ${count} requested. Try again or choose a smaller test.`, 'schema')
   }
 
   await saveQuestions(questions)
