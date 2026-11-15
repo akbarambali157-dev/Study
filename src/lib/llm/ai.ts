@@ -190,7 +190,7 @@ async function generateStructuredViaProxy<T>(
         candidate = parseStructured(content)
       } catch (error) {
         if (error instanceof AiError) {
-          throw new AiError(error.message, error.code, error.retryable, payload.request_id)
+          throw new AiError(error.message, error.code, error.retryable, payload.request_id, content, { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens })
         }
         throw error
       }
@@ -262,7 +262,7 @@ export async function generateStructured<T>(
     // a concrete response to repair. Make exactly one corrective call, never
     // retry ambiguous transport failures that may already have been billed.
     if (
-      !request.repairSchemaErrors ||
+      request.repairSchemaErrors === false ||
       !(error instanceof AiError) ||
       error.code !== 'schema' ||
       error.repairCandidate === undefined
