@@ -50,6 +50,13 @@ export interface Note {
   summary: string
   takeaways: string[]
   model: string
+  studyDepth?: StudyDepth
+  coverage?: {
+    pageCount: number
+    sectionCount: number
+    keyPointCount: number
+    coveredPages: number[]
+  }
   createdAt: string
   dirty?: boolean
 }
