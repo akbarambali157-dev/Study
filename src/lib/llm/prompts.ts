@@ -175,13 +175,15 @@ Rules for good cards:
 Produce 1–3 cards per key point, at least 4 in total, at most 40.`
 }
 
-export function quizPrompt(opts: { keyPoints: string; pageCount: number; count: number; difficulty?: 'foundational' | 'exam' | 'advanced'; avoidQuestions?: string[] }): string {
+export function quizPrompt(opts: { keyPoints: string; pageCount: number; count: number; difficulty?: 'progressive' | 'foundational' | 'exam' | 'advanced'; avoidQuestions?: string[] }): string {
   const difficulty = opts.difficulty ?? 'exam'
-  const difficultyGuidance = difficulty === 'foundational'
-    ? 'Test clear understanding, definitions and direct interpretation before complex application.'
-    : difficulty === 'advanced'
-      ? 'Use demanding application, analysis, exceptions and connections across concepts. Avoid obscure trivia.'
-      : 'Use realistic undergraduate examination questions with a mix of recall, interpretation and application.'
+  const difficultyGuidance = difficulty === 'progressive'
+    ? 'Order the questions from basic recall and definitions through application and analysis to challenging multi-concept reasoning.'
+    : difficulty === 'foundational'
+      ? 'Test clear understanding, definitions and direct interpretation before complex application.'
+      : difficulty === 'advanced'
+        ? 'Use demanding application, analysis, exceptions and connections across concepts. Avoid obscure trivia.'
+        : 'Use realistic undergraduate examination questions with a mix of recall, interpretation and application.'
   const avoid = opts.avoidQuestions?.length ? `\nDo not repeat or lightly reword these earlier question stems:\n${opts.avoidQuestions.slice(0, 60).map((item) => `- ${item}`).join('\n')}` : ''
   return `Write a multiple-choice test from these key points.
 
