@@ -264,3 +264,16 @@ Discover now offers **Add to Library** independently of Rush, while saved commun
 - Follow-up implementation commits `917a452`, `57de3f9` and `c4465d2` route Discover quizzes and Rush through the imported local deck, preserve card examples/page citations/tags and contributor-shared reference links, and keep the import path idempotent.
 - GitHub Actions `CI` and `Validate Study Hub` both passed on `c4465d21fa7eeabcfcbfa10d60eddae8cdd77f2c` (runs 43694940770 and 43694940828).
 - Vercel's deployment API returned HTTP 402 `api-deployments-free-per-day` with a 24-hour retry window. The latest Vercel deployment still points to the earlier documentation commit `4393312`; this code change is therefore **not yet live**. Do not tell users it is deployed until Vercel shows the code commit as READY.
+
+
+## 9. Admin, release delivery and AI-recovery workstream
+
+See [ADMIN_CONTROL_ROOM_PLAN.md](ADMIN_CONTROL_ROOM_PLAN.md) for the complete architecture and acceptance contract.
+
+- Admin user directory is based on auth.users, not ai_usage. Current Supabase baseline checked on 15 November 2026: 2 registered non-anonymous accounts, 2 accounts with sign-in, 2 academic profiles, 1 distinct AI user and 1 public-material publisher.
+- Admin release queue supports named updates, documentation category filtering, manual approval and immediate automatic publishing. Vercel code deployment remains automatic and independent from user-facing release-note approval.
+- Published releases appear as sequential in-app notification banners; PWA update availability remains separate.
+- New-upload default-public preference is opt-in; original PDF sharing remains a separate explicit choice.
+- Upload progress uses a global persistent task notification that clears only at terminal state.
+- AI reduce includes one schema correction attempt and recursively smaller digest batches after schema failures; ambiguous network/rate-limit/time-out errors are not automatically retried.
+- Release gate is IN ACCEPTANCE until admin/non-admin RLS checks, real account directory, long-PDF reduce test, sharing privacy checks and mobile progress/notification checks pass.
