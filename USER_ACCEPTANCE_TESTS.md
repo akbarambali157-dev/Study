@@ -516,3 +516,23 @@ These checks were added after reports of Android users seeing a missing update b
 - [ ] Remove a saved bookmark from Discover and confirm it does not delete the locally imported document.
 - [ ] Delete the imported document from Library and confirm its local notes, key points, cards, reviews and questions are removed.
 - [ ] Confirm an imported contribution is clearly labelled as coming from Discover and remains separate from a private PDF upload.
+
+
+## S. Admin control room, release notifications and upload preferences
+
+- [ ] S1. Sign in as admin and confirm Users count matches non-deleted Supabase Auth accounts, including an account with zero AI calls.
+- [ ] S2. Confirm user profile fields, last sign-in, AI activity and public study-set counts are correctly joined; no credentials or private documents are exposed.
+- [ ] S3. Confirm a non-admin cannot call admin_user_directory or read unpublished app_updates rows.
+- [ ] S4. Create a manual update draft. Confirm students cannot see it.
+- [ ] S5. Publish the draft and confirm its exact update name appears in the in-app notification banner.
+- [ ] S6. Create an automatic update and confirm it publishes on save.
+- [ ] S7. Filter updates to Documentation and confirm only documentation entries remain.
+- [ ] S8. Dismiss an update, confirm the next queued update appears, reload, and confirm the dismissed item does not return.
+- [ ] S9. Confirm PWA deployment prompts and app release-note banners remain distinct.
+- [ ] S10. Toggle default-public sharing OFF and confirm new study sets stay private.
+- [ ] S11. Toggle default-public sharing ON and confirm generated study content is published without publishing the original PDF.
+- [ ] S12. Override the default on an individual file in both directions and confirm the per-file choice wins.
+- [ ] S13. Start extraction and generation, navigate away, and confirm the global progress notification remains until success, failure, cancellation or offline save.
+- [ ] S14. Retry the 191-page PDF after the reduce repair/batch fallback is deployed; confirm all stages complete and no key-point content is silently truncated.
+- [ ] S15. Confirm repair calls are bounded, their usage is counted, hosted mode stays serial, BYOK fallback has at most two workers, and abort stops further requests.
+- [ ] S16. Repeat release and upload checks on iPhone Safari/PWA and Android Chrome, including a low-memory device.
