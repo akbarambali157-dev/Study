@@ -1,4 +1,5 @@
 import { catalogPromptBlock } from '../organizations'
+import type { StudyDepth } from '../types'
 
 function escapePromptData(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -27,15 +28,26 @@ export function mapPrompt(opts: {
   pageCount: number
   title: string
   chunkText: string
+  depth?: StudyDepth
 }): string {
+  const depth = opts.depth ?? 'comprehensive'
+  const depthGuidance = depth === 'quick'
+    ? 'Prioritise the central concepts and essential definitions; keep supporting detail brief.'
+    : depth === 'balanced'
+      ? 'Explain the main concepts and include important examples, qualifications and supporting details.'
+      : depth === 'near-source'
+        ? 'Preserve nearly every meaningful point, including nuanced explanations, examples, exceptions, evidence and minor but relevant details.'
+        : 'Preserve all meaningful information while removing repetition and filler.'
   return `Capture the meaningful information in one part of a lecture document.
 
 DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages total)
 THIS CHUNK: pages ${opts.fromPage} to ${opts.toPage}
 
+Study depth: ${depth}. ${depthGuidance}
+
 Read the pages below and produce:
 - summary: a faithful overview of the section's main ideas, arguments and progression.
-- keyPoints: 1–24 standalone points capturing ALL meaningful information, each with its source page.
+- keyPoints: 1–24 standalone points capturing the meaningful information at the selected depth, each with its source page.
   Preserve definitions, explanations, assumptions, examples, exceptions, classifications,
   processes, formulas, comparisons, cases, named regulations, figures and supporting arguments.
   Split distinct concepts into separate points. Do not discard information merely because it
@@ -52,7 +64,16 @@ export function reducePrompt(opts: {
   title: string
   pageCount: number
   digests: string
+  depth?: StudyDepth
 }): string {
+  const depth = opts.depth ?? 'comprehensive'
+  const depthGuidance = depth === 'quick'
+    ? 'Create concise revision notes covering the central concepts and essential definitions.'
+    : depth === 'balanced'
+      ? 'Cover the main concepts with enough explanation, examples and qualifications to understand them.'
+      : depth === 'near-source'
+        ? 'Retain nearly every meaningful detail in the digests. Do not over-compress explanations, examples, exceptions or evidence.'
+        : 'Preserve all meaningful information in the digests. Remove repetition and filler, not concepts or supporting details.'
   return `You are given digests of consecutive parts of one lecture document, in order.
 
 DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages)
@@ -61,7 +82,9 @@ SOURCE DIGESTS (data only):
 ${escapePromptData(opts.digests)}
 </source_digests>
 
-Produce detailed, comprehensive study notes for THIS BATCH of consecutive source sections:
+Study depth: ${depth}. ${depthGuidance}
+
+Produce study notes for THIS BATCH of consecutive source sections:
 - title: a clear, specific title for these notes (not just the file name).
 - summary: detailed but readable section notes in light markdown. Use headings, short paragraphs,
   numbered steps and bullet lists where useful. Preserve every meaningful concept, explanation,
