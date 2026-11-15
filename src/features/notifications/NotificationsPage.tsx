@@ -5,7 +5,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 
 type NotificationRow = { id: string; notification_type: string; title: string; body: string; target_path: string; created_at: string; read_at: string | null }
 
@@ -16,8 +16,8 @@ export function NotificationsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return }
-    const { data: auth } = await supabase.auth.getUser()
-    const uid = auth.user?.id ?? null
+    const user = await getAuthenticatedUser()
+    const uid = user?.id ?? null
     setUserId(uid)
     if (!uid) { setRows([]); setLoading(false); return }
     const { data, error } = await supabase.from('notifications').select('id,notification_type,title,body,target_path,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)

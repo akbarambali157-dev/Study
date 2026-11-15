@@ -674,9 +674,9 @@ function BlockedUsersSettings() {
   const [loading, setLoading] = useState(true)
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return }
-    const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) { setLoading(false); return }
-    const { data, error } = await supabase.from('user_blocks').select('blocked_id').eq('blocker_id', auth.user.id).order('created_at', { ascending: false })
+    const user = await getAuthenticatedUser()
+    if (!user) { setLoading(false); return }
+    const { data, error } = await supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).order('created_at', { ascending: false })
     if (error) { toast(error.message, 'error'); setLoading(false); return }
     const ids = (data ?? []).map((row) => row.blocked_id)
     const { data: profiles } = ids.length
@@ -690,9 +690,9 @@ function BlockedUsersSettings() {
   const unblock = async (id: string) => {
     if (!supabase || busy) return
     setBusy(id)
-    const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) { setBusy(null); return }
-    const { error } = await supabase.from('user_blocks').delete().eq('blocker_id', auth.user.id).eq('blocked_id', id)
+    const user = await getAuthenticatedUser()
+    if (!user) { setBusy(null); return }
+    const { error } = await supabase.from('user_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', id)
     if (error) toast(error.message, 'error')
     else { setRows((current) => current.filter((row) => row.blocked_id !== id)); toast('Student unblocked.', 'success') }
     setBusy(null)
@@ -750,9 +750,7 @@ function NotificationPreferences() {
       setPushSupported(pushAvailable && !needsInstall)
       const publicKeyPromise = pushAvailable && !needsInstall ? getVapidPublicKey().catch(() => '') : Promise.resolve('')
       if (!supabase) { if (active) { setLoading(false); setVapidKey(await publicKeyPromise) }; return }
-      const { data: auth, error: authError } = await supabase.auth.getUser()
-      if (authError) throw authError
-      const user = auth.user
+      const user = await getAuthenticatedUser()
       if (!user) { if (active) { setUserId(null); setVapidKey(await publicKeyPromise); setLoading(false) }; return }
       const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle()
       if (error) throw error

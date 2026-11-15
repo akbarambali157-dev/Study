@@ -1,4 +1,4 @@
-import { supabase, supabaseUrl } from './supabase'
+import { getAuthenticatedUser, supabase, supabaseUrl, waitForAuthInitialization } from './supabase'
 import { MAX_PDF_BYTES, MAX_PDF_SIZE_LABEL } from './pdfLimits'
 import type { DocumentRec } from './types'
 
@@ -168,6 +168,7 @@ export function syncPendingDocuments(documentId?: string): Promise<PendingSyncRe
     if (typeof navigator !== 'undefined' && !navigator.onLine) return { ...result, reason: 'offline' }
     if (!supabase) return { ...result, reason: 'configuration' }
 
+    await waitForAuthInitialization()
     const { data, error } = await supabase.auth.getSession()
     if (error || !data.session) return { ...result, reason: 'signed-out' }
 
@@ -246,6 +247,7 @@ export async function uploadDocumentToCloud(
 
   let sessionData
   try {
+    await waitForAuthInitialization()
     const result = await supabase.auth.getSession()
     if (result.error) throw result.error
     sessionData = result.data
@@ -256,9 +258,9 @@ export async function uploadDocumentToCloud(
 
   let userId: string
   try {
-    const { data, error } = await supabase.auth.getUser()
-    if (error || !data.user) throw error ?? new Error('No authenticated user returned')
-    userId = data.user.id
+    const user = await getAuthenticatedUser()
+    if (!user) throw new Error('No authenticated user returned')
+    userId = user.id
   } catch (error) {
     throw failure('identity', 'USER_VERIFICATION_FAILED', error, true)
   }
@@ -331,11 +333,11 @@ export interface CloudDocumentSummary {
 
 export async function listCloudDocuments(): Promise<CloudDocumentSummary[]> {
   if (!supabase) return []
-  const { data: auth, error: authError } = await supabase.auth.getUser()
-  if (authError || !auth.user) throw new DocumentSyncError('Sign in to view your cloud documents.', 'session', 'AUTH_REQUIRED')
+  const user = await getAuthenticatedUser()
+  if (!user) throw new DocumentSyncError('Sign in to view your cloud documents.', 'session', 'AUTH_REQUIRED')
   const { data, error } = await supabase.from('study_documents')
     .select('id,title,file_name,size_bytes,page_count,created_at,status')
-    .eq('owner_id', auth.user.id).eq('status', 'indexed')
+    .eq('owner_id', user.id).eq('status', 'indexed')
     .order('created_at', { ascending: false }).limit(100)
   if (error) throw failure('metadata', 'CLOUD_DOCUMENT_LIST_FAILED', error, true)
   return (data ?? []) as CloudDocumentSummary[]
@@ -344,9 +346,9 @@ export async function listCloudDocuments(): Promise<CloudDocumentSummary[]> {
 /** Restore the private source PDF and its extracted page index to this device. */
 export async function restoreCloudDocument(remoteId: string): Promise<string> {
   if (!supabase) throw new DocumentSyncError('Cloud document restore needs an account connection.', 'configuration', 'SUPABASE_NOT_CONFIGURED')
-  const { data: auth, error: authError } = await supabase.auth.getUser()
-  if (authError || !auth.user) throw new DocumentSyncError('Sign in to restore this document.', 'session', 'AUTH_REQUIRED')
-  const userId = auth.user.id
+  const user = await getAuthenticatedUser()
+  if (!user) throw new DocumentSyncError('Sign in to restore this document.', 'session', 'AUTH_REQUIRED')
+  const userId = user.id
 
   const { data: metadata, error: metadataError } = await supabase.from('study_documents')
     .select('id,owner_id,storage_path,file_name,title,mime_type,size_bytes,page_count,created_at,status')
@@ -411,10 +413,10 @@ export async function restoreCloudDocument(remoteId: string): Promise<string> {
 /** Remove the authenticated user's private PDF, page index and metadata. */
 export async function deleteCloudDocument(remoteId: string): Promise<void> {
   if (!supabase) throw new DocumentSyncError('Cloud deletion needs an account connection.', 'configuration', 'SUPABASE_NOT_CONFIGURED')
-  const { data: auth, error: authError } = await supabase.auth.getUser()
-  if (authError || !auth.user) throw new DocumentSyncError('Sign in before deleting the cloud copy.', 'session', 'AUTH_REQUIRED')
+  const user = await getAuthenticatedUser()
+  if (!user) throw new DocumentSyncError('Sign in before deleting the cloud copy.', 'session', 'AUTH_REQUIRED')
   const { data: document, error: lookupError } = await supabase.from('study_documents')
-    .select('id,storage_path').eq('id', remoteId).eq('owner_id', auth.user.id).maybeSingle()
+    .select('id,storage_path').eq('id', remoteId).eq('owner_id', user.id).maybeSingle()
   if (lookupError) throw failure('metadata', 'CLOUD_DELETE_LOOKUP_FAILED', lookupError, true)
   if (!document) return
   if (document.storage_path) {
@@ -422,7 +424,7 @@ export async function deleteCloudDocument(remoteId: string): Promise<void> {
     if (storageError) throw failure('storage-upload', 'CLOUD_PDF_DELETE_FAILED', storageError, true)
   }
   const { error: pagesError } = await supabase.from('study_document_pages').delete()
-    .eq('document_id', remoteId).eq('owner_id', auth.user.id)
+    .eq('document_id', remoteId).eq('owner_id', user.id)
   if (pagesError) throw failure('page-index', 'CLOUD_PAGE_INDEX_DELETE_FAILED', pagesError, true)
   const { error: metadataError } = await supabase.from('study_documents').delete()
     .eq('id', remoteId).eq('owner_id', auth.user.id)
@@ -432,8 +434,8 @@ export async function deleteCloudDocument(remoteId: string): Promise<void> {
 
 export async function deleteRemoteDocument(input: { remoteId: string; storagePath?: string; ownerId: string }): Promise<boolean> {
   if (!supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) return false
-  const { data: auth, error: authError } = await supabase.auth.getUser()
-  if (authError || !auth.user || auth.user.id !== input.ownerId) return false
+  const user = await getAuthenticatedUser()
+  if (!user || user.id !== input.ownerId) return false
 
   let storagePath = input.storagePath
   if (storagePath && !storagePath.startsWith(`${input.ownerId}/${input.remoteId}/`)) {
@@ -463,10 +465,10 @@ export async function deleteRemoteDocument(input: { remoteId: string; storagePat
 export async function flushPendingCloudDeletions(): Promise<{ deleted: number; pending: number }> {
   const result = { deleted: 0, pending: 0 }
   if (!supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) return result
-  const { data: auth, error } = await supabase.auth.getUser()
-  if (error || !auth.user) return result
+  const user = await getAuthenticatedUser()
+  if (!user) return result
   const database = (await import('./db')).db
-  const queue = await database.pendingCloudDeletions.where('ownerId').equals(auth.user.id).toArray()
+  const queue = await database.pendingCloudDeletions.where('ownerId').equals(user.id).toArray()
   for (const item of queue) {
     try {
       const deleted = await deleteRemoteDocument({ remoteId: item.id, storagePath: item.storagePath, ownerId: item.ownerId })

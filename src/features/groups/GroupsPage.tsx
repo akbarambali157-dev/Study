@@ -5,7 +5,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 
 type Group = {
   id: string; group_type: 'course' | 'research_circle'; title: string; description: string
@@ -41,12 +41,12 @@ export function GroupsPage() {
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); setError('Group spaces need an account connection.'); return }
     try {
-      const { data: auth, error: authError } = await supabase.auth.getUser()
-      if (authError || !auth.user) { setUserId(null); setGroups([]); setLoading(false); return }
-      setUserId(auth.user.id)
+      const user = await getAuthenticatedUser()
+      if (!user) { setUserId(null); setGroups([]); setLoading(false); return }
+      setUserId(user.id)
       const [{ data: groupRows, error: groupError }, { data: memberRows, error: memberError }] = await Promise.all([
         supabase.from('academic_groups').select('*').order('updated_at', { ascending: false }).limit(100),
-        supabase.from('academic_group_members').select('group_id,member_role,status').eq('user_id', auth.user.id),
+        supabase.from('academic_group_members').select('group_id,member_role,status').eq('user_id', user.id),
       ])
       if (groupError) throw groupError
       if (memberError) throw memberError
