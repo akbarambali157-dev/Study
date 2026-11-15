@@ -241,7 +241,7 @@ export function App() {
         <div><p className="font-semibold text-body">A new Study Hub version is ready</p><p className="text-xs text-muted">Update when ready. Your current work stays open until you choose.</p></div>
         <div className="flex shrink-0 items-center gap-2"><button type="button" className="rounded-lg px-2 py-2 text-xs text-muted" onClick={()=>setUpdateAvailable(false)}>Later</button><button type="button" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" onClick={()=>void applyPwaUpdate()}><RefreshCw className="size-3.5"/>Update</button></div>
       </div> : null}
-      <UpdateAnnouncement online={isOnline} />
+      <UpdateAnnouncement online={isOnline} pwaUpdateAvailable={updateAvailable} />
       {currentUpload ? <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg sm:bottom-5" role="status" aria-live="polite">
         <div className="rounded-2xl border border-line bg-surface/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-body">{currentUpload.title}</p><p className="mt-0.5 text-xs text-muted">{currentUpload.detail}</p></div><span className="shrink-0 text-xs font-semibold tabular-nums text-forest-400">{activeUploads.length > 1 ? `${activeUploads.length} files` : `${Math.round(currentUpload.progress)}%`}</span></div>
