@@ -149,7 +149,7 @@ export function UploadPage() {
           phase: { kind: 'idle' },
           pii: null,
           piiAcknowledged: false,
-          isPublic: false,
+          isPublic: settings.defaultPublicSharing,
           shareOriginal: false,
         })
       }
@@ -160,7 +160,7 @@ export function UploadPage() {
         void extractFile(item.id, item.file)
       }
     },
-    [],
+    [extractFile, settings.defaultPublicSharing],
   )
 
   const extractFile = useCallback(
@@ -188,7 +188,7 @@ export function UploadPage() {
                   extracted: result,
                   title: titleCase(result.title || stripExtension(file.name)),
                   pii: findPiiSignal(file.name, result.pages),
-                  isPublic: false,
+                  isPublic: settings.defaultPublicSharing,
                   shareOriginal: false,
                   phase: { kind: 'ready' },
                 }
@@ -217,7 +217,7 @@ export function UploadPage() {
         )
       }
     },
-    [],
+    [settings.defaultPublicSharing],
   )
 
   const removeFile = useCallback((id: string) => {
