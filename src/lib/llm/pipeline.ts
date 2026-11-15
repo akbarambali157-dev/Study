@@ -404,6 +404,15 @@ export async function generateStudyMaterial(
     summary: reduced.data.summary,
     takeaways: reduced.data.takeaways,
     model,
+    studyDepth,
+    coverage: {
+      pageCount,
+      sectionCount: maps.length,
+      keyPointCount: reduced.data.keyPoints.length,
+      coveredPages: Array.from(new Set(maps.flatMap((mapped) =>
+        Array.from({ length: mapped.chunk.toPage - mapped.chunk.fromPage + 1 }, (_, index) => mapped.chunk.fromPage + index),
+      ))).sort((a, b) => a - b),
+    },
     createdAt: new Date().toISOString(),
   }
   await saveNote(note)
