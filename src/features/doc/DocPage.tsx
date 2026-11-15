@@ -428,6 +428,7 @@ export function DocPage() {
                         })
                       }
                       documentId={doc.id}
+                      isOnline={isOnline}
                     />
                   </Card>
                 </li>
@@ -456,12 +457,14 @@ function AskPanel({
   onAsk,
   onAsked,
   documentId,
+  isOnline,
 }: {
   open: boolean
   onToggle: () => void
   onAsk: (question: string) => Promise<{ answer: string; page: number; followUps: string[] }>
   onAsked: (question: string) => void
   documentId: string
+  isOnline: boolean
 }) {
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
@@ -474,7 +477,7 @@ function AskPanel({
 
   const submit = async (asked: string) => {
     const trimmed = asked.trim()
-    if (trimmed.length < 3) return
+    if (trimmed.length < 3 || !isOnline) return
     setBusy(true)
     setError(null)
     onAsked(trimmed)
@@ -492,6 +495,7 @@ function AskPanel({
   }
 
   if (!open) {
+    if (!isOnline) return <p className="mt-3 text-[12px] text-muted">AI questions are available when you are back online.</p>
     return (
       <button
         type="button"
