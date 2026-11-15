@@ -276,6 +276,8 @@ export interface Settings {
   persistKey: boolean
   trailEnabled: boolean
   dark: boolean
+  /** Enable subtle interface motion; false restores the static UI baseline. */
+  animations: boolean
   /**
    * Optional base URL for an Anthropic-compatible endpoint. Empty means
    * api.anthropic.com. Lets a student point at a gateway they already pay for
