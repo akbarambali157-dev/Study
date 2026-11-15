@@ -26,7 +26,7 @@ import { generateStudyMaterial, STAGE_LABEL, type Stage } from '@/lib/llm/pipeli
 import { cachePdfBlob, extractPdf, MAX_PAGES, PdfError, type ExtractedPdf } from '@/lib/pdf'
 import { MAX_PDF_BYTES, MAX_PDF_SIZE_LABEL } from '@/lib/pdfLimits'
 import { clearGeneratedContent, saveDocument, touchStreak } from '@/lib/store'
-import type { DocumentRec } from '@/lib/types'
+import type { DocumentRec, StudyDepth } from '@/lib/types'
 import { nowIso, stripExtension, titleCase, uid } from '@/lib/utils'
 import { setUploadActivity } from '@/lib/uploadActivity'
 
@@ -74,6 +74,7 @@ type QueuedFile = {
   piiAcknowledged: boolean
   isPublic: boolean
   shareOriginal: boolean
+  studyDepth: StudyDepth
   cloudSyncIssue?: { message: string; diagnostic: string }
 }
 
@@ -152,6 +153,7 @@ export function UploadPage() {
           piiAcknowledged: false,
           isPublic: settings.defaultPublicSharing,
           shareOriginal: false,
+          studyDepth: 'comprehensive',
         })
       }
       if (toAdd.length === 0) return
@@ -245,6 +247,10 @@ export function UploadPage() {
 
   const toggleShareOriginal = useCallback((id: string, checked: boolean) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, shareOriginal: checked } : f)))
+  }, [])
+
+  const setFileDepth = useCallback((id: string, studyDepth: StudyDepth) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, studyDepth } : f)))
   }, [])
 
   // ── run generation for one file ─────────────────────────────────────────
@@ -347,6 +353,7 @@ export function UploadPage() {
           baseUrl: settings.baseUrl || undefined,
           signal: controller.signal,
           useProxy: settings.useProxy,
+          studyDepth: item.studyDepth,
           onStage: (stage, detail) => {
             currentStage = stage
             const stageIndex = STAGE_ORDER.indexOf(stage)
@@ -613,6 +620,20 @@ export function UploadPage() {
         {/* ready card */}
         {item.phase.kind === 'ready' && extracted && (
           <>
+            <label className="mb-3 block text-xs font-medium uppercase tracking-wide text-muted">
+              Study depth
+              <select
+                value={item.studyDepth}
+                onChange={(event) => setFileDepth(item.id, event.target.value as StudyDepth)}
+                className="mt-1 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm normal-case tracking-normal text-body"
+              >
+                <option value="quick">Quick overview</option>
+                <option value="balanced">Balanced notes</option>
+                <option value="comprehensive">Comprehensive · all meaningful information</option>
+                <option value="near-source">Near-source · maximum detail</option>
+              </select>
+              <span className="mt-1 block text-[11px] font-normal normal-case tracking-normal">Comprehensive is the default. Near-source keeps almost every meaningful detail and may take longer.</span>
+            </label>
             <label className="block text-xs font-medium uppercase tracking-wide text-muted mb-1">
               Title
             </label>
