@@ -1113,9 +1113,9 @@ This snapshot reconciles the implementation ledger with the latest hands-on feed
 - Admin infrastructure/usage foundations where already present.
 
 ### Immediate next work (Version 1.3)
-- **Implementation started 15 November 2026:** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, offline-only navigation hiding/route fallback, and offline AI question-entry guard have been committed. This is a first slice, not completion of Version 1.3.
+- **Implementation in progress (15 November 2026):** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, focused Settings category screens with URL-backed back navigation, offline-only navigation hiding/route fallback, useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint have been committed. This is a first slice, not completion of Version 1.3.
 - **Manual acceptance checklist:** see [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Tests for this slice should be run only after its matching Vercel build is READY.
-1. Complete the UI redesign using UI_DESIGN_PLAN.md.
+1. Complete the remaining UI redesign using UI_DESIGN_PLAN.md; focused Settings category screens are now in place.
 2. Add animation preference: ON by default; OFF retains current static design.
 3. Replace remaining Settings side/slider interaction with focused category pages.
 4. Hide online-only features while offline and disable AI question submission offline.
