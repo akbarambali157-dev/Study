@@ -162,6 +162,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dark: false,
   // Motion is enabled for new installs; OS reduced-motion is still respected by the app shell.
   animations: true,
+  defaultPublicSharing: false,
   // A deployed build can pin the endpoint without anyone touching Settings.
   // Empty means the standard Anthropic API.
   baseUrl: import.meta.env.VITE_AI_BASE_URL || undefined,
