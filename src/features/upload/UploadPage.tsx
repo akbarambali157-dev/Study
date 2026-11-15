@@ -286,6 +286,7 @@ export function UploadPage() {
         pages: item.extracted.pages,
         createdAt: nowIso(),
         status: offline ? 'queued' : 'extracting',
+        studyDepth: item.studyDepth,
         source: 'upload',
         sizeBytes: item.file.size,
         remoteId: item.remoteId,
@@ -408,7 +409,7 @@ export function UploadPage() {
           : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
         setUploadActivity(id, null)
         toast(
-          `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${savedDoc.title}”.`,
+          `${result.keyPointCount} concepts, ${result.cardCount} flashcards${result.questionCount ? ` and ${result.questionCount} original questions imported` : ''}. AI tests can be generated on demand — ${costSummary} for “${savedDoc.title}”.`,
           'success',
         )
         navigate(`/doc/${savedDoc.id}`)
@@ -695,7 +696,7 @@ export function UploadPage() {
                 <input type="checkbox" checked={item.isPublic} onChange={(event) => togglePublic(item.id, event.target.checked)} disabled={Boolean(item.pii)} className="mt-1 size-4 accent-forest" />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 text-sm font-semibold">{item.isPublic ? 'Share study set with the community' : 'Keep study set private'} <Chip tone={item.isPublic ? 'green' : 'clay'}>{item.isPublic ? 'Public' : 'Private by default'}</Chip></span>
-                  <span className="mt-1 block text-xs leading-relaxed text-muted">When enabled, your topic-titled short notes, key points, flashcards and original quiz become available to other students without another AI generation request.</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted">When enabled, your topic-titled study notes, key points, flashcards and any imported source questions become available to other students without another AI generation request.</span>
                 </span>
               </label>
               {item.isPublic ? (
