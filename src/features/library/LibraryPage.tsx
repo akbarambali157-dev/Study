@@ -21,7 +21,7 @@ import { Card, Chip, EmptyState } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { formatRelative } from '@/lib/utils'
 import { getAuthenticatedUser, supabase } from '@/lib/supabase'
-import { launchPublicMaterialRush } from '@/lib/publicMaterials'
+import { importPublicMaterial, launchPublicMaterialRush } from '@/lib/publicMaterials'
 
 export function LibraryPage() {
   const library = useLibrary()
@@ -345,7 +345,7 @@ function SavedPublicMaterials() {
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Chip>{material.discipline || 'General'}</Chip><h3 className="mt-2 font-semibold">{material.title}</h3><p className="mt-1 text-xs text-muted">By {material.author_name} · {material.page_count} pages</p></div><Bookmark className="size-5 shrink-0 text-forest-400" /></div>
               <p className="mt-2 line-clamp-2 text-sm text-muted">{material.summary}</p>
               {stats ? <p className="mt-3 text-[11px] text-muted">{stats.rush_count} Rush rounds · Best {stats.best_score} points · {Math.round(Number(stats.best_accuracy))}% best accuracy</p> : <p className="mt-3 text-[11px] text-muted">No Rush rounds yet</p>}
-              <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" disabled={busy === material.id} onClick={() => void launchPublicMaterialRush(material, navigate).catch((error) => toast(error instanceof Error ? error.message : 'Rush could not start.', 'info'))}><Zap className="size-3.5" />Play Rush</Button><Button size="sm" variant="ghost" disabled={busy === material.id} onClick={() => void unsave(material.id)}>Remove</Button></div>
+              <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" disabled={busy === material.id} onClick={() => { setBusy(material.id); void importPublicMaterial(material).then((id) => { toast('Study set opened in your Library.', 'success'); navigate(`/doc/${id}`) }).catch((error) => toast(error instanceof Error ? error.message : 'Could not open this study set.', 'error')).finally(() => setBusy(null)) }}>{busy === material.id ? 'Opening…' : 'Open study set'}</Button><Button size="sm" variant="secondary" disabled={busy === material.id} onClick={() => void launchPublicMaterialRush(material, navigate).catch((error) => toast(error instanceof Error ? error.message : 'Rush could not start.', 'info'))}><Zap className="size-3.5" />Play Rush</Button><Button size="sm" variant="ghost" disabled={busy === material.id} onClick={() => void unsave(material.id)}>Remove</Button></div>
             </Card>
           })}
         </div>

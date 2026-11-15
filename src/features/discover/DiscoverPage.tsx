@@ -4,7 +4,7 @@ import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip, EmptyState } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
-import { getPublicMaterialDownloadUrl, launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
+import { getPublicMaterialDownloadUrl, importPublicMaterial, launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
 import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 
@@ -99,6 +99,17 @@ export function DiscoverPage() {
     setBusy(null)
   }
 
+  const addToLibrary = async (row: Material) => {
+    setBusy(row.id)
+    try {
+      const documentId = await importPublicMaterial(row)
+      toast('Study set added to your Library. Notes, cards and quiz are ready to use offline.', 'success')
+      navigate(`/doc/${documentId}`)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'This study set could not be added to your Library.', 'error')
+    } finally { setBusy(null) }
+  }
+
   const downloadOriginal = async (row: Material) => {
     setBusy(row.id)
     try {
@@ -150,7 +161,8 @@ export function DiscoverPage() {
                 <div className="mt-3 flex flex-wrap gap-1.5">{(row.tags ?? []).slice(0, 5).map((tag) => <Chip key={tag}>{tag}</Chip>)}</div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted"><span>{row.saves_count ?? 0} saves</span><span>{row.rush_count ?? 0} community Rush plays</span>{stats ? <><span>Your rounds: {stats.rush_count}</span><span>Your best: {stats.best_score} pts</span><span>Your accuracy: {Math.round(Number(stats.best_accuracy))}%</span></> : null}</div>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Button size="sm" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Explore material'}</Button>
+                  <Button size="sm" onClick={() => void addToLibrary(row)} disabled={busy === row.id}><BookOpen className="size-3.5" />{busy === row.id ? 'Adding…' : 'Add to Library'}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Preview'}</Button>
                   <Button size="sm" variant="secondary" disabled={cards.length < 4} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
                   {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" onClick={() => navigate(`/discover/${row.id}/quiz`)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
                   {row.share_original ? <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void downloadOriginal(row)}><Download className="size-3.5" />Download original PDF</Button> : null}

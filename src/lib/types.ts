@@ -28,7 +28,7 @@ export interface DocumentRec {
   courseId?: string
   createdAt: string
   status: DocumentStatus
-  source: 'upload' | 'demo'
+  source: 'upload' | 'demo' | 'community'
   sizeBytes?: number
   remoteId?: string
   storagePath?: string
