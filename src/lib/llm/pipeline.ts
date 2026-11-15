@@ -181,7 +181,8 @@ export async function generateStudyMaterial(
   // the PDF was chunked. If the map response exceeds a schema limit, split
   // that section into smaller page ranges and map them independently. This
   // preserves source page citations and avoids throwing away the whole PDF.
-  type MappedChunk = (typeof chunks)[number] & {
+  type MappedChunk = {
+    chunk: (typeof chunks)[number]
     summary: string
     keyPoints: Array<{ heading: string; body: string; page: number }>
     usage: AiUsage
