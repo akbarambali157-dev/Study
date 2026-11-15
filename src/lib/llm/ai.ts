@@ -284,7 +284,7 @@ export async function generateStructured<T>(
           '<previous_response>',
           candidate,
           '</previous_response>',
-        ].join('\\n'),
+        ].join('\n'),
       }, mode)
     } catch (repairError) {
       if (repairError instanceof AiError) {
