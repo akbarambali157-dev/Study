@@ -83,6 +83,9 @@ export function UploadPage() {
   const settings = useSettings()
   const fileRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // PDF.js extraction is memory-intensive on mobile. Keep one extraction active
+  // at a time, even when the student selects several files in one batch.
+  const extractionTailRef = useRef<Promise<void>>(Promise.resolve())
 
   const [files, setFiles] = useState<QueuedFile[]>([])
   const [aiAccountReady, setAiAccountReady] = useState(false)
@@ -158,9 +161,13 @@ export function UploadPage() {
       }
       if (toAdd.length === 0) return
       setFiles((prev) => [...prev, ...toAdd])
-      // Kick off extraction for each newly added file.
+      // Queue extraction sequentially. Starting multiple PDF.js document
+      // workers together can exhaust memory or contend for worker resources on
+      // low-memory phones, causing later files in the same selection to fail.
       for (const item of toAdd) {
-        void extractFile(item.id, item.file, settings.defaultPublicSharing)
+        extractionTailRef.current = extractionTailRef.current
+          .catch(() => undefined)
+          .then(() => extractFile(item.id, item.file, settings.defaultPublicSharing))
       }
     },
     [settings.defaultPublicSharing],
@@ -575,19 +582,19 @@ export function UploadPage() {
           </div>
         </div>
 
-        {/* reading progress */}
-        {item.phase.kind === 'reading' && (
-          <div className="mb-3">
+        {/* Skeleton preview plus real page progress while PDF.js extracts text. */}
+        {(item.phase.kind === 'idle' || item.phase.kind === 'reading') && (
+          <div className="mb-3 rounded-xl border border-line bg-surface-2/50 p-3" aria-label={item.phase.kind === 'idle' ? 'Waiting in extraction queue' : 'PDF extraction in progress'}>
             <div className="flex items-center gap-2 text-sm font-medium text-muted">
-              <Loader2 className="size-4 animate-spin text-forest-400" />
-              Reading page {item.phase.done || 1}
-              {item.phase.total ? ` of ${item.phase.total}` : ''}…
+              {item.phase.kind === 'reading' ? <Loader2 className="size-4 animate-spin text-forest-400" /> : <span className="size-2 rounded-full bg-muted" />}
+              {item.phase.kind === 'idle' ? 'Waiting for the previous PDF to finish' : <>Reading page {item.phase.done || 1}{item.phase.total ? ` of ${item.phase.total}` : ''}…</>}
             </div>
-            <Progress
-              className="mt-2"
-              value={item.phase.total ? item.phase.done : 20}
-              max={item.phase.total || 100}
-            />
+            <div className="mt-3 space-y-2" aria-hidden="true">
+              <div className="h-3 w-2/3 animate-pulse rounded bg-surface-2" />
+              <div className="h-3 w-full animate-pulse rounded bg-surface-2" />
+              <div className="h-3 w-4/5 animate-pulse rounded bg-surface-2" />
+            </div>
+            {item.phase.kind === 'reading' ? <Progress className="mt-3" value={item.phase.total ? item.phase.done : 3} max={item.phase.total || 100} /> : null}
           </div>
         )}
 
@@ -840,6 +847,8 @@ export function UploadPage() {
           onChange={(event) => {
             const picked = event.target.files
             if (picked?.length) void addFiles(picked)
+            // Allow selecting the same PDF again after removing it or a failed attempt.
+            event.currentTarget.value = ''
           }}
         />
       </div>
