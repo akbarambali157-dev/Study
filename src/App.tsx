@@ -28,6 +28,9 @@ import { applyPwaUpdate, checkForPwaUpdate } from '@/lib/pwa'
 
 const ShortcutsSheet = lazy(() => import('@/components/ShortcutsSheet').then((module) => ({ default: module.ShortcutsSheet })))
 
+const ONLINE_ONLY_PATHS = new Set(['/community', '/discover', '/students', '/groups', '/admin'])
+const ONLINE_ONLY_ROUTES = ['/community', '/discover', '/students', '/groups', '/messages', '/notifications', '/admin']
+
 const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
   { to: '/community', label: 'Research', icon: Newspaper, end: false },
@@ -50,7 +53,8 @@ export function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [isAdmin, setIsAdmin] = useState(false)
-  const navItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
+  const allNavItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
+  const navItems = allNavItems.filter((item) => isOnline || !ONLINE_ONLY_PATHS.has(item.to))
   const mobilePrimaryItems = navItems.filter((item) => ['/', '/community', '/library'].includes(item.to))
   const mobileMoreItems = navItems.filter((item) => !['/', '/community', '/library'].includes(item.to))
   const moreIsActive = mobileMoreItems.some((item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/'))
@@ -72,6 +76,25 @@ export function App() {
     const statusBar = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')
     if (statusBar) statusBar.content = settings.dark ? 'black' : 'default'
   }, [settings.dark])
+  useEffect(() => {
+    const root = document.documentElement
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const applyMotionPreference = () => {
+      // The OS accessibility preference takes precedence over the app toggle.
+      root.dataset.motion = settings.animations !== false && !reducedMotion.matches ? 'on' : 'off'
+    }
+    applyMotionPreference()
+    reducedMotion.addEventListener('change', applyMotionPreference)
+    return () => reducedMotion.removeEventListener('change', applyMotionPreference)
+  }, [settings.animations])
+
+  useEffect(() => {
+    if (isOnline) return
+    const isNetworkRoute = ONLINE_ONLY_ROUTES.some((route) =>
+      location.pathname === route || location.pathname.startsWith(route + '/'),
+    )
+    if (isNetworkRoute) navigate('/', { replace: true })
+  }, [isOnline, location.pathname, navigate])
   useEffect(() => {
     let mounted = true
     let unsubscribe: (() => void) | undefined
@@ -199,8 +222,10 @@ export function App() {
               </span>
             ) : null}
             {!isOnline ? <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300" role="status">Offline</span> : null}
-            <NavLink to="/messages" aria-label="Messages" title="Messages" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><MessageCircle className="size-4" /></NavLink>
-            <NavLink to="/notifications" aria-label="Notifications" title="Notifications" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><Bell className="size-4" /></NavLink>
+            {isOnline ? <>
+              <NavLink to="/messages" aria-label="Messages" title="Messages" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><MessageCircle className="size-4" /></NavLink>
+              <NavLink to="/notifications" aria-label="Notifications" title="Notifications" className={({ isActive }) => cn('grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-body', isActive && 'border-forest/40 text-forest dark:text-gold')}><Bell className="size-4" /></NavLink>
+            </> : null}
             <IconButton label="Keyboard shortcuts" onClick={openShortcuts}><Command className="size-4" /></IconButton>
           </div>
         </div>
