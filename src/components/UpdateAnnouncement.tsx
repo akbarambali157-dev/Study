@@ -21,7 +21,7 @@ function readDismissed(scope: string): string[] {
   } catch { return [] }
 }
 
-export function UpdateAnnouncement({ online }: { online: boolean }) {
+export function UpdateAnnouncement({ online, pwaUpdateAvailable = false }: { online: boolean; pwaUpdateAvailable?: boolean }) {
   const [updates, setUpdates] = useState<PublishedUpdate[]>([])
   const [dismissed, setDismissed] = useState<string[]>([])
   const [expanded, setExpanded] = useState(false)
@@ -82,7 +82,7 @@ export function UpdateAnnouncement({ online }: { online: boolean }) {
   }
   const validLink = current.docs_path.startsWith('/') || /^https:\/\//i.test(current.docs_path)
 
-  return <aside className="fixed left-1/2 top-20 z-40 w-[calc(100%-1.25rem)] max-w-lg -translate-x-1/2" role="status" aria-live="polite">
+  return <aside className={'fixed left-1/2 ' + (pwaUpdateAvailable ? 'top-32' : 'top-20') + ' z-40 w-[calc(100%-1.25rem)] max-w-lg -translate-x-1/2'} role="status" aria-live="polite">
     <div className="overflow-hidden rounded-[1.35rem] border border-line/80 bg-surface/95 shadow-2xl backdrop-blur-xl">
       <div className="flex items-start gap-3 p-3.5">
         <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-forest text-white"><BellRing className="size-5" /></span>
