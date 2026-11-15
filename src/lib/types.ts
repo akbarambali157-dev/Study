@@ -57,6 +57,7 @@ export interface Note {
     sectionCount: number
     keyPointCount: number
     coveredPages: number[]
+    unreadablePages: number[]
   }
   createdAt: string
   dirty?: boolean
