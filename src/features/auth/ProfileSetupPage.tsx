@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { db } from '@/lib/db'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
+import { saveStudentAcademicProfile } from '@/lib/academicProfile'
 
 export function ProfileSetupPage() {
   const navigate = useNavigate()
@@ -23,8 +24,8 @@ export function ProfileSetupPage() {
     let active = true
     const load = async () => {
       const local = await db.profile.get('me')
-      const auth = supabase ? await supabase.auth.getUser() : null
-      const user = auth?.data.user ?? null
+      const user = supabase ? await getAuthenticatedUser() : null
+      if (supabase && !user) throw new Error('Your account session is missing. Please return to sign in, then reopen your academic profile.')
       let remote: Record<string, unknown> | null = null
       if (supabase && user) {
         const { data, error } = await supabase.from('student_profiles').select('display_name,institution,faculty,department,level,programme,academic_session,research_interests,skills,project_goals,discoverable,profile_visibility,message_policy,collaboration_available').eq('user_id', user.id).maybeSingle()
@@ -65,21 +66,20 @@ export function ProfileSetupPage() {
     }
     setBusy(true)
     try {
-      if (supabase && userId) {
-        const { error } = await supabase.from('student_profiles').upsert({
-          user_id: userId, display_name: form.displayName.trim().slice(0, 80),
-          institution: form.institution.trim().slice(0, 120), faculty: form.faculty.trim().slice(0, 120),
-          department: form.department.trim().slice(0, 120), level: form.level.trim().slice(0, 30),
-          programme: form.programme.trim().slice(0, 120), academic_session: form.academicSession.trim().slice(0, 30),
-          research_interests: form.researchInterests.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
-          skills: form.skills.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
-          project_goals: form.projectGoals.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20),
-          discoverable: form.discoverable, profile_visibility: form.discoverable ? form.profileVisibility : 'private',
-          message_policy: form.messagePolicy, collaboration_available: form.collaborationAvailable,
-        }, { onConflict: 'user_id' })
-        if (error) throw error
+      const currentUser = supabase ? await getAuthenticatedUser() : null
+      if (supabase && !currentUser) throw new Error('Your sign-in has expired or is unavailable. Sign in again before saving your academic profile.')
+      if (supabase && currentUser) {
+        await saveStudentAcademicProfile(currentUser.id, {
+          displayName: form.displayName, institution: form.institution, faculty: form.faculty,
+          department: form.department, level: form.level, programme: form.programme,
+          academicSession: form.academicSession, researchInterests: form.researchInterests.split(','),
+          skills: form.skills.split(','), projectGoals: form.projectGoals.split(','),
+          discoverable: form.discoverable, profileVisibility: form.profileVisibility,
+          messagePolicy: form.messagePolicy, collaborationAvailable: form.collaborationAvailable,
+        })
         const { error: metadataError } = await supabase.auth.updateUser({ data: { display_name: form.displayName.trim(), full_name: form.displayName.trim() } })
         if (metadataError) throw metadataError
+        setUserId(currentUser.id)
       }
       const existing = await db.profile.get('me')
       await db.profile.put({
@@ -89,7 +89,7 @@ export function ProfileSetupPage() {
         xp: existing?.xp ?? 0, streakDays: existing?.streakDays ?? 0,
         lastActive: existing?.lastActive, lastRushBonusDate: existing?.lastRushBonusDate,
       })
-      toast(supabase && userId ? 'Your academic profile is saved to your account and this device.' : 'Your academic profile is saved on this device.', 'success')
+      toast(supabase ? 'Your academic profile is saved to your account and this device.' : 'Your academic profile is saved on this device.', 'success')
       navigate('/')
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Profile could not be saved.', 'error')

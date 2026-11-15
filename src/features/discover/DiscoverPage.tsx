@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip, EmptyState } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { getPublicMaterialDownloadUrl, launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 
 type Material = {
@@ -35,12 +35,13 @@ export function DiscoverPage() {
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return }
     setLoading(true)
-    const [{ data: auth }, { data, error }] = await Promise.all([
-      supabase.auth.getUser(),
+    const [user, materials] = await Promise.all([
+      getAuthenticatedUser(),
       supabase.from('public_materials').select('*').order('created_at', { ascending: false }).limit(100),
     ])
+    const { data, error } = materials
     if (error) { toast(error.message, 'error'); setLoading(false); return }
-    const uid = auth.user?.id ?? null
+    const uid = user?.id ?? null
     setUserId(uid)
     setRows((data ?? []) as Material[])
     if (uid) {

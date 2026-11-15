@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { startConversation } from '@/lib/messaging'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 
 type Student = {
   user_id: string
@@ -21,6 +21,8 @@ type Student = {
   project_goals: string[]
   collaboration_available: boolean
   message_policy: 'everyone' | 'requests' | 'nobody'
+  profile_visibility?: 'private' | 'public'
+  discoverable?: boolean
 }
 type Match = { student: Student; score: number; reasons: string[] }
 
@@ -42,9 +44,11 @@ export function StudentsPage() {
     let active = true
     const load = async () => {
       if (!supabase) { setLoading(false); setError('Student discovery needs an account connection.'); return }
-      const { data: auth, error: authError } = await supabase.auth.getUser()
-      if (authError || !auth.user) { setLoading(false); setError('Sign in to discover students who have opted in.'); return }
-      const uid = auth.user.id
+      let currentUser
+      try { currentUser = await getAuthenticatedUser() }
+      catch { setLoading(false); setError('Your sign-in could not be restored. Please sign in again, then return to student discovery.'); return }
+      if (!currentUser) { setLoading(false); setError('Sign in to discover students who have opted in.'); return }
+      const uid = currentUser.id
       const [{ data: own, error: ownError }, { data: profiles, error: profilesError }, { data: blocks, error: blocksError }] = await Promise.all([
         supabase.from('student_profiles').select('*').eq('user_id', uid).maybeSingle(),
         supabase.from('student_profiles').select('user_id,display_name,institution,faculty,department,level,academic_session,research_interests,skills,project_goals,collaboration_available,message_policy').eq('discoverable', true).eq('profile_visibility', 'public').limit(100),
@@ -56,6 +60,9 @@ export function StudentsPage() {
       if (!active) return
       setUserId(uid)
       setMine(own as Student | null)
+      if (!own) setError('Complete your academic profile first so Study Hub can match you with relevant students.')
+      else if (!own.discoverable || own.profile_visibility !== 'public') setError('Your profile is saved, but student discovery is turned off. Enable “Let other students discover my academic profile” to see matches.')
+      else setError('')
       setRows(((profiles ?? []) as Student[]).filter((student) => student.user_id !== uid))
       setBlocked((blocks ?? []).map((item) => item.blocked_id))
     }
@@ -102,5 +109,5 @@ export function StudentsPage() {
     else { setBlocked((current) => [...current, student.user_id]); toast('Student blocked.', 'success') }
   }
 
-  return <div className="mx-auto max-w-5xl"><PageHeading title="Discover students" subtitle="Find students with overlapping academic interests. Only students who opt in appear here." /><div className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-3"><Search className="size-4 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, department, interests or skills" className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" /></div>{error ? <Card className="p-4 text-sm text-muted">{error}{!userId ? <Button className="mt-3" size="sm" onClick={() => navigate('/auth')}>Sign in</Button> : null}</Card> : loading ? <Card className="p-5 text-sm text-muted">Finding opted-in students…</Card> : filtered.length === 0 ? <Card className="p-8 text-center"><Users className="mx-auto size-8 text-muted" /><h2 className="mt-3 font-semibold">No matching students yet</h2><p className="mt-1 text-sm text-muted">Try a broader search, or update your academic interests and discovery preferences in your profile.</p><Button className="mt-4" variant="secondary" onClick={() => navigate('/profile-setup')}>Update my profile</Button></Card> : <div className="grid gap-3 md:grid-cols-2">{filtered.map(({ student, score, reasons }) => <Card key={student.user_id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{student.display_name}</h2><p className="mt-1 text-xs text-muted">{[student.department, student.level ? `Level ${student.level}` : '', student.institution].filter(Boolean).join(' · ')}</p></div><Chip tone={score >= 50 ? 'green' : 'neutral'}>{score ? `${score}% match` : 'Discoverable'}</Chip></div>{reasons.length ? <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><Sparkles className="size-3.5 text-gold" />{reasons.join(' · ')}</p> : null}{student.research_interests?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{student.research_interests.slice(0,5).map((item) => <Chip key={item}>{item}</Chip>)}</div> : null}{student.skills?.length ? <p className="mt-2 text-xs text-muted">Skills: {student.skills.slice(0,5).join(', ')}</p> : null}<div className="mt-4 flex flex-wrap gap-2">{student.collaboration_available ? <Chip tone="green">Open to collaboration</Chip> : null}{student.message_policy !== 'nobody' ? <Button size="sm" onClick={() => void message(student)} disabled={busy === student.user_id} icon={<MessageCircle className="size-3.5" />}>{busy === student.user_id ? 'Opening…' : 'Message'}</Button> : <Chip>Not accepting messages</Chip>}<Button size="sm" variant="ghost" onClick={() => void block(student)}>Block</Button></div></Card>)}</div>}</div>
+  return <div className="mx-auto max-w-5xl"><PageHeading title="Discover students" subtitle="Find students with overlapping academic interests. Only students who opt in appear here." /><div className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-3"><Search className="size-4 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, department, interests or skills" className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" /></div>{error ? <Card className="p-4 text-sm text-muted">{error}{!userId ? <Button className="mt-3" size="sm" onClick={() => navigate('/auth')}>Sign in</Button> : <Button className="mt-3" size="sm" onClick={() => navigate('/profile-setup')}>Complete my academic profile</Button>}</Card> : loading ? <Card className="p-5 text-sm text-muted">Finding opted-in students…</Card> : filtered.length === 0 ? <Card className="p-8 text-center"><Users className="mx-auto size-8 text-muted" /><h2 className="mt-3 font-semibold">No matching students yet</h2><p className="mt-1 text-sm text-muted">Try a broader search, or update your academic interests and discovery preferences in your profile.</p><Button className="mt-4" variant="secondary" onClick={() => navigate('/profile-setup')}>Update my profile</Button></Card> : <div className="grid gap-3 md:grid-cols-2">{filtered.map(({ student, score, reasons }) => <Card key={student.user_id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{student.display_name}</h2><p className="mt-1 text-xs text-muted">{[student.department, student.level ? `Level ${student.level}` : '', student.institution].filter(Boolean).join(' · ')}</p></div><Chip tone={score >= 50 ? 'green' : 'neutral'}>{score ? `${score}% match` : 'Discoverable'}</Chip></div>{reasons.length ? <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><Sparkles className="size-3.5 text-gold" />{reasons.join(' · ')}</p> : null}{student.research_interests?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{student.research_interests.slice(0,5).map((item) => <Chip key={item}>{item}</Chip>)}</div> : null}{student.skills?.length ? <p className="mt-2 text-xs text-muted">Skills: {student.skills.slice(0,5).join(', ')}</p> : null}<div className="mt-4 flex flex-wrap gap-2">{student.collaboration_available ? <Chip tone="green">Open to collaboration</Chip> : null}{student.message_policy !== 'nobody' ? <Button size="sm" onClick={() => void message(student)} disabled={busy === student.user_id} icon={<MessageCircle className="size-3.5" />}>{busy === student.user_id ? 'Opening…' : 'Message'}</Button> : <Chip>Not accepting messages</Chip>}<Button size="sm" variant="ghost" onClick={() => void block(student)}>Block</Button></div></Card>)}</div>}</div>
 }
