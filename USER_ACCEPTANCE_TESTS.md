@@ -498,3 +498,20 @@ These checks were added after reports of Android users seeing a missing update b
 - [ ] On a device above the low-memory threshold, confirm the normal 50 MB / 400-page limit remains.
 
 **Status when added:** code and production build checks passed; all physical-device and two-account checks above remain NOT TESTED until an actual run is recorded.
+
+
+## R. Discover material parity with manually uploaded study documents
+
+- [ ] While signed out, open a public contribution and add it to the local Library without being forced to sign in.
+- [ ] Confirm the imported item appears in the normal Library document list and opens at `/doc/:id`.
+- [ ] Confirm its shared summary appears as Short notes and shared key points appear in the normal notes/key-points view.
+- [ ] Confirm its flashcards appear in the normal Study session and support grading/spaced-repetition reviews.
+- [ ] Confirm its quiz questions appear in the normal Test route, accept answers, show explanations and save a quiz attempt.
+- [ ] Confirm Rush remains optional and is not the only available study action.
+- [ ] Confirm import works even when the contributor did not share the original PDF; do not expose or attempt to download a private original.
+- [ ] Confirm shared page references are retained as references but do not falsely imply the original PDF is stored locally.
+- [ ] Reload the app and open the imported document offline; notes, key points, cards and quiz content remain usable.
+- [ ] Import the same contribution again; it updates the same local document instead of creating duplicates and preserves existing card-review scheduling for unchanged cards.
+- [ ] Remove a saved bookmark from Discover and confirm it does not delete the locally imported document.
+- [ ] Delete the imported document from Library and confirm its local notes, key points, cards, reviews and questions are removed.
+- [ ] Confirm an imported contribution is clearly labelled as coming from Discover and remains separate from a private PDF upload.

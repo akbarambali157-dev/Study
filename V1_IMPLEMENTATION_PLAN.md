@@ -248,3 +248,12 @@ The build completed successfully but emitted a Lightning CSS warning for an unre
 - Verify low-memory PDF behaviour on Redmi 10A; confirm the device exposes a memory hint and the adaptive cap is selected.
 - Add a deterministic unit/integration/browser test harness; current verification is TypeScript + production build, not full automated regression.
 - Continue V1.1 push/offline/update, V1.2 learning-logic, V1.3 design/performance and V1.4 sync/backup acceptance to the release gates above.
+
+
+## 10. Discover study-material parity (15 November 2026)
+
+Commit `e35fd63014659a816e3eaa1f328237a811ea9059` adds a first-class local import path for public community study materials. A contribution is materialised into the same IndexedDB document, note, key-point, deck, flashcard and quiz-question stores used by uploaded documents. The original PDF is not required or copied; contributors' sharing permissions remain authoritative. Stable IDs make re-import idempotent, and unchanged flashcards retain their review scheduling.
+
+Discover now offers **Add to Library** independently of Rush, while saved community materials offer **Open study set**. Imported documents open in the standard document reader, and Library labels them as originating from Discover.
+
+**Release status:** source changes are committed, but build/deployment verification is blocked at present by Vercel's deployment API daily resource limit (HTTP 402; retry after 24 hours). Do not mark this change released until a successful build and deployment plus the Section R acceptance checks have passed.
