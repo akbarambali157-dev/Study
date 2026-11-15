@@ -23,7 +23,7 @@ import { checkForPwaUpdate } from '@/lib/pwa'
 import { AiError, generateText, redactSecrets } from '@/lib/llm/ai'
 import { SCOPE_ORDER, SHORTCUTS } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, supabase } from '@/lib/supabase'
 import { getVapidPublicKey, getCurrentDevicePushEndpoint, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, requiresHomeScreenInstallForPush, supportsWebPush } from '@/lib/push'
 
 const SETTINGS_SECTIONS = [
@@ -67,11 +67,11 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
     let active = true
     const checkCredential = async () => {
       if (!supabase) { setCredentialLoading(false); return }
-      const { data: auth } = await supabase.auth.getUser()
-      if (!auth.user) { setCredentialLoading(false); return }
-      setAccountEmail(auth.user.email ?? '')
-      const { data: profile } = await supabase.from('student_profiles').select('display_name').eq('user_id', auth.user.id).maybeSingle()
-      setAccountName(profile?.display_name ?? String(auth.user.user_metadata?.display_name ?? ''))
+      const user = await getAuthenticatedUser()
+      if (!user) { setCredentialLoading(false); return }
+      setAccountEmail(user.email ?? '')
+      const { data: profile } = await supabase.from('student_profiles').select('display_name').eq('user_id', user.id).maybeSingle()
+      setAccountName(profile?.display_name ?? String(user.user_metadata?.display_name ?? ''))
       const { data, error } = await supabase.functions.invoke('byok-proxy', { body: { action: 'status' } })
       if (!active) return
       if (error) toast('Private-key status could not be checked. Sign in again or retry.', 'error')
@@ -171,10 +171,10 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         toast('Connect to the internet before signing out so this device can be safely removed from your push subscriptions.', 'info')
         return
       }
-      const { data: auth } = await supabase.auth.getUser()
-      if (auth.user && endpoint) {
+      const user = await getAuthenticatedUser()
+      if (user && endpoint) {
         const { error: removeError } = await supabase.from('push_subscriptions').delete()
-          .eq('user_id', auth.user.id).eq('endpoint', endpoint)
+          .eq('user_id', user.id).eq('endpoint', endpoint)
         if (removeError) throw removeError
       }
       if (endpoint) {

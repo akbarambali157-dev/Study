@@ -24,7 +24,7 @@ import { useProfile, useSettings } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/shortcuts'
 import { Toaster } from '@/components/ui/toast'
 import { IconButton } from '@/components/ui/Button'
-import { applyPwaUpdate, checkForPwaUpdate } from '@/lib/pwa'
+import { applyPwaUpdate, checkForPwaUpdate, hasPwaUpdate, subscribePwaUpdates } from '@/lib/pwa'
 
 const ShortcutsSheet = lazy(() => import('@/components/ShortcutsSheet').then((module) => ({ default: module.ShortcutsSheet })))
 
@@ -50,7 +50,7 @@ export function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(hasPwaUpdate)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [isAdmin, setIsAdmin] = useState(false)
   const allNavItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
@@ -113,12 +113,12 @@ export function App() {
             .then(({ flushPendingCloudDeletions }) => flushPendingCloudDeletions())
             .catch(() => undefined)
         }
-        void supabase.auth.getUser().then(({ data }) => {
+        void import('@/lib/supabase').then(({ getAuthenticatedUser }) => getAuthenticatedUser()).then((user) => {
           if (mounted) {
-            setIsAdmin(data.user?.app_metadata?.role === 'admin')
-            if (data.user) flushCloudDeletions()
+            setIsAdmin(user?.app_metadata?.role === 'admin')
+            if (user) flushCloudDeletions()
           }
-        })
+        }).catch(() => undefined)
         const { data } = supabase.auth.onAuthStateChange((_event, session) => {
           if (!mounted) return
           setIsAdmin(session?.user.app_metadata?.role === 'admin')
@@ -140,10 +140,9 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    const onUpdate=()=>setUpdateAvailable(true)
-    window.addEventListener('studyhub:pwa-update',onUpdate)
-    checkForPwaUpdate()
-    return ()=>window.removeEventListener('studyhub:pwa-update',onUpdate)
+    const unsubscribe = subscribePwaUpdates(setUpdateAvailable)
+    void checkForPwaUpdate()
+    return unsubscribe
   },[])
 
   useEffect(() => {
