@@ -67,6 +67,11 @@ export function TestPage() {
       const originals = savedQuestions
         .filter((question) => question.sourceType === 'original')
         .sort((a, b) => (a.sourceNumber ?? 0) - (b.sourceNumber ?? 0))
+      if (questionSource === 'source' && questionCount > originals.length) {
+        setError(`This PDF contains only ${originals.length} original questions. Lower the requested count or choose the mixed option to fill the rest with AI questions.`)
+        setPhase('setup')
+        return
+      }
       let questionsToUse: QuizQuestion[] = questionSource === 'source' || questionSource === 'mixed'
         ? originals.slice(0, questionCount)
         : []
