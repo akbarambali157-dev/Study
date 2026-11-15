@@ -282,6 +282,9 @@ export function DocPage() {
               <span>{note.coverage.coveredPages.length} of {note.coverage.pageCount} pages processed</span>
               <span>{note.coverage.sectionCount} source sections</span>
               <span>{note.coverage.keyPointCount} concepts captured</span>
+              {note.coverage.unreadablePages.length > 0 ? (
+                <span className="w-full text-clay">{note.coverage.unreadablePages.length} pages have no extractable text and may need OCR.</span>
+              ) : null}
             </div>
           ) : null}
           <Markdown text={note.summary} />
