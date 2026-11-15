@@ -272,7 +272,6 @@ export function UploadPage() {
         return
       }
 
-      setUploadActivity(id, { id, title: item.title || item.file.name, detail: 'Preparing your private document copy', progress: 8, phase: 'processing' })
       let savedDoc: DocumentRec = {
         id: item.documentId ?? uid('doc'),
         title: item.title.trim() || stripExtension(item.file.name),
@@ -290,6 +289,7 @@ export function UploadPage() {
       // Preserve the extracted copy locally before starting any network work.
       await saveDocument(savedDoc)
       await cachePdfBlob(savedDoc.id, item.file)
+      setUploadActivity(id, { id, title: savedDoc.title, detail: 'Preparing your private document copy', progress: 8, phase: 'processing' })
 
       // Offline uploads are still useful: keep the extracted text and original
       // PDF on this device, then let the student start AI generation manually
