@@ -294,8 +294,6 @@ export async function generateStudyMaterial(
     })
     digestRecords = compressed
   }
-  const digests = digestRecords.map((item) => item.text).join('\n\n')
-
   // ── reduce: short notes + key points ───────────────────────────────────
   onStage?.('reduce')
   const reduceBatch = async (records: DigestRecord[], depth = 0): Promise<NotesResult[]> => {
