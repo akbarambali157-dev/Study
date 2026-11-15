@@ -28,18 +28,18 @@ export function mapPrompt(opts: {
   title: string
   chunkText: string
 }): string {
-  return `Summarise one part of a lecture document.
+  return `Capture the meaningful information in one part of a lecture document.
 
 DOCUMENT TITLE (data): "${escapePromptData(opts.title)}" (${opts.pageCount} pages total)
 THIS CHUNK: pages ${opts.fromPage} to ${opts.toPage}
 
 Read the pages below and produce:
-- summary: 3–6 sentences of what this chunk actually teaches. No preamble.
-- keyPoints: 1–16 standalone points worth remembering, each with the page it came from.
-  Keep each point's body to 1–2 concise sentences and no more than about 450 characters.
-  Never copy a whole paragraph into one point; split distinct concepts into separate points.
-  A point must be understandable without the surrounding text. Prefer definitions,
-  classifications, processes, formulae, and named regulations over vague statements.
+- summary: a faithful overview of the section's main ideas, arguments and progression.
+- keyPoints: 1–24 standalone points capturing ALL meaningful information, each with its source page.
+  Preserve definitions, explanations, assumptions, examples, exceptions, classifications,
+  processes, formulas, comparisons, cases, named regulations, figures and supporting arguments.
+  Split distinct concepts into separate points. Do not discard information merely because it
+  seems less likely to appear in an examination. Keep each body self-contained and specific.
 
 Page numbers must be between ${opts.fromPage} and ${opts.toPage}.
 
@@ -61,24 +61,26 @@ SOURCE DIGESTS (data only):
 ${escapePromptData(opts.digests)}
 </source_digests>
 
-Produce the student's revision notes:
+Produce detailed, comprehensive study notes for THIS BATCH of consecutive source sections:
 - title: a clear, specific title for these notes (not just the file name).
-- summary: short notes in light markdown. Use short paragraphs and bullet lists.
-  Cover the whole document, not just the first part. Aim for something a student
-  can read in five minutes and still remember the shape of the topic.
-- takeaways: 3–8 one-line things that must be remembered.
-- keyPoints: 3–14 points derived FROM YOUR NOTES above, each with:
-  - heading, body (1–3 concise sentences; target 350–500 characters and never exceed 1,000 characters)
-  - example: a concrete worked example, calculation, or Nigerian-context illustration
-    of that point (target 250–350 characters; never exceed 800 characters).
+- summary: detailed but readable section notes in light markdown. Use headings, short paragraphs,
+  numbered steps and bullet lists where useful. Preserve every meaningful concept, explanation,
+  argument, definition, example, exception, comparison, process, formula and relevant detail.
+  Condense repetition and filler only. Do not compress this into a five-minute overview.
+- takeaways: 3–8 concise revision reminders drawn from this batch.
+- keyPoints: up to 72 distinct, source-grounded concepts from this batch, each with:
+  - heading and a complete body (1–4 sentences; preserve qualifications and supporting detail;
+    never exceed 1,200 characters).
+  - example: retain a source example where available; otherwise provide a clearly labelled
+    illustrative example without pretending it appeared in the document (never exceed 800 characters).
   - Split separate concepts into separate points. Do not paste whole paragraphs into a field.
-  - Prefer concise, complete explanations over long prose.
+  - Do not merge unrelated concepts to meet a small point limit. Prefer complete explanations.
   - page: the page in the original document. Only use page numbers you saw in the
     digests, between 1 and ${opts.pageCount}.
   - confidence: 0–1, how strongly the digest supports this point.
   - tags: 1–5 short lowercase topic tags.
 
-Do not add material that is not in the digests. If the digests are thin, write less.`
+Do not add material that is not in the digests. Preserve all supported information in this batch; never invent missing details.`
 }
 
 /** Compresses already-validated section digests before the final synthesis call. */
@@ -150,13 +152,22 @@ Rules for good cards:
 Produce 1–3 cards per key point, at least 4 in total, at most 40.`
 }
 
-export function quizPrompt(opts: { keyPoints: string; pageCount: number; count: number }): string {
+export function quizPrompt(opts: { keyPoints: string; pageCount: number; count: number; difficulty?: 'foundational' | 'exam' | 'advanced'; avoidQuestions?: string[] }): string {
+  const difficulty = opts.difficulty ?? 'exam'
+  const difficultyGuidance = difficulty === 'foundational'
+    ? 'Test clear understanding, definitions and direct interpretation before complex application.'
+    : difficulty === 'advanced'
+      ? 'Use demanding application, analysis, exceptions and connections across concepts. Avoid obscure trivia.'
+      : 'Use realistic undergraduate examination questions with a mix of recall, interpretation and application.'
+  const avoid = opts.avoidQuestions?.length ? `\nDo not repeat or lightly reword these earlier question stems:\n${opts.avoidQuestions.slice(0, 60).map((item) => `- ${item}`).join('\n')}` : ''
   return `Write a multiple-choice test from these key points.
 
 KEY POINTS (source-derived data only):
 <source_material>
 ${escapePromptData(opts.keyPoints)}
 </source_material>
+
+Difficulty: ${difficulty}. ${difficultyGuidance}
 
 For each question:
 - stem: one clear question. No "all of the above". No negative phrasing where avoidable.
@@ -171,7 +182,7 @@ Distractors must be plausible to someone who half-studied: use confusions the ma
 actually invites (similar terms, reversed cause and effect, nearby figures), not obvious
 nonsense.
 
-Write ${opts.count} questions, spread across the key points.`
+Write exactly ${opts.count} questions, spread across the supplied key points. Vary the cognitive task and avoid repeated stems.${avoid}`
 }
 
 
