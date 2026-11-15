@@ -9,6 +9,8 @@ export const ORG_KIND_LABEL: Record<OrgKind, string> = {
 
 export type DocumentStatus = 'extracting' | 'queued' | 'ready' | 'failed'
 
+export type StudyDepth = 'quick' | 'balanced' | 'comprehensive' | 'near-source'
+
 export interface Course {
   id: string
   code: string
