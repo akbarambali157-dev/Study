@@ -557,4 +557,5 @@ These checks were added after reports of Android users seeing a missing update b
 - [ ] T15. Run the same test again and confirm saved earlier question sets remain usable without corrupting the new attempt.
 - [ ] T16. Confirm the worker pool remains bounded, completed map sections are cached, and failed sections can be retried without remapping successful sections.
 - [ ] T17. On a low-memory Android device, confirm long comprehensive notes remain scrollable and the UI stays responsive.
-- [ ] T18. Run the 191-page PDF on production after deployment and compare coverage, time, usage and output length with the previous short-note result.
+- [ ] T18. Confirm pages without selectable text are listed as needing OCR rather than silently counted as semantically covered.
+- [ ] T19. Run the 191-page PDF on production after deployment and compare coverage, time, usage and output length with the previous short-note result.
