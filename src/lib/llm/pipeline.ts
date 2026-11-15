@@ -305,7 +305,7 @@ export async function generateStudyMaterial(
         prompt: reducePrompt({
           title: doc.title,
           pageCount,
-          digests: records.map((item) => item.text).join('\\n\\n'),
+          digests: records.map((item) => item.text).join('\n\n'),
         }),
         model,
         maxTokens: 12000,
@@ -348,7 +348,7 @@ export async function generateStudyMaterial(
   const reduced = {
     data: {
       title: reducedParts[0]?.title || doc.title,
-      summary: reducedParts.map((part, index) => `## Part ${index + 1}\\n${part.summary}`).join('\\n\\n').slice(0, 8000),
+      summary: reducedParts.map((part, index) => `## Part ${index + 1}\n${part.summary}`).join('\\n\\n').slice(0, 8000),
       takeaways: [...new Set(reducedParts.flatMap((part) => part.takeaways))].slice(0, 8),
       keyPoints: (() => {
         const seen = new Set<string>()
