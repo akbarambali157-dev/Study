@@ -39,6 +39,7 @@ import {
   CardsSchema,
   ChunkMapSchema,
   NotesSchema,
+  type NotesResult,
   OrgSchema,
   QuizSchema,
   ObjectiveVerificationSchema,
