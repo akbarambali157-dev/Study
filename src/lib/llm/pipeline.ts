@@ -177,22 +177,68 @@ export async function generateStudyMaterial(
   let mapped = 0
   // Hosted requests are serialized to avoid overwhelming the shared provider.
   const mapConcurrency = useProxy ? 1 : MAP_CONCURRENCY
-  const maps = await pool(chunks, mapConcurrency, async (chunk) => {
+  // A single dense section can still produce an overlong point even when
+  // the PDF was chunked. If the map response exceeds a schema limit, split
+  // that section into smaller page ranges and map them independently. This
+  // preserves source page citations and avoids throwing away the whole PDF.
+  type MappedChunk = (typeof chunks)[number] & {
+    summary: string
+    keyPoints: Array<{ heading: string; body: string; page: number }>
+    usage: AiUsage
+    usedModel: AiModel
+  }
+  const splitChunk = (chunk: (typeof chunks)[number]) => {
+    const midpoint = Math.floor((chunk.fromPage + chunk.toPage) / 2)
+    const makeHalf = (fromPage: number, toPage: number) => {
+      const local = chunkPages(pages.slice(fromPage - 1, toPage), Number.MAX_SAFE_INTEGER, 0)[0]
+      return {
+        ...local,
+        fromPage,
+        toPage,
+        text: local.text.replace(/<page n="(\\d+)"/g, (_match, page) =>
+          `<page n="${Number(page) + fromPage - 1}"`,
+        ),
+      }
+    }
+    return [makeHalf(chunk.fromPage, midpoint), makeHalf(midpoint + 1, chunk.toPage)]
+  }
+  const mapChunkResilient = async (
+    chunk: (typeof chunks)[number],
+    depth = 0,
+  ): Promise<MappedChunk[]> => {
     ensureNotAborted(signal)
-    const result = await callMapWithFallback(
-      mapPrompt({
-        fromPage: chunk.fromPage,
-        toPage: chunk.toPage,
-        pageCount,
-        title: doc.title,
-        chunkText: chunk.text,
-      }),
-      4000,
-    )
-    mapped += 1
-    onStage?.('map', `${mapped} of ${chunks.length} sections`)
-    return { chunk, ...result.data, usage: result.usage, usedModel: result.usedModel }
-  })
+    try {
+      const result = await callMapWithFallback(
+        mapPrompt({
+          fromPage: chunk.fromPage,
+          toPage: chunk.toPage,
+          pageCount,
+          title: doc.title,
+          chunkText: chunk.text,
+        }),
+        4000,
+      )
+      mapped += 1
+      onStage?.('map', `${mapped} sections completed (smaller sections are created automatically when needed)`)
+      return [{ chunk, ...result.data, usage: result.usage, usedModel: result.usedModel }]
+    } catch (error) {
+      const isSizeFailure =
+        error instanceof AiError &&
+        error.code === 'schema' &&
+        /too_big/i.test(error.message)
+      const canSplit = chunk.toPage > chunk.fromPage && depth < 6
+      if (!isSizeFailure || !canSplit) throw error
+
+      const [left, right] = splitChunk(chunk)
+      onStage?.('map', `Breaking pages ${chunk.fromPage}–${chunk.toPage} into smaller sections`)
+      // Keep hosted requests serial to respect the shared provider's limits.
+      const leftResults = await mapChunkResilient(left, depth + 1)
+      const rightResults = await mapChunkResilient(right, depth + 1)
+      return [...leftResults, ...rightResults]
+    }
+  }
+  const mappedGroups = await pool(chunks, mapConcurrency, (chunk) => mapChunkResilient(chunk))
+  const maps = mappedGroups.flat()
 
   usage = addUsage(usage, maps.reduce((total, item) => addUsage(total, item.usage), { inputTokens: 0, outputTokens: 0 }))
   costUsd += maps.reduce((total, item) => total + tokensToCost(item.usedModel, item.usage.inputTokens, item.usage.outputTokens), 0)

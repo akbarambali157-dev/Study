@@ -17,7 +17,7 @@ export const ChunkMapSchema = z.object({
     .array(
       z.object({
         heading: z.string().max(120),
-        body: z.string().max(600),
+        body: z.string().max(1400),
         page: z.number().int().describe('The page number this point came from.'),
       }),
     )

@@ -36,6 +36,8 @@ THIS CHUNK: pages ${opts.fromPage} to ${opts.toPage}
 Read the pages below and produce:
 - summary: 3–6 sentences of what this chunk actually teaches. No preamble.
 - keyPoints: 1–16 standalone points worth remembering, each with the page it came from.
+  Keep each point's body to 1–2 concise sentences and no more than about 450 characters.
+  Never copy a whole paragraph into one point; split distinct concepts into separate points.
   A point must be understandable without the surrounding text. Prefer definitions,
   classifications, processes, formulae, and named regulations over vague statements.
 
@@ -98,7 +100,7 @@ ${escapePromptData(opts.digests)}
 Return a compact digest that preserves the main concepts, definitions, processes, named facts and useful examples. Do not add information that is absent from the source digests.
 - summary: 3–6 concise sentences covering this batch.
 - keyPoints: 1–16 important points, each with its original page number between ${opts.fromPage} and ${opts.toPage}.
-Keep each point self-contained and avoid repeating the same idea.`
+Keep each point self-contained; body must be 1–2 concise sentences and no more than about 450 characters. Split distinct concepts rather than writing long paragraphs.`
 }
 
 export function orgsPrompt(opts: { keyPoints: string }): string {
