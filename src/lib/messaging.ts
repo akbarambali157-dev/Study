@@ -8,7 +8,7 @@ export async function startConversation(recipientId: string): Promise<string> {
 
   const findExisting = async () => {
     const { data, error } = await supabase!.from('conversations').select('id')
-      .or(`and(created_by.eq.${user.id},recipient_id.eq.${recipientId}),and(created_by.eq.${recipientId},recipient_id.eq.${auth.user.id})`)
+      .or(`and(created_by.eq.${user.id},recipient_id.eq.${recipientId}),and(created_by.eq.${recipientId},recipient_id.eq.${user.id})`)
       .maybeSingle()
     if (error) throw error
     return data?.id as string | undefined
@@ -17,7 +17,7 @@ export async function startConversation(recipientId: string): Promise<string> {
   if (existing) return existing
 
   const { data, error } = await supabase.from('conversations')
-    .insert({ created_by: auth.user.id, recipient_id: recipientId })
+    .insert({ created_by: user.id, recipient_id: recipientId })
     .select('id').single()
   if (!error && data?.id) return data.id
   // A second tap/device may have created the unique pair concurrently.
