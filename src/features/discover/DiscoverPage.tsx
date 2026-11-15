@@ -36,7 +36,7 @@ export function DiscoverPage() {
     if (!supabase) { setLoading(false); return }
     setLoading(true)
     const [user, materials] = await Promise.all([
-      getAuthenticatedUser(),
+      getAuthenticatedUser().catch(() => null),
       supabase.from('public_materials').select('*').order('created_at', { ascending: false }).limit(100),
     ])
     const { data, error } = materials
@@ -124,6 +124,7 @@ export function DiscoverPage() {
   return (
     <div className="hub-discover-page mx-auto max-w-5xl">
       <PageHeading title="Discover" subtitle="A growing library of student-shared notes, original PDFs, flashcards and quizzes." />
+      {!userId ? <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-forest-400/20 bg-forest-400/5 p-3"><div><p className="text-sm font-semibold">You can browse without an account</p><p className="text-xs text-muted">Sign in only when you want to save materials, publish your own work or connect with students.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/auth')}>Sign in</Button></div> : null}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3">
         <div><p className="text-sm font-semibold">Find your academic community</p><p className="text-xs text-muted">Meet students with shared research interests and collaboration goals.</p></div>
         <Button size="sm" variant="secondary" onClick={() => navigate('/students')}>Discover students</Button>
