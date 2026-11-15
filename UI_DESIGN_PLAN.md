@@ -1,7 +1,7 @@
 # Study Hub UI Redesign & Performance Plan
 
-**Status:** Approved design direction; implementation not yet started  
-**Date:** 14 November 2026  
+**Status:** Approved design direction; implementation in progress (first motion/offline safeguards committed; full redesign not complete)  
+**Date:** 15 November 2026  
 **Repository:** `akbarambali157-dev/Study`  
 **Scope:** Visual system, navigation, settings, admin user list, offline-aware UI, motion preference, mobile performance and acceptance testing.
 
@@ -403,3 +403,8 @@ The redesign is accepted only when all of the following are true:
 ## 12. Delivery rule
 
 Implement in small, reviewable phases on `main`, with a successful validation/build after each meaningful phase. Preserve the existing working baseline and avoid combining broad visual changes with unrelated backend refactors. A GitHub commit is not proof of production deployment: verify that Vercel has deployed the matching commit and reports READY before describing the redesign as live.
+
+
+## 15. Implementation progress — 15 November 2026
+
+The first code slice now implements the persistent Animations preference (default ON), OS reduced-motion override, a CSS static baseline when motion is off, hiding online-only navigation while the browser reports offline, an offline route fallback, and hiding the document AI question entry while offline. This is not completion of the design plan. Focused Settings pages, the full navigation redesign, shared connectivity/reachability handling, admin display names, page-by-page visual polish, measured performance work and device acceptance remain open. Track manual tests in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md).
