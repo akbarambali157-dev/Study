@@ -495,6 +495,15 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         <SectionTitle hint="Prepare this device for weak networks and offline study">Offline & app</SectionTitle>
         <Card className="space-y-3">
           <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Connection status</p><p className="text-xs text-muted">{navigator.onLine ? 'Online — cloud features are available.' : 'Offline — saved local study materials remain available.'}</p></div><Chip tone={navigator.onLine ? 'green' : 'gold'}>{navigator.onLine ? 'Online' : 'Offline'}</Chip></div>
+          <div className="border-t border-line pt-1">
+            <ToggleRow
+              title="Animations"
+              icon={<Sparkles className="size-4" />}
+              body="Use subtle transitions and interface feedback. Turn this off to use the static Study Hub interface. Your device's reduced-motion setting always takes priority."
+              checked={settings.animations !== false}
+              onChange={(checked) => void saveSettings({ animations: checked })}
+            />
+          </div>
           <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/install')}>Installation & offline guide</Button><Button size="sm" variant="secondary" onClick={() => void checkForPwaUpdate()}>Check for app updates</Button></div>
           <p className="text-[11px] text-muted">Study Hub {__APP_VERSION__} · Build {__BUILD_ID__}</p>
         </Card>
