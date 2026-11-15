@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  AiSectionCache,
   Card,
   CardReview,
   Course,
@@ -39,6 +40,7 @@ export class StudyHubDb extends Dexie {
   studyTasks!: Table<StudyTask, string>
   studyGoals!: Table<StudyGoal, string>
   pendingCloudDeletions!: Table<{ id: string; ownerId: string; storagePath: string; queuedAt: number }, string>
+  aiSectionCache!: Table<AiSectionCache, string>
   aiSectionCache!: Table<AiSectionCache, string>
 
   constructor() {
