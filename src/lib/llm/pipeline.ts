@@ -621,8 +621,10 @@ export async function generateTestForDeck(options: {
     }
   }
 
-  if (questions.length < count) {
-    const missing = count - questions.length
+  let refillPass = 0
+  while (questions.length < count && refillPass < 5) {
+    ensureNotAborted(signal)
+    const missing = Math.min(20, count - questions.length)
     const listing = keyPoints
       .map((kp, index) => `[${index}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
       .join('\n\n')
@@ -662,6 +664,7 @@ export async function generateTestForDeck(options: {
         page: clampPage(raw.page ?? keyPoint.page ?? 1, 1, pageCount),
       })
     }
+    refillPass += 1
   }
 
   if (questions.length < count) {
