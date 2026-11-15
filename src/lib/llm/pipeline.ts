@@ -319,6 +319,10 @@ export async function generateStudyMaterial(
       costUsd += tokensToCost(model, result.usage.inputTokens, result.usage.outputTokens)
       return [result.data]
     } catch (error) {
+      if (error instanceof AiError && error.usage) {
+        usage = addUsage(usage, error.usage)
+        costUsd += tokensToCost(model, error.usage.inputTokens, error.usage.outputTokens)
+      }
       const isSchemaFailure = error instanceof AiError && error.code === 'schema'
       if (!isSchemaFailure || records.length < 2 || depth >= 6) throw error
       const midpoint = Math.ceil(records.length / 2)
