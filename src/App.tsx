@@ -55,8 +55,11 @@ export function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const allNavItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
   const navItems = allNavItems.filter((item) => isOnline || !ONLINE_ONLY_PATHS.has(item.to))
-  const mobilePrimaryItems = navItems.filter((item) => ['/', '/community', '/library'].includes(item.to))
-  const mobileMoreItems = navItems.filter((item) => !['/', '/community', '/library'].includes(item.to))
+  const mobilePrimaryItems = isOnline
+    ? navItems.filter((item) => ['/', '/community', '/library'].includes(item.to))
+    : navItems.filter((item) => ['/', '/library', '/planner'].includes(item.to))
+  const primaryPaths = new Set(mobilePrimaryItems.map((item) => item.to))
+  const mobileMoreItems = navItems.filter((item) => !primaryPaths.has(item.to))
   const moreIsActive = mobileMoreItems.some((item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/'))
   const pendingG = useRef(false)
 
