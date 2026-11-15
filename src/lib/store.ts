@@ -66,7 +66,7 @@ export async function deleteDocument(id: string): Promise<boolean> {
     'rw',
     [
       db.documents, db.notes, db.keyPoints, db.orgs, db.decks, db.cards,
-      db.reviews, db.questions, db.attempts, db.pdfBlobs, db.pendingCloudDeletions,
+      db.reviews, db.questions, db.attempts, db.pdfBlobs, db.pendingCloudDeletions, db.aiSectionCache,
     ],
     async () => {
       if (document?.remoteId && ownerId) {
@@ -79,6 +79,7 @@ export async function deleteDocument(id: string): Promise<boolean> {
       }
       await db.documents.delete(id)
       await db.pdfBlobs.delete(id)
+      await db.aiSectionCache.where('documentId').equals(id).delete()
       await db.notes.where('documentId').equals(id).delete()
       await db.keyPoints.where('documentId').equals(id).delete()
       await db.orgs.where('documentId').equals(id).delete()

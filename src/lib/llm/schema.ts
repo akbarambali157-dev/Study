@@ -11,20 +11,20 @@ import { z } from 'zod'
 export const ChunkMapSchema = z.object({
   summary: z
     .string()
-    .max(1500)
-    .describe('Three to six sentences covering only exam-relevant content in this chunk.'),
+    .max(2500)
+    .describe('A concise but information-rich overview of this source section.'),
   keyPoints: z
     .array(
       z.object({
         heading: z.string().max(120),
-        body: z.string().max(1400),
+        body: z.string().max(900),
         page: z.number().int().describe('The page number this point came from.'),
       }),
     )
     .min(1)
-    // Dense lecture chunks can legitimately contain more than ten distinct
-    // exam-relevant concepts. Keep a firm ceiling, but avoid rejecting them.
-    .max(16),
+    // A section can contain many distinct concepts. Keep a generous bounded ceiling
+    // so structured output stays predictable without collapsing the source.
+    .max(24),
 })
 export type ChunkMap = z.infer<typeof ChunkMapSchema>
 
@@ -33,8 +33,8 @@ export const NotesSchema = z.object({
   title: z.string().max(140),
   summary: z
     .string()
-    .max(8000)
-    .describe('Short revision notes in light markdown. Paragraphs and bullet lists only.'),
+    .max(16000)
+    .describe('Detailed section notes in light markdown. Preserve all meaningful source information.'),
   takeaways: z.array(z.string().max(240)).min(3).max(8),
   keyPoints: z
     .array(
@@ -43,15 +43,15 @@ export const NotesSchema = z.object({
         body: z.string().max(1200),
         example: z
           .string()
-          .max(600)
+          .max(800)
           .describe('A concrete worked example, calculation or local illustration of this point.'),
         page: z.number().int(),
         confidence: z.number().min(0).max(1),
         tags: z.array(z.string().max(40)).max(5),
       }),
     )
-    .min(3)
-    .max(14),
+    .min(1)
+    .max(72),
 })
 export type NotesResult = z.infer<typeof NotesSchema>
 
@@ -114,7 +114,7 @@ export const QuizSchema = z.object({
         page: z.number().int(),
       }),
     )
-    .min(4)
+    .min(1)
     .max(20),
 })
 export type QuizResult = z.infer<typeof QuizSchema>

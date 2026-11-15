@@ -9,6 +9,8 @@ export const ORG_KIND_LABEL: Record<OrgKind, string> = {
 
 export type DocumentStatus = 'extracting' | 'queued' | 'ready' | 'failed'
 
+export type StudyDepth = 'quick' | 'balanced' | 'comprehensive' | 'near-source'
+
 export interface Course {
   id: string
   code: string
@@ -28,6 +30,7 @@ export interface DocumentRec {
   courseId?: string
   createdAt: string
   status: DocumentStatus
+  studyDepth?: StudyDepth
   source: 'upload' | 'demo' | 'community'
   sizeBytes?: number
   remoteId?: string
@@ -48,6 +51,14 @@ export interface Note {
   summary: string
   takeaways: string[]
   model: string
+  studyDepth?: StudyDepth
+  coverage?: {
+    pageCount: number
+    sectionCount: number
+    keyPointCount: number
+    coveredPages: number[]
+    unreadablePages: number[]
+  }
   createdAt: string
   dirty?: boolean
 }
@@ -132,6 +143,8 @@ export interface QuizQuestion {
   verificationNote?: string
   dirty?: boolean
 }
+
+export type QuizDifficulty = 'progressive' | 'foundational' | 'exam' | 'advanced'
 
 export type QuizMode = 'guided' | 'exam'
 
@@ -269,6 +282,19 @@ export type AiModel =
   | 'claude-opus-5-5'
   | 'claude-sonnet-5-5'
   | 'claude-haiku-4-5'
+
+export interface AiSectionCache {
+  id: string
+  documentId: string
+  sectionKey: string
+  model: AiModel
+  usedModel: AiModel
+  promptVersion: string
+  summary: string
+  keyPoints: Array<{ heading: string; body: string; page: number }>
+  usage: { inputTokens: number; outputTokens: number }
+  createdAt: string
+}
 
 export interface Settings {
   id: 'app'

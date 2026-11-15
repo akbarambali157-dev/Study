@@ -16,7 +16,7 @@ import { record } from '@/lib/inquiries'
 import { AiError, redactSecrets } from '@/lib/llm/ai'
 import { factCheckObjectiveQuestions, generateTestForDeck } from '@/lib/llm/pipeline'
 import { saveAttempt } from '@/lib/store'
-import type { QuizAnswer, QuizMode, QuizQuestion } from '@/lib/types'
+import type { QuizAnswer, QuizDifficulty, QuizMode, QuizQuestion } from '@/lib/types'
 import { cn, formatDuration, uid } from '@/lib/utils'
 
 type Phase = 'setup' | 'generating' | 'running' | 'results'
@@ -43,6 +43,9 @@ export function TestPage() {
 
   const [phase, setPhase] = useState<Phase>('setup')
   const [mode, setMode] = useState<QuizMode>('guided')
+  const [questionCount, setQuestionCount] = useState(20)
+  const [difficulty, setDifficulty] = useState<QuizDifficulty>('progressive')
+  const [questionSource, setQuestionSource] = useState<'ai' | 'source' | 'mixed'>('ai')
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [index, setIndex] = useState(0)
   const [chosen, setChosen] = useState<number | null>(null)
@@ -61,22 +64,36 @@ export function TestPage() {
     setPhase('generating')
     try {
       const savedQuestions = await db.questions.where('deckId').equals(deck.id).toArray()
-      let questionsToUse = savedQuestions.sort((a, b) => {
-        if (a.sourceType === 'original' && b.sourceType === 'original') {
-          return (a.sourceNumber ?? 0) - (b.sourceNumber ?? 0)
-        }
-        return 0
-      })
+      const originals = savedQuestions
+        .filter((question) => question.sourceType === 'original')
+        .sort((a, b) => (a.sourceNumber ?? 0) - (b.sourceNumber ?? 0))
+      if (questionSource === 'source' && questionCount > originals.length) {
+        setError(`This PDF contains only ${originals.length} original questions. Lower the requested count or choose the mixed option to fill the rest with AI questions.`)
+        setPhase('setup')
+        return
+      }
+      let questionsToUse: QuizQuestion[] = questionSource === 'source' || questionSource === 'mixed'
+        ? originals.slice(0, questionCount)
+        : []
       let generatedCost = 0
+      const generatedCount = questionSource === 'source'
+        ? 0
+        : Math.max(0, questionCount - questionsToUse.length)
 
-      if (questionsToUse.length < 4) {
+      if (questionSource === 'source' && originals.length === 0) {
+        toast('This PDF has no imported multiple-choice questions. Choose an AI-generated test instead.', 'error')
+        setPhase('setup')
+        return
+      }
+
+      if (generatedCount > 0) {
         if (!hasAiAccess(settings.useProxy ?? false)) {
           toast(settings.useProxy ? 'Configure Supabase in the deployment settings first.' : 'Add your API key in Settings first.', 'error')
           setPhase('setup')
           return
         }
         if (keyPoints.length === 0) {
-          toast('This document has no key points to test on.', 'error')
+          toast('This document has no source concepts to build a test from.', 'error')
           setPhase('setup')
           return
         }
@@ -88,9 +105,15 @@ export function TestPage() {
           model: settings.model,
           baseUrl: settings.baseUrl || undefined,
           useProxy: settings.useProxy,
+          count: generatedCount,
+          difficulty,
         })
-        questionsToUse = result.questions
+        questionsToUse = [...questionsToUse, ...result.questions].slice(0, questionCount)
         generatedCost = result.costUsd
+      }
+
+      if (!questionsToUse.length) {
+        throw new Error('No questions are available for this test. Try AI-generated questions or import a question paper.')
       }
 
       setQuestions(questionsToUse)
@@ -114,7 +137,7 @@ export function TestPage() {
       )
       setPhase('setup')
     }
-  }, [deck, document, keyPoints, settings.baseUrl, settings.model, settings.useProxy])
+  }, [deck, document, keyPoints, settings.baseUrl, settings.model, settings.useProxy, questionCount, difficulty, questionSource])
 
   const verifyAnswerKey = useCallback(async () => {
     if (!deck || sourceQuestionCount === 0 || verifying) return
@@ -260,7 +283,59 @@ export function TestPage() {
         <PageHeading title="Test yourself" subtitle={deck.title} back={back} />
 
         <Card>
-          <h2 className="font-display text-lg font-semibold">How should it run?</h2>
+          <h2 className="font-display text-lg font-semibold">Build your test</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-medium text-muted">
+              Number of questions
+              <input
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                value={questionCount}
+                disabled={busy}
+                onChange={(event) => setQuestionCount(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}
+                className="mt-1 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body"
+              />
+              <span className="mt-1 block text-[11px] font-normal">Choose any number from 1 to 100.</span>
+            </label>
+            <label className="text-xs font-medium text-muted">
+              Difficulty
+              <select
+                value={difficulty}
+                disabled={busy}
+                onChange={(event) => setDifficulty(event.target.value as QuizDifficulty)}
+                className="mt-1 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body"
+              >
+                <option value="progressive">Progressive · easy to advanced</option>
+                <option value="foundational">Foundational understanding</option>
+                <option value="exam">University examination level</option>
+                <option value="advanced">Advanced challenge</option>
+              </select>
+            </label>
+          </div>
+          {sourceQuestionCount > 0 ? (
+            <label className="mt-3 block text-xs font-medium text-muted">
+              Question source
+              <select
+                value={questionSource}
+                disabled={busy}
+                onChange={(event) => setQuestionSource(event.target.value as 'ai' | 'source' | 'mixed')}
+                className="mt-1 h-11 w-full rounded-xl border border-line bg-app px-3 text-sm text-body"
+              >
+                <option value="ai">AI-generated from the whole document</option>
+                <option value="source">Original questions from the PDF</option>
+                <option value="mixed">Mix original questions with AI-generated questions</option>
+              </select>
+            </label>
+          ) : null}
+          <p className="mt-2 text-xs text-muted">
+            {questionSource === 'source'
+              ? `${sourceQuestionCount} original questions are available in this PDF.`
+              : questionSource === 'mixed'
+                ? `Use up to ${sourceQuestionCount} original questions, then generate the remaining questions from the study material.`
+                : 'AI questions are generated from the document’s saved study concepts, not just the short revision takeaways.'}
+          </p>
           <div className="mt-3 grid gap-2">
             {(
               [
@@ -339,7 +414,7 @@ export function TestPage() {
           <Button
             className="mt-5"
             onClick={start}
-            disabled={busy || (keyPoints.length === 0 && sourceQuestionCount === 0)}
+            disabled={busy || questionCount < 1 || questionCount > 100 || (keyPoints.length === 0 && (questionSource === 'ai' || (questionSource === 'mixed' && sourceQuestionCount < questionCount))) || (questionSource === 'source' && sourceQuestionCount === 0)}
             icon={
               busy ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />
             }

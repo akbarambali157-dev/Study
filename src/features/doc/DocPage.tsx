@@ -130,12 +130,13 @@ export function DocPage() {
         model: settings.model,
         baseUrl: settings.baseUrl || undefined,
         useProxy: settings.useProxy,
+        studyDepth: doc.studyDepth ?? 'comprehensive',
       })
       await db.documents.update(doc.id, {
         status: 'ready',
         title: result.title?.trim() || doc.title,
       })
-      toast(`Generated ${result.keyPointCount} key points, ${result.cardCount} flashcards and ${result.questionCount} test questions.`, 'success')
+      toast(`Generated ${result.keyPointCount} concepts and ${result.cardCount} flashcards. You can now build an AI test with your chosen question count.`, 'success')
     } catch (error) {
       await clearGeneratedContent(doc.id).catch(() => undefined)
       await db.documents.update(doc.id, { status: 'queued' })
@@ -274,8 +275,18 @@ export function DocPage() {
       {note ? (
         <Card className="mb-5">
           <Chip tone="gold" className="mb-3">
-            <BookMarked className="size-3" /> Short notes
+            <BookMarked className="size-3" /> {note.studyDepth === 'near-source' ? 'Near-source notes' : note.studyDepth === 'comprehensive' ? 'Comprehensive notes' : note.studyDepth === 'balanced' ? 'Balanced notes' : note.studyDepth === 'quick' ? 'Quick overview' : 'Study notes'}
           </Chip>
+          {note.coverage ? (
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+              <span>{note.coverage.coveredPages.length} of {note.coverage.pageCount} pages processed</span>
+              <span>{note.coverage.sectionCount} source sections</span>
+              <span>{note.coverage.keyPointCount} concepts captured</span>
+              {(note.coverage.unreadablePages?.length ?? 0) > 0 ? (
+                <span className="w-full text-clay">{note.coverage.unreadablePages?.length ?? 0} pages have no extractable text and may need OCR.</span>
+              ) : null}
+            </div>
+          ) : null}
           <Markdown text={note.summary} />
           {note.takeaways.length > 0 ? (
             <div className="mt-4 rounded-xl border border-forest-400/25 bg-forest-400/5 p-4">

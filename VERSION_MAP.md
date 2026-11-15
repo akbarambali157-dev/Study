@@ -1220,3 +1220,14 @@ Source commits: `e35fd63`, `917a452`, `57de3f9`, `fa086c2`, `c4465d2`. Both GitH
 - Upload progress is surfaced globally while extraction/cloud save/AI generation remains active.
 - AI reduce now has one bounded schema-correction call and a smaller-batch fallback; hosted mode remains serial and BYOK uses a bounded two-worker fallback.
 - Do not mark this work fully accepted until the matching manual checks in USER_ACCEPTANCE_TESTS.md pass on an admin account and mobile devices.
+
+
+## 22D. Comprehensive study engine and configurable testing — 15 November 2026
+
+A new implementation slice replaces the short-note-first approach with selectable Quick, Balanced, Comprehensive and Near-source depth. Comprehensive is the default and aims to preserve all meaningful source information. Long-document digests are synthesized in consecutive batches without the former arbitrary final 8,000-character truncation. The document reader displays study depth and page/section/concept coverage.
+
+Validated map-section results are cached locally by document, content fingerprint, model, depth and prompt version so retries can reuse completed work. Map and synthesis stages use bounded parallel workers. AI tests are now generated on demand; students choose 1–100 questions and a difficulty level, with progressive difficulty and AI/source/mixed question-source modes.
+
+A guarded authenticated RPC now creates direct conversations atomically after checking discoverability, message policy and blocks. Existing conversations remain openable after new-message preferences change.
+
+Implementation details and the acceptance plan are in [COMPREHENSIVE_STUDY_ENGINE_PLAN.md](COMPREHENSIVE_STUDY_ENGINE_PLAN.md). Do not mark the feature accepted until Section T is completed on a real 191-page PDF and the two-account messaging checks pass. This implementation branch must pass GitHub CI/validation and receive a READY Vercel deployment before production/device testing.

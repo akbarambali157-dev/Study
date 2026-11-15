@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  AiSectionCache,
   Card,
   CardReview,
   Course,
@@ -39,6 +40,7 @@ export class StudyHubDb extends Dexie {
   studyTasks!: Table<StudyTask, string>
   studyGoals!: Table<StudyGoal, string>
   pendingCloudDeletions!: Table<{ id: string; ownerId: string; storagePath: string; queuedAt: number }, string>
+  aiSectionCache!: Table<AiSectionCache, string>
 
   constructor() {
     super('oou-study-hub')
@@ -148,6 +150,12 @@ export class StudyHubDb extends Dexie {
       studyTasks: 'id, dueAt, completed, kind, createdAt',
       studyGoals: 'id, createdAt, updatedAt',
       pendingCloudDeletions: 'id, ownerId, queuedAt',
+    })
+
+    // Version 6 stores validated per-section AI results. A retry can reuse
+    // completed sections instead of paying to process the same pages again.
+    this.version(6).stores({
+      aiSectionCache: 'id, documentId, sectionKey, createdAt',
     })
   }
 }
