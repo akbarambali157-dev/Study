@@ -155,16 +155,13 @@ Use one consistent icon family already available in the project. Keep icons pair
 
 Remove the current side/slider-style section selector.
 
-Use a **Settings overview** with grouped rows. Each row has a clear title, short description and optional current value/status. Selecting a long category opens a dedicated focused settings page or slide-in screen with:
-- A back control returning to Settings.
-- A clear category title.
-- Settings grouped into small logical sections.
-- Save/apply feedback where needed.
-- No horizontal scrolling or tiny side navigation.
+Use a **Settings overview** with grouped, tappable rows. Each row has a clear title, short description and optional current value/status. **AI & Providers is the only dedicated full settings page** because it contains extensive provider, endpoint, model, key and connection-test configuration. It has a clear back control and preserves browser Back behaviour.
 
-Long categories that deserve their own screen include Account, Academic Profile, AI & Provider, Notifications, Privacy, Storage/Sync and App & Offline. Keep Help/About as a simple page or link.
+All other categories expand inline directly underneath their row using a restrained accordion interaction: Account, Academic Profile, Appearance, Notifications, Privacy & Safety, Storage & Documents, Offline & App, and Help & About. The content appears below the selected category rather than navigating away to a separate page. Support keyboard and screen readers, and avoid rendering every heavy panel before it is opened. The expansion/collapse transition is subtle and short when motion is enabled; it becomes static/instant when app Animations is OFF or OS reduced-motion is enabled.
 
-For categories containing only one simple toggle, keep the toggle directly on the overview or within its small existing row. Do not create an unnecessary screen for a single switch.
+Put the **Animations** preference inside **Appearance**. Preserve the currently accepted default of ON for a new profile, local persistence and OS reduced-motion override. Do not add a second animation setting under Offline & App.
+
+Do not make nonfunctional controls look operational. If an option is not implemented or unavailable, label it honestly or omit it until it works.
 
 Do not make nonfunctional controls look operational. If an option is not implemented or unavailable, label it honestly or omit it until it works.
 
@@ -188,7 +185,7 @@ Do not make nonfunctional controls look operational. If an option is not impleme
 
 ### User-facing setting
 
-Add a setting named **Animations** in Settings → App & Offline (or the final app-preferences category).
+Add a setting named **Animations** in Settings → Appearance.
 
 - **Default for new users: ON.**
 - **OFF must reproduce the current static UI experience**, with no decorative transitions or animated entrance effects.
@@ -303,7 +300,7 @@ The UI must reflect the actual capabilities available offline.
 
 ### Low-end Android
 
-Use the Redmi 10A as an explicit baseline, not as an afterthought:
+Use the Redmi 10A as an explicit baseline, not as an afterthought. Record repeatable before/after measurements for compressed initial JS, cold start, first usable interaction, long tasks, scroll responsiveness, memory after repeated navigation/PDF open-close, idle network requests and service-worker cache size. Initial compressed JS target is at or below 250 KB where practical; defer PDF.js, provider SDKs, admin, charts and community-only modules. Target first usable Home interaction within 3 seconds on a repeatable constrained-device/network profile. Investigate repeated long tasks over 100 ms and any task over 200 ms. These are targets to measure, not current claims.
 - Avoid heavy blur, layered shadows and large animated surfaces.
 - Keep transitions short and optional.
 - Minimise simultaneous mounted screens and hidden panels.
@@ -334,7 +331,7 @@ Use the Redmi 10A as an explicit baseline, not as an afterthought:
 ### Phase 2 — Navigation and Settings
 
 - [ ] Remove Settings side/slider navigation.
-- [ ] Build Settings overview and focused category pages/slide-in screens.
+- [ ] Build Settings overview with inline accordion categories; AI & Providers remains the only dedicated full page.
 - [ ] Keep single-toggle settings compact.
 - [ ] Add the Animations toggle under App & Offline.
 - [ ] Preserve browser back navigation and mobile safe areas.
@@ -376,7 +373,9 @@ The redesign is accepted only when all of the following are true:
 - [ ] The app has a consistent, recognisable visual system across its main sections.
 - [ ] Phone navigation is clear, stable and safe-area aware.
 - [ ] Settings no longer uses the side/slider section selector.
-- [ ] Long settings categories open as focused screens; single-toggle categories remain compact.
+- [ ] Account, Academic Profile, Appearance, Notifications, Privacy & Safety, Storage & Documents, Offline & App, and Help & About expand inline beneath their rows.
+- [ ] AI & Providers alone opens its dedicated configuration page.
+- [ ] Animations toggle is inside Appearance and respects app OFF plus OS reduced-motion.
 - [ ] Animations are ON by default for new users.
 - [ ] Turning Animations OFF produces the current static UI baseline.
 - [ ] OS reduced-motion preference is respected.
@@ -407,4 +406,4 @@ Implement in small, reviewable phases on `main`, with a successful validation/bu
 
 ## 15. Implementation progress — 15 November 2026
 
-The initial implementation now includes the persistent Animations preference (default ON), OS reduced-motion override, a CSS static baseline when motion is off, focused Settings category screens with URL-backed back navigation, hiding online-only navigation while the browser reports offline, a useful three-destination mobile navigation while offline, an offline route fallback, and hiding the document AI question entry while offline. This is not completion of the design plan. The full navigation hierarchy, shared connectivity/reachability handling, admin display names, page-by-page visual polish, measured performance work and device acceptance remain open. Track manual tests in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md).
+The initial implementation includes a persistent Animations preference (default ON), OS reduced-motion override, a CSS static baseline when motion is off, focused Settings category screens with URL-backed back navigation, offline-aware navigation, a safe offline route fallback and hiding the document AI question entry while offline. The focused Settings screens are an interim implementation and do not match the product owner's corrected requirement: all categories except AI & Providers must become inline accordions, and Animations belongs under Appearance. This is not completion of the design plan. The full navigation hierarchy, shared connectivity/reachability handling, admin display names, page-by-page visual polish, measured performance work and device acceptance remain open. Track manual tests in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md).
