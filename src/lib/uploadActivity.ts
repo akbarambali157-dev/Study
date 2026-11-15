@@ -10,9 +10,11 @@ export type UploadActivity = {
   phaseStartedAt: number
 }
 
+type UploadActivityInput = Omit<UploadActivity, 'startedAt' | 'phaseStartedAt'>
+
 type UploadActivityState = {
   items: Record<string, UploadActivity>
-  setActivity: (id: string, activity: UploadActivity | null) => void
+  setActivity: (id: string, activity: UploadActivityInput | null) => void
 }
 
 export const useUploadActivities = create<UploadActivityState>((set) => ({
@@ -32,6 +34,6 @@ export const useUploadActivities = create<UploadActivityState>((set) => ({
   }),
 }))
 
-export function setUploadActivity(id: string, activity: UploadActivity | null) {
+export function setUploadActivity(id: string, activity: UploadActivityInput | null) {
   useUploadActivities.getState().setActivity(id, activity)
 }
