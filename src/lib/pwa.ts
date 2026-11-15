@@ -55,7 +55,7 @@ export function registerPwaUpdates() {
     onNeedRefresh() { publishUpdateState(true) },
     onRegisteredSW(_url, reg) {
       registration = reg
-      if (reg.waiting && navigator.serviceWorker.controller) publishUpdateState(true)
+      if (reg && reg.waiting && navigator.serviceWorker.controller) publishUpdateState(true)
       window.addEventListener('focus', check)
       document.addEventListener('visibilitychange', check)
       check()

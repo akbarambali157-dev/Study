@@ -129,6 +129,7 @@ export function AuthPage() {
             toast('Account created. Check your email to confirm it, then sign in.', 'success')
             return
           }
+          if (!data.user) throw new Error('The account was created but its user identity could not be confirmed. Please sign in.')
           await saveStudentAcademicProfile(data.user.id, {
             displayName, institution: 'Olabisi Onabanjo University', faculty, department, level,
           })
