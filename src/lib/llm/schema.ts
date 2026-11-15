@@ -22,7 +22,9 @@ export const ChunkMapSchema = z.object({
       }),
     )
     .min(1)
-    .max(10),
+    // Dense lecture chunks can legitimately contain more than ten distinct
+    // exam-relevant concepts. Keep a firm ceiling, but avoid rejecting them.
+    .max(16),
 })
 export type ChunkMap = z.infer<typeof ChunkMapSchema>
 
