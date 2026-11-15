@@ -506,7 +506,7 @@ function AskPanel({
 
   return (
     <div className="mt-3 rounded-xl border border-line bg-surface-2/50 p-3">
-      <form
+      {isOnline ?       <form
         onSubmit={(event) => {
           event.preventDefault()
           void submit(question)
@@ -523,7 +523,9 @@ function AskPanel({
         <Button size="sm" type="submit" disabled={busy || question.trim().length < 3}>
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Ask'}
         </Button>
-      </form>
+      </form> : (
+        <p className="text-[12px] text-muted">Reconnect to use AI. Your question draft stays on this screen.</p>
+      )}
 
       {error ? <p className="mt-2 text-[13px] text-clay">{error}</p> : null}
 
