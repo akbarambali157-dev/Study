@@ -427,7 +427,7 @@ export async function deleteCloudDocument(remoteId: string): Promise<void> {
     .eq('document_id', remoteId).eq('owner_id', user.id)
   if (pagesError) throw failure('page-index', 'CLOUD_PAGE_INDEX_DELETE_FAILED', pagesError, true)
   const { error: metadataError } = await supabase.from('study_documents').delete()
-    .eq('id', remoteId).eq('owner_id', auth.user.id)
+    .eq('id', remoteId).eq('owner_id', user.id)
   if (metadataError) throw failure('metadata', 'CLOUD_METADATA_DELETE_FAILED', metadataError, true)
 }
 
