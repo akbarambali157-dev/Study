@@ -227,7 +227,7 @@ export async function generateStudyMaterial(
     } catch (error) {
       if (error instanceof AiError && error.usage) {
         usage = addUsage(usage, error.usage)
-        costUsd += tokensToCost(error.requestId ? activeMapModel : activeMapModel, error.usage.inputTokens, error.usage.outputTokens)
+        costUsd += tokensToCost(activeMapModel, error.usage.inputTokens, error.usage.outputTokens)
       }
       const isSizeFailure =
         error instanceof AiError &&
