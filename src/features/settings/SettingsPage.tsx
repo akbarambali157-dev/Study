@@ -285,6 +285,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         <SectionTitle hint="Control your academic visibility and unwanted contact">Privacy & safety</SectionTitle>
         <Card className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Academic profile visibility</p><p className="text-xs text-muted">Your profile is private until you opt in to student discovery.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Manage visibility</Button></div>
+          <ToggleRow title="Make new study sets public by default" body="New uploads will publish their generated notes, key points, flashcards and quizzes to Discover. Original PDFs remain private unless you explicitly choose to share them." checked={settings.defaultPublicSharing} onChange={(checked) => void saveSettings({ defaultPublicSharing: checked })} />
           <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Blocked students</p><p className="text-xs text-muted">Review or unblock accounts you have blocked.</p></div><BlockedUsersSettings /></div>
         </Card>
       </section>),
