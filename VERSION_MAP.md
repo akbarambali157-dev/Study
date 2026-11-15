@@ -1172,6 +1172,21 @@ Do not attempt every version in one enormous implementation pass. Build the prod
 
 A feature may already have implementation ahead of its version gate. Keep it behind appropriate flags/permissions or treat it as beta until its own acceptance gate passes.
 
+## 22A. Dated implementation update — 15 November 2026
+
+The accepted V1.0 release remains accepted. A V1.x reliability batch is implemented and deployed through commit `3398e8619439b88f16da4508ba77ce2f944508be` (Vercel READY).
+
+Implemented in this batch:
+- Centralised Supabase initial-session restoration and authenticated-user lookup.
+- Account-backed academic profile persistence during signup, sign-in and profile setup.
+- Public Discover browsing separated from sign-in-required save/progress actions.
+- Explicit student-discovery opt-in guidance when a profile is private or not discoverable.
+- Persistent PWA update-available state so an early service-worker event is not lost before the app shell mounts.
+- Shared session restoration across Settings, groups, notifications, messages, community, Library and cloud document sync.
+- Adaptive PDF size/page limits for browsers reporting 2 GB RAM or less.
+
+Not yet accepted: physical Android/iPhone update and auth tests, real two-account privacy checks, push delivery, full offline/reconnect tests and the remaining V1.1–V1.4 release gates. See [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md) and [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md) for evidence and the outstanding test list.
+
 ## 23. Change control
 
 When the product owner changes a requirement:
