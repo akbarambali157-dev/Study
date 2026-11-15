@@ -23,7 +23,7 @@ export function hasPwaUpdate() { return updateAvailable }
 export function subscribePwaUpdates(listener: (available: boolean) => void) {
   updateListeners.add(listener)
   listener(updateAvailable)
-  return () => updateListeners.delete(listener)
+  return () => { updateListeners.delete(listener) }
 }
 
 function check() {
