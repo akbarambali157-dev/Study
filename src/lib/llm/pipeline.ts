@@ -190,7 +190,7 @@ export async function generateStudyMaterial(
 
   onStage?.('map', `${chunks.length} sections`)
   let mapped = 0
-  // Hosted requests are serialized to avoid overwhelming the shared provider.
+  // Two hosted workers improve throughput while keeping provider pressure bounded.
   const mapConcurrency = useProxy ? 2 : Math.min(3, MAP_CONCURRENCY + 1)
   // A single dense section can still produce an overlong point even when
   // the PDF was chunked. If the map response exceeds a schema limit, split
@@ -256,7 +256,7 @@ export async function generateStudyMaterial(
       )
       mapped += 1
       onStage?.('map', `${mapped} sections completed (smaller sections are created automatically when needed)`)
-      void db.aiSectionCache.put({
+      await db.aiSectionCache.put({
         id: cacheId,
         documentId: doc.id,
         sectionKey,
@@ -620,12 +620,14 @@ export async function generateTestForDeck(options: {
       .map((kp, index) => `[${index}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
       .join('\n\n')
 
-    const batchDifficulty: Exclude<QuizDifficulty, 'progressive'> = difficulty === 'progressive'
-      ? batches.length === 1 || batch.index === 0
-        ? 'foundational'
-        : batch.index === batches.length - 1
-          ? 'advanced'
-          : 'exam'
+    const batchDifficulty: QuizDifficulty = difficulty === 'progressive'
+      ? batches.length === 1
+        ? 'progressive'
+        : batch.index === 0
+          ? 'foundational'
+          : batch.index === batches.length - 1
+            ? 'advanced'
+            : 'exam'
       : difficulty
 
     const result = await generateStructured({
@@ -712,6 +714,8 @@ export async function generateTestForDeck(options: {
     }
     refillPass += 1
   }
+
+  if (questions.length > count) questions.length = count
 
   if (questions.length < count) {
     throw new AiError(`The model produced ${questions.length} distinct questions out of ${count} requested. Try again or choose a smaller test.`, 'schema')
