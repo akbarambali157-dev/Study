@@ -195,7 +195,7 @@ export async function generateStudyMaterial(
         ...local,
         fromPage,
         toPage,
-        text: local.text.replace(/<page n="(\\d+)"/g, (_match, page) =>
+        text: local.text.replace(/<page n="(\d+)"/g, (_match, page) =>
           `<page n="${Number(page) + fromPage - 1}"`,
         ),
       }
