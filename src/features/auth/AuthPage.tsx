@@ -8,6 +8,8 @@ import { toast } from '@/components/ui/toast'
 import { supabase } from '@/lib/supabase'
 import { db } from '@/lib/db'
 import { nowIso } from '@/lib/utils'
+import { getAuthenticatedUser } from '@/lib/supabase'
+import { saveStudentAcademicProfile } from '@/lib/academicProfile'
 
 export function AuthPage() {
   const navigate = useNavigate()
@@ -19,43 +21,29 @@ export function AuthPage() {
   useEffect(() => {
     if (!supabase) return
     let active = true
-    void supabase.auth.getSession().then(async ({ data, error }) => {
-      if (!active || error) return
-      if (window.location.hash.includes('mode=reset')) {
-        setMode('reset')
-        return
-      }
-      if (!data.session) return
-      const existing = await db.profile.get('me')
-      if (!active) return
-      const metadataName =
-        typeof data.session.user.user_metadata?.full_name === 'string'
-          ? data.session.user.user_metadata.full_name
-          : typeof data.session.user.user_metadata?.name === 'string'
-            ? data.session.user.user_metadata.name
-            : typeof data.session.user.user_metadata?.display_name === 'string'
-              ? data.session.user.user_metadata.display_name
-              : data.session.user.email?.split('@')[0] ?? 'Student'
-      const profile = existing ?? {
-        id: 'me',
-        displayName: metadataName,
-        xp: 0,
-        streakDays: 0,
-      }
-      const incomplete = !profile.displayName || profile.displayName === 'Student' ||
-        !profile.faculty || !profile.department || !profile.level
-      if (incomplete) {
-        await db.profile.put({
-          ...profile,
-          displayName: profile.displayName === 'Student' ? metadataName : profile.displayName,
-        })
-        if (active) navigate('/profile-setup')
-        return
-      }
-      if (active) navigate('/')
-    }).catch(() => {
-      // Normal email/password flows can briefly have no OAuth callback to process.
-    })
+    void (async () => {
+      if (window.location.hash.includes('mode=reset')) { if (active) setMode('reset'); return }
+      const user = await getAuthenticatedUser()
+      if (!active || !user) return
+      const { data: remote, error } = await supabase.from('student_profiles')
+        .select('display_name,institution,faculty,department,level,programme,academic_session')
+        .eq('user_id', user.id).maybeSingle()
+      if (error) throw error
+      const metadata = user.user_metadata ?? {}
+      const name = String(remote?.display_name ?? metadata.display_name ?? metadata.full_name ?? user.email?.split('@')[0] ?? 'Student')
+      if (!remote) await saveStudentAcademicProfile(user.id, {
+        displayName: name,
+        institution: String(metadata.institution ?? 'Olabisi Onabanjo University'),
+        faculty: String(metadata.faculty ?? ''), department: String(metadata.department ?? ''),
+        level: String(metadata.level ?? ''), programme: String(metadata.programme ?? ''),
+        academicSession: String(metadata.academic_session ?? ''),
+      })
+      const faculty = String(remote?.faculty ?? metadata.faculty ?? '')
+      const department = String(remote?.department ?? metadata.department ?? '')
+      const level = String(remote?.level ?? metadata.level ?? '')
+      if (!faculty || !department || !level) { if (active) navigate('/profile-setup') }
+      else if (active) navigate('/')
+    })().catch((error) => { if (active) toast(error instanceof Error ? error.message : 'Your account profile could not be loaded.', 'error') })
     return () => { active = false }
   }, [navigate])
 
@@ -131,7 +119,7 @@ export function AuthPage() {
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { display_name: displayName } },
+            options: { data: { display_name: displayName, full_name: displayName, institution: 'Olabisi Onabanjo University', faculty, department, level } },
           })
           if (error) throw error
 
@@ -143,11 +131,12 @@ export function AuthPage() {
           }
         }
 
+        if (supabase && data.user) await saveStudentAcademicProfile(data.user.id, {
+          displayName, institution: 'Olabisi Onabanjo University', faculty, department, level,
+        })
         await saveProfile(displayName, faculty, department, level)
-        toast(
-          supabase ? 'Account created. Welcome.' : 'Local profile created on this device.',
-          'success',
-        )
+        if (!faculty || !department || !level) { navigate('/profile-setup'); return }
+        toast(supabase ? 'Account created. Welcome.' : 'Local profile created on this device.', 'success')
       } else {
         if (!supabase) {
           throw new Error('Online sign-in is unavailable in local-only mode. Create a local profile instead.')
@@ -156,35 +145,23 @@ export function AuthPage() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
 
-        const existing = await db.profile.get('me')
-        const metadataName =
-          typeof data.user.user_metadata?.display_name === 'string'
-            ? data.user.user_metadata.display_name
-            : ''
-        const name =
-          displayName ||
-          existing?.displayName ||
-          metadataName ||
-          data.user.email?.split('@')[0] ||
-          'Student'
-
-        if (existing) {
-          await db.profile.put({
-            ...existing,
-            displayName: name,
-            faculty: faculty || existing.faculty,
-            department: department || existing.department,
-            level: level || existing.level,
-          })
-        } else {
-          await saveProfile(name, faculty, department, level)
+        const remoteResult = await supabase.from('student_profiles')
+          .select('display_name,institution,faculty,department,level,programme,academic_session')
+          .eq('user_id', data.user.id).maybeSingle()
+        if (remoteResult.error) throw remoteResult.error
+        const remote = remoteResult.data
+        const metadataName = String(data.user.user_metadata?.display_name ?? data.user.user_metadata?.full_name ?? '')
+        const name = displayName || remote?.display_name || metadataName || data.user.email?.split('@')[0] || 'Student'
+        const academic = {
+          displayName: name, institution: remote?.institution || 'Olabisi Onabanjo University',
+          faculty: faculty || remote?.faculty || '', department: department || remote?.department || '',
+          level: level || remote?.level || '', programme: remote?.programme || '',
+          academicSession: remote?.academic_session || '',
         }
-        const saved = await db.profile.get('me')
-        if (!saved?.faculty || !saved.department || !saved.level) {
-          navigate('/profile-setup')
-          return
-        }
-        toast('Welcome back.', 'success')
+        await saveStudentAcademicProfile(data.user.id, academic)
+        await saveProfile(name, academic.faculty, academic.department, academic.level)
+        if (!academic.faculty || !academic.department || !academic.level) { navigate('/profile-setup'); return }
+        toast('Welcome back. Your account and academic profile are ready.', 'success')
       }
 
       navigate('/')

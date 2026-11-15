@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type User } from '@supabase/supabase-js'
 
 export const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? ''
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
@@ -23,4 +23,40 @@ export function aiProxyUrl(): string {
 export function byokProxyUrl(): string {
   if (!isSupabaseConfigured) throw new Error('Secure personal-key mode needs a signed-in Study Hub account.')
   return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/byok-proxy`
+}
+
+
+/** Wait for supabase-js to restore the persisted browser session before checking identity. */
+let authInitialization: Promise<void> | null = null
+export async function waitForAuthInitialization(): Promise<void> {
+  if (!supabase) return
+  if (!authInitialization) {
+    authInitialization = new Promise<void>((resolve) => {
+      let unsubscribe = () => undefined
+      let initialized = false
+      const { data } = supabase!.auth.onAuthStateChange((event) => {
+        if (event !== 'INITIAL_SESSION') return
+        initialized = true
+        unsubscribe()
+        resolve()
+      })
+      unsubscribe = () => data.subscription.unsubscribe()
+      if (initialized) unsubscribe()
+    })
+  }
+  await authInitialization
+}
+
+/** Use the restored local session first, then verify identity with Auth while online. */
+export async function getAuthenticatedUser(): Promise<User | null> {
+  if (!supabase) return null
+  await waitForAuthInitialization()
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+  const session = sessionData.session
+  if (!session) return null
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return session.user
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw error
+  return data.user
 }
