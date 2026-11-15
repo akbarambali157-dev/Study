@@ -274,6 +274,19 @@ export type AiModel =
   | 'claude-sonnet-5-5'
   | 'claude-haiku-4-5'
 
+export interface AiSectionCache {
+  id: string
+  documentId: string
+  sectionKey: string
+  model: AiModel
+  usedModel: AiModel
+  promptVersion: string
+  summary: string
+  keyPoints: Array<{ heading: string; body: string; page: number }>
+  usage: { inputTokens: number; outputTokens: number }
+  createdAt: string
+}
+
 export interface Settings {
   id: 'app'
   model: AiModel
