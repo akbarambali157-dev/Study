@@ -1,6 +1,6 @@
 # OOU Study Hub — Product Roadmap & Implementation Specification
 
-**Status:** Product direction established; implementation specification  
+**Status:** Product direction established; Version 1.0 accepted by the product owner; Versions 1.1–1.4 remain under implementation and release acceptance  
 **Audience:** Nigeria-first, beginning with OOU  
 **Platform direction:** Complete academic ecosystem  
 **Community direction:** Research community and course communities as distinct spaces  
@@ -8,9 +8,13 @@
 **Experience direction:** Polished, modern, lively academic community without clutter or distracting engagement tricks  
 **Document purpose:** Preserve the agreed product vision, roadmap, technical requirements, acceptance criteria and implementation order. Read this document before planning or implementing major product changes. Update it when decisions or scope change.
 
-> This is the strategic product roadmap. It does not claim that the features below are already implemented. The immediate engineering priority remains stabilising the existing PDF and AI foundation before expanding the product.
+> This is the strategic product roadmap. It does not claim that every feature below is implemented. The product owner has accepted Version 1.0; preserve it and use its checklist as a regression/security suite. The immediate engineering priority is to complete the remaining Version 1.1–1.4 scope in the dependency order defined in [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md). Low-end Android performance is a release requirement across every V1.x workstream.
 
 ---
+
+## 1A. Version 1.x delivery and performance contract
+
+Follow [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md) for the workstream order, engineering loop, test strategy, Android performance budgets and release gates. Do not reopen accepted V1.0 without a reproducible regression, security issue or data-integrity defect.
 
 ## 1. Product identity and vision
 
