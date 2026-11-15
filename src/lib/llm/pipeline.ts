@@ -329,7 +329,7 @@ export async function generateStudyMaterial(
         costUsd += tokensToCost(model, error.usage.inputTokens, error.usage.outputTokens)
       }
       const isSchemaFailure = error instanceof AiError && error.code === 'schema'
-      if (!isSchemaFailure || records.length < 2 || depth >= 6) throw error
+      if (!isSchemaFailure || records.length < 2 || depth >= 4) throw error
       const midpoint = Math.ceil(records.length / 2)
       const left = records.slice(0, midpoint)
       const right = records.slice(midpoint)
