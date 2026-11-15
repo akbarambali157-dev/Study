@@ -412,6 +412,7 @@ export async function generateStudyMaterial(
       coveredPages: Array.from(new Set(maps.flatMap((mapped) =>
         Array.from({ length: mapped.chunk.toPage - mapped.chunk.fromPage + 1 }, (_, index) => mapped.chunk.fromPage + index),
       ))).sort((a, b) => a - b),
+      unreadablePages: pages.flatMap((pageText, index) => pageText.trim() ? [] : [index + 1]),
     },
     createdAt: new Date().toISOString(),
   }
