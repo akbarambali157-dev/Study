@@ -24,8 +24,8 @@ export class AiError extends Error {
     readonly repairCandidate?: unknown,
     usage?: AiUsage,
   ) {
-    this.usage = usage
     super(message)
+    this.usage = usage
     this.name = 'AiError'
   }
 
