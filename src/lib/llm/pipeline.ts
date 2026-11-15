@@ -1,4 +1,5 @@
 import { chunkPages, clampPage, findSnippet } from '../chunk'
+import { db } from '../db'
 import { CHEAP_MODEL, formatUsd, tokensToCost } from '../cost'
 import { findCatalogOrg, isLinkableUrl } from '../organizations'
 import {
@@ -91,6 +92,16 @@ function addUsage(a: AiUsage, b: AiUsage): AiUsage {
 
 function ensureNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new AiError('Generation stopped.', 'aborted')
+}
+
+/** Small deterministic content fingerprint for local cache keys (not security use). */
+function hashText(value: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
 }
 
 function nearestEvidencePage(page: number, evidencePages: number[]): number {
@@ -212,6 +223,25 @@ export async function generateStudyMaterial(
     depth = 0,
   ): Promise<MappedChunk[]> => {
     ensureNotAborted(signal)
+    const sectionKey = hashText(chunk.text)
+    const promptVersion = 'map-v3'
+    const cacheId = `${doc.id}:${promptVersion}:${studyDepth}:${model}:${mapModel}:${sectionKey}`
+    try {
+      const cached = await db.aiSectionCache.get(cacheId)
+      if (cached?.promptVersion === promptVersion) {
+        mapped += 1
+        onStage?.('map', `${mapped} sections ready · reused saved section work`)
+        return [{
+          chunk,
+          summary: cached.summary,
+          keyPoints: cached.keyPoints,
+          usage: { inputTokens: 0, outputTokens: 0 },
+          usedModel: cached.usedModel,
+        }]
+      }
+    } catch {
+      // A cache read failure must never prevent the source PDF from being processed.
+    }
     try {
       const result = await callMapWithFallback(
         mapPrompt({
@@ -226,6 +256,18 @@ export async function generateStudyMaterial(
       )
       mapped += 1
       onStage?.('map', `${mapped} sections completed (smaller sections are created automatically when needed)`)
+      void db.aiSectionCache.put({
+        id: cacheId,
+        documentId: doc.id,
+        sectionKey,
+        model,
+        usedModel: result.usedModel,
+        promptVersion,
+        summary: result.data.summary,
+        keyPoints: result.data.keyPoints,
+        usage: result.usage,
+        createdAt: new Date().toISOString(),
+      }).catch(() => undefined)
       return [{ chunk, ...result.data, usage: result.usage, usedModel: result.usedModel }]
     } catch (error) {
       if (error instanceof AiError && error.usage) {
