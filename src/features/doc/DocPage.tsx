@@ -274,8 +274,15 @@ export function DocPage() {
       {note ? (
         <Card className="mb-5">
           <Chip tone="gold" className="mb-3">
-            <BookMarked className="size-3" /> Short notes
+            <BookMarked className="size-3" /> {note.studyDepth === 'near-source' ? 'Near-source notes' : note.studyDepth === 'comprehensive' ? 'Comprehensive notes' : note.studyDepth === 'balanced' ? 'Balanced notes' : note.studyDepth === 'quick' ? 'Quick overview' : 'Study notes'}
           </Chip>
+          {note.coverage ? (
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+              <span>{note.coverage.coveredPages.length} of {note.coverage.pageCount} pages processed</span>
+              <span>{note.coverage.sectionCount} source sections</span>
+              <span>{note.coverage.keyPointCount} concepts captured</span>
+            </div>
+          ) : null}
           <Markdown text={note.summary} />
           {note.takeaways.length > 0 ? (
             <div className="mt-4 rounded-xl border border-forest-400/25 bg-forest-400/5 p-4">
