@@ -130,12 +130,13 @@ export function DocPage() {
         model: settings.model,
         baseUrl: settings.baseUrl || undefined,
         useProxy: settings.useProxy,
+        studyDepth: doc.studyDepth ?? 'comprehensive',
       })
       await db.documents.update(doc.id, {
         status: 'ready',
         title: result.title?.trim() || doc.title,
       })
-      toast(`Generated ${result.keyPointCount} key points, ${result.cardCount} flashcards and ${result.questionCount} test questions.`, 'success')
+      toast(`Generated ${result.keyPointCount} concepts and ${result.cardCount} flashcards. You can now build an AI test with your chosen question count.`, 'success')
     } catch (error) {
       await clearGeneratedContent(doc.id).catch(() => undefined)
       await db.documents.update(doc.id, { status: 'queued' })
