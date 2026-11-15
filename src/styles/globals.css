@@ -575,3 +575,29 @@
   .dashboard-content,.recent-card { animation:none!important; transition:none!important; }
   .recent-card:hover { transform:none; }
 }
+
+
+/* Motion is progressive enhancement. The static baseline remains fully usable. */
+html[data-motion='off'],
+html[data-motion='off'] body {
+  scroll-behavior: auto !important;
+}
+
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
