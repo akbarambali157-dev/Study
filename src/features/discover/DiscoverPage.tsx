@@ -103,7 +103,7 @@ export function DiscoverPage() {
     setBusy(row.id)
     try {
       const documentId = await importPublicMaterial(row)
-      toast('Study set added to your Library. Notes, cards and quiz are ready to use offline.', 'success')
+      toast('Study set added to your Library. Its available notes, flashcards and quiz questions are ready to use offline.', 'success')
       navigate(`/doc/${documentId}`)
     } catch (error) {
       toast(error instanceof Error ? error.message : 'This study set could not be added to your Library.', 'error')
@@ -135,11 +135,12 @@ export function DiscoverPage() {
   }
 
   const playRush = async (row: Material) => {
+    setBusy(row.id)
     try {
       await launchPublicMaterialRush(row, navigate)
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Rush could not start.', 'info')
-    }
+    } finally { setBusy(null) }
   }
 
   if (!supabase) return <div className="hub-discover-page mx-auto max-w-4xl"><PageHeading title="Discover" subtitle="Explore shared study materials from the OOU community." /><Card className="p-5">The shared library is not connected on this device.</Card></div>
@@ -175,10 +176,10 @@ export function DiscoverPage() {
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button size="sm" onClick={() => void addToLibrary(row)} disabled={busy === row.id}><BookOpen className="size-3.5" />{busy === row.id ? 'Adding…' : 'Add to Library'}</Button>
                   <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Preview'}</Button>
-                  <Button size="sm" variant="secondary" disabled={cards.length < 4} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
-                  {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" onClick={() => void takeQuiz(row)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
+                  <Button size="sm" variant="secondary" disabled={cards.length < 4 || busy === row.id} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
+                  {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void takeQuiz(row)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
                   {row.share_original ? <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void downloadOriginal(row)}><Download className="size-3.5" />Download original PDF</Button> : null}
-                  <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void toggleSaved(row)}><Bookmark className="size-3.5" />{saved ? 'Saved' : 'Save to Library'}</Button>
+                  <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void toggleSaved(row)}><Bookmark className="size-3.5" />{saved ? 'Saved for later' : 'Save for later'}</Button>
                   {mine ? <><Button size="sm" variant="secondary" onClick={() => void visibility(row)}>{row.is_public ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}{row.is_public ? 'Make private' : 'Publish'}</Button><Button size="sm" variant="ghost" onClick={() => void remove(row)}><Trash2 className="size-3.5" /></Button></> : null}
                 </div>
                 {cards.length < 4 ? <p className="mt-2 text-[11px] text-muted">Rush unlocks when this set has at least four usable flashcards.</p> : null}
