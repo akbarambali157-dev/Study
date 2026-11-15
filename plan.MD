@@ -1484,3 +1484,14 @@ Use the documents together:
 - UI_DESIGN_PLAN.md remains the detailed specification for Version 1.3's visual redesign, motion preference and performance work.
 
 When the documents appear to conflict, use the latest dated user-confirmed status and record a dated correction. Do not treat planned features or code presence as release acceptance. Keep the version map updated as each workstream is implemented and tested.
+
+
+---
+
+## 33. Full implementation execution and user acceptance
+
+The product owner has authorised implementation of the complete master roadmap in [VERSION_MAP.md](VERSION_MAP.md), not only the immediate UI work. Execute it in dependency order, preserving the existing React/Supabase/Dexie architecture and working PDF/AI/offline flows. Do not mark a version complete without its release gate.
+
+The first Version 1.3 implementation slice (15 November 2026) adds a persistent animation preference defaulting ON, respects OS reduced-motion, adds a static CSS motion baseline, hides online-only navigation when the browser reports offline, redirects offline visits to online-only routes to local Home, and hides the AI question input while offline. This is a partial implementation only; the detailed Settings redesign, shared connectivity/reachability state, admin display names, responsive visual redesign, performance measurements and physical-device acceptance remain outstanding.
+
+The complete manual test inventory is in [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Update it with test results, device/build details and defects as implementation proceeds. Never ask the product owner to test a feature before its matching deployment is READY. Never request secrets or private content in test reports.
