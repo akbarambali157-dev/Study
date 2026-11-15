@@ -1,5 +1,5 @@
 # Study Hub — Master Version Map
-**Last updated:** 14 November 2026  
+**Last updated:** 15 November 2026  
 **Purpose:** The single high-level delivery map for the complete Study Hub product.  
 **Audience:** Product owner, developers, coding agents, testers and future contributors.  
 **Product direction:** Nigeria-first academic ecosystem, beginning with OOU; mobile-first PWA; local-first learning; privacy- and performance-conscious; expand only after release gates pass.
@@ -1113,6 +1113,8 @@ This snapshot reconciles the implementation ledger with the latest hands-on feed
 - Admin infrastructure/usage foundations where already present.
 
 ### Immediate next work (Version 1.3)
+- **Implementation started 15 November 2026:** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, offline-only navigation hiding/route fallback, and offline AI question-entry guard have been committed. This is a first slice, not completion of Version 1.3.
+- **Manual acceptance checklist:** see [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Tests for this slice should be run only after its matching Vercel build is READY.
 1. Complete the UI redesign using UI_DESIGN_PLAN.md.
 2. Add animation preference: ON by default; OFF retains current static design.
 3. Replace remaining Settings side/slider interaction with focused category pages.
