@@ -51,10 +51,10 @@ Messages and notifications are reachable from the top bar and relevant profiles/
 
 | Version | Name | Main outcome | Status |
 |---|---|---|---|
-| 1.0 | Reliable learning foundation | PDFs, AI, accounts, profiles, saved learning materials, isolation | Implemented substantially; real-world acceptance remains |
+| 1.0 | Reliable learning foundation | PDFs, AI, accounts, profiles, saved learning materials, isolation | **ACCEPTED BY PRODUCT OWNER (15 Nov 2026); regression/security checks remain** |
 | 1.1 | PWA, mobile and notifications foundation | Installability, safe areas, updates, offline shell, push pipeline | Implemented substantially; device/push acceptance remains |
 | 1.2 | Learning productivity | Planner, flashcards, quizzes, mastery and progress | Core implemented; enhancements and tests remain |
-| 1.3 | Complete UI, UX and performance redesign | Cohesive design system, settings, animation preference, offline-aware shell, Android/iPhone polish | **NEXT** |
+| 1.3 | Complete UI, UX and performance redesign | Cohesive design system, Settings accordions, animation preference, offline-aware shell, Android/iPhone polish | In progress; next major implementation workstream |
 | 1.4 | Data continuity and operational maturity | Reliable cross-device study data, admin visibility, backup/export, observability and limits | Partly implemented; close remaining gaps |
 | 2.0 | Academic community | Research Feed, reactions, comments, follows, Course Hubs, moderation | Base features implemented; full acceptance and polish remain |
 | 2.1 | Messaging and notification experience | Safe messaging, requests, realtime, notification centre and tested push | Base implementation present; end-to-end acceptance and remaining controls |
@@ -66,6 +66,10 @@ Messages and notifications are reachable from the top bar and relevant profiles/
 | 5.0 | Scale, governance and ecosystem maturity | Scalable operations, quality, governance, analytics and sustainable service delivery | Long-term; scope to be validated |
 
 ## 4. Version 1.0 — Reliable learning foundation
+
+**Product-owner acceptance: ACCEPTED on 15 November 2026.** This records the user's explicit acceptance of V1.0; it does not falsely mark every historical test checkbox as individually executed. Keep the V1.0 checklist as a regression and security suite. Reopen only a specific item when evidence shows a regression, security issue or data-integrity defect.
+
+The detailed remaining V1.x delivery sequence is maintained in [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md).
 
 **Goal:** A student can create an account, bring in a supported document, study it, save the outputs and return to their work safely.
 
@@ -297,7 +301,7 @@ The detailed implementation specification is in [UI_DESIGN_PLAN.md](UI_DESIGN_PL
 - Test narrow phones, tablets, desktop and orientation changes.
 
 ### 1.3D — Animation preference and motion system
-- Add Settings → App & Offline → Animations.
+- Add Settings → Appearance → Animations.
 - Default ON for new users.
 - OFF restores the current static UI baseline: no decorative entrances/transitions.
 - Persist locally per device; setting works offline and requires no server call.
@@ -311,7 +315,7 @@ The detailed implementation specification is in [UI_DESIGN_PLAN.md](UI_DESIGN_PL
 - No new heavy animation dependency.
 
 ### 1.3E — Settings redesign
-Replace current side/slider-style section navigation with a clear overview and focused category screens:
+Replace current side/slider-style section navigation with a clear Settings overview. AI & Providers is the only dedicated full page because provider configuration is extensive. All other categories expand inline directly beneath their row with a smooth, restrained accordion transition:
 1. Account & identity.
 2. Academic profile.
 3. AI & providers.
@@ -323,8 +327,11 @@ Replace current side/slider-style section navigation with a clear overview and f
 9. Help & about.
 
 Rules:
-- Long categories open their own focused page/slide-in screen with clear back navigation.
-- Categories with one simple toggle can remain inline.
+- Account, Academic Profile, Appearance, Notifications, Privacy & Safety, Storage & Documents, Offline & App, and Help & About expand inline beneath their row.
+- AI & Providers alone opens a dedicated page.
+- Animations lives inside Appearance; preserve the accepted ON default for new profiles and OS reduced-motion override.
+- Accordion motion becomes static/instant when Animations is OFF or OS reduced-motion is enabled.
+- Do not render all heavy settings panels until opened.
 - Preserve actual existing permissions and behaviour.
 - Group related controls; avoid duplicate/conflicting settings.
 - Every control must work; no decorative nonfunctional toggles.
@@ -363,6 +370,8 @@ Rules:
 - **Settings/Admin:** Consistent focused screens, not dense forms.
 
 ### 1.3I — Performance requirements
+
+Use Redmi 10A as an explicit low-end Android baseline. Measure initial compressed JS, startup, first interaction, long tasks, scrolling, memory after repeated navigation/PDF open-close, idle network requests and offline cache behaviour before and after significant changes. Initial compressed JS target: at or below 250 KB where practical; defer PDF.js, provider SDKs, admin, charts and community-only modules. Target first usable Home interaction within 3 seconds on a repeatable constrained-device/network profile. Investigate repeated long tasks over 100 ms and any task over 200 ms. These are engineering targets, not claims of current compliance. See [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md) for the full measurement contract.
 - Lazy-load PDF viewer, admin, charts, community and other heavy routes where architecture permits.
 - Avoid adding dependencies unless measured need exists.
 - Avoid unnecessary fonts, image requests, third-party calls and large JS bundles.
@@ -1086,9 +1095,12 @@ Release discipline:
 - Do not mark a checklist complete based on code review alone.
 - Keep a rollback path for risky releases.
 
-## 21. Current project status snapshot — 14 November 2026
+## 21. Current project status snapshot — 15 November 2026
 
 This snapshot reconciles the implementation ledger with the latest hands-on feedback. It is not a substitute for a fresh live check.
+
+### Product-owner acceptance
+- **Version 1.0: ACCEPTED by the product owner on 15 November 2026.** Do not describe V1.0 as awaiting user acceptance. Retain its test matrix as a regression/security checklist; unchecked individual tests are not retroactively marked PASS.
 
 ### User-reported working
 - Offline study-data sync is working well in current user testing.
@@ -1112,16 +1124,17 @@ This snapshot reconciles the implementation ledger with the latest hands-on feed
 - PDF memory and offline deletion/account-isolation hardening.
 - Admin infrastructure/usage foundations where already present.
 
-### Immediate next work (Version 1.3)
+### Immediate next work (complete all remaining V1.x scope)
 - **Implementation in progress (15 November 2026):** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, focused Settings category screens with URL-backed back navigation, offline-only navigation hiding/route fallback, useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint have been committed. This is a first slice, not completion of Version 1.3.
 - **Manual acceptance checklist:** see [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Tests for this slice should be run only after its matching Vercel build is READY.
-1. Complete the remaining UI redesign using UI_DESIGN_PLAN.md; focused Settings category screens are now in place.
-2. Add animation preference: ON by default; OFF retains current static design.
-3. Replace remaining Settings side/slider interaction with focused category pages.
-4. Hide online-only features while offline and disable AI question submission offline.
-5. Show admin user's display name and stable user ID.
-6. Polish Home, Learn, Notes, Feed, Discover, Messages and Profile.
-7. Optimise and test on iPhone and Redmi 10A; incorporate pending Android tester feedback.
+1. Implement the corrected Settings model: inline accordion categories, with AI & Providers as the only dedicated page; Animations lives under Appearance.
+2. Finish the shared design system, navigation and page-by-page visual hierarchy.
+3. Complete measured low-end Android optimisation before and after visual changes.
+4. Complete V1.1 physical-device PWA install/update/offline/push acceptance.
+5. Complete V1.2 planner, flashcard, quiz, mastery and progress tests/quality gaps.
+6. Complete V1.4 sync, conflict handling, backup/export/restore, admin operations and automated regression coverage.
+7. Run V1.0 regression/security checks without reopening the accepted release unless a defect is found.
+8. Incorporate pending Android tester feedback and verify the exact production deployment.
 
 ### Important unclosed acceptance items
 - Real-device PDF tests at the current practical limit and cross-device restore/delete.
@@ -1144,9 +1157,11 @@ Historical notes reported Vercel build-rate-limit and an older READY deployment.
 
 Do not attempt every version in one enormous implementation pass. Build the product in this dependency order:
 
-1. **Close Version 1.3 first:** UI foundations, settings, motion toggle, offline-aware shell, admin identity, phone performance.
-2. **Close outstanding 1.0/1.1 acceptance:** real PDF/AI/account tests, PWA updates, push device delivery.
-3. **Complete 1.2/1.4:** study progress quality, sync continuity, backup/export, admin/operations and automated tests.
+1. **Protect accepted V1.0:** keep its regression/security suite active; fix only evidence-backed defects.
+2. **Complete V1.1:** physical-device PWA install/update/offline and push delivery.
+3. **Complete V1.2:** learning productivity correctness, progress quality and automated deterministic tests.
+4. **Complete V1.3:** corrected Settings accordion design, cohesive UI and measured Android-first performance.
+5. **Complete V1.4:** cross-device sync/conflicts, export/restore/deletion, admin operations and automated integration tests.
 4. **Release 2.0:** feed, course spaces, moderation and two-account privacy tests.
 5. **Release 2.1:** messaging and push end-to-end safety/reliability.
 6. **Release 2.5:** matching, shared resources and project collaboration.
