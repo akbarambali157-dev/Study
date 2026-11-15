@@ -30,6 +30,7 @@ export interface DocumentRec {
   courseId?: string
   createdAt: string
   status: DocumentStatus
+  studyDepth?: StudyDepth
   source: 'upload' | 'demo' | 'community'
   sizeBytes?: number
   remoteId?: string
