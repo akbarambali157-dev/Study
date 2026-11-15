@@ -14,9 +14,9 @@ type PublishedUpdate = {
 
 const STORAGE_KEY = 'studyhub:dismissed-app-updates:v1'
 
-function readDismissed(): string[] {
+function readDismissed(scope: string): string[] {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const value = JSON.parse(localStorage.getItem(`${STORAGE_KEY}:${scope}`) || '[]')
     return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
   } catch { return [] }
 }
@@ -30,31 +30,35 @@ export function UpdateAnnouncement({ online }: { online: boolean }) {
   useEffect(() => {
     if (!online) return
     let active = true
-    setDismissed(readDismissed())
-    void import('@/lib/supabase').then(async ({ supabase }) => {
-      if (!supabase) return
-      const [authResult, updateResult] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.from('app_updates')
+    let unsubscribe: (() => void) | undefined
+    void import('@/lib/supabase').then(({ supabase }) => {
+      if (!supabase || !active) return
+      const load = async () => {
+        const { data: authResult } = await supabase.auth.getUser()
+        const currentUserId = authResult.user?.id ?? null
+        const updateResult = await supabase.from('app_updates')
           .select('id,title,category,summary,body,version_label,docs_path,published_at')
           .eq('status', 'published')
           .order('published_at', { ascending: false })
-          .limit(20),
-      ])
-      if (!active || updateResult.error) return
-      const nextDismissed = readDismissed()
-      if (authResult.data.user) {
-        setUserId(authResult.data.user.id)
-        const { data: rows } = await supabase.from('app_update_dismissals')
-          .select('update_id')
-          .eq('user_id', authResult.data.user.id)
-        for (const row of rows ?? []) nextDismissed.push(row.update_id)
+          .limit(20)
+        if (!active || updateResult.error) return
+        const serverDismissed: string[] = []
+        if (currentUserId) {
+          const { data: rows } = await supabase.from('app_update_dismissals')
+            .select('update_id')
+            .eq('user_id', currentUserId)
+          for (const row of rows ?? []) serverDismissed.push(row.update_id)
+        }
+        if (!active) return
+        setUserId(currentUserId)
+        setDismissed([...new Set([...readDismissed(currentUserId ?? 'guest'), ...serverDismissed])])
+        setUpdates((updateResult.data ?? []) as PublishedUpdate[])
       }
-      if (!active) return
-      setDismissed([...new Set(nextDismissed)])
-      setUpdates((updateResult.data ?? []) as PublishedUpdate[])
+      void load().catch(() => undefined)
+      const authSubscription = supabase.auth.onAuthStateChange(() => { void load().catch(() => undefined) })
+      unsubscribe = () => authSubscription.data.subscription.unsubscribe()
     }).catch(() => undefined)
-    return () => { active = false }
+    return () => { active = false; unsubscribe?.() }
   }, [online])
 
   const current = useMemo(() => updates.find(item => !dismissed.includes(item.id)), [updates, dismissed])
@@ -63,7 +67,8 @@ export function UpdateAnnouncement({ online }: { online: boolean }) {
   const dismiss = () => {
     const next = [...dismissed, current.id]
     setDismissed(next)
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next.slice(-100))) } catch { /* private browsing storage may be unavailable */ }
+    const scope = userId ?? 'guest'
+    try { localStorage.setItem(`${STORAGE_KEY}:${scope}`, JSON.stringify(next.slice(-100))) } catch { /* private browsing storage may be unavailable */ }
     if (userId) {
       void import('@/lib/supabase')
         .then(({ supabase }) => supabase?.from('app_update_dismissals').insert({ user_id: userId, update_id: current.id }))
