@@ -1125,9 +1125,9 @@ This snapshot reconciles the implementation ledger with the latest hands-on feed
 - Admin infrastructure/usage foundations where already present.
 
 ### Immediate next work (complete all remaining V1.x scope)
-- **Implementation in progress (15 November 2026):** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, focused Settings category screens with URL-backed back navigation, offline-only navigation hiding/route fallback, useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint have been committed. This is a first slice, not completion of Version 1.3.
+- **Implementation in progress (15 November 2026):** persistent animation preference (default ON), OS reduced-motion override, static-motion CSS baseline, inline accordion Settings categories with AI & Providers as the only dedicated page, Animations under Appearance, offline-only navigation hiding/route fallback, useful three-item mobile navigation while offline, offline AI question-entry guard, and removal of a persistent compositor hint are committed. The Settings slice is deployed READY but still requires manual category, accessibility and device acceptance. This is not completion of Version 1.3.
 - **Manual acceptance checklist:** see [USER_ACCEPTANCE_TESTS.md](USER_ACCEPTANCE_TESTS.md). Tests for this slice should be run only after its matching Vercel build is READY.
-1. Implement the corrected Settings model: inline accordion categories, with AI & Providers as the only dedicated page; Animations lives under Appearance.
+1. Manually accept the deployed Settings accordion on phone and desktop, including AI provider/model configuration, browser Back, keyboard/focus and reduced-motion behaviour.
 2. Finish the shared design system, navigation and page-by-page visual hierarchy.
 3. Complete measured low-end Android optimisation before and after visual changes.
 4. Complete V1.1 physical-device PWA install/update/offline/push acceptance.

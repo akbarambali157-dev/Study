@@ -174,3 +174,42 @@ A test is PASS only when steps, environment and result are recorded. If it requi
 - Supabase project: ewqogapdsvivpgpwaxfh (OOU-StudyPlatform beta).
 - Vercel project: study-platform.
 - Re-query live infrastructure before every release; this locator is not a guarantee of current deployment state.
+
+
+## 8. First implementation slice and measured baseline (15 November 2026)
+
+### Settings accordion slice
+
+- Commit: 1fe2a07b0553c1e91ef06ed8e9a5460722f15000.
+- Vercel deployment: dpl_EeZQqGpCmoS28pFEKUUzNE44FTJY — READY, production target.
+- Non-AI Settings categories now expand inline; AI & Providers remains the dedicated page.
+- Animations now lives inside Appearance and keeps the existing ON default, local persistence and OS reduced-motion override.
+- Accordion content is only mounted while its panel is open; transitions are disabled when app motion is OFF or OS reduced-motion is active.
+- This is an implementation slice, not manual acceptance. Test every category, AI connection/model selection, browser Back, keyboard/focus and phone layout before marking the V1.3 Settings criteria PASS.
+
+### Production build baseline
+
+Captured from the READY Vercel build for the Settings slice:
+
+| Asset | Raw size | Gzip |
+|---|---:|---:|
+| Main entry JavaScript | 342.81 KB | 108.70 KB |
+| Main CSS | 89.56 KB | 17.30 KB |
+| Settings route chunk | 35.90 KB | 10.65 KB |
+| Supabase client chunk | 216.60 KB | 55.97 KB |
+| Local database chunk | 101.80 KB | 32.10 KB |
+| PDF engine chunk | 444.23 KB | 133.64 KB |
+| PDF worker | 1,202.27 KB | not shown in build output |
+
+Vite transformed 2,314 modules. Feature routes are already lazy-loaded, and the PDF engine is a separate chunk; preserve those boundaries. The PDF worker is excluded from the PWA precache by the current Vite config.
+
+The build completed successfully but emitted a Lightning CSS warning for an unrecognised @theme rule in the separately imported visual-refresh stylesheet. This is a known cleanup item for the CSS consolidation workstream; do not ignore or silence it without fixing the processing boundary.
+
+### Immediate measured findings
+
+- The application has route-level lazy loading, but the main entry is still 342.81 KB raw and the initial compressed entry is 108.70 KB before accounting for any statically imported shared chunks.
+- The PDF engine and worker are materially larger than ordinary feature chunks; keep them deferred and measure their memory impact on Redmi 10A.
+- globals.css and visual-refresh.css both define root design tokens. visual-refresh.css also repeats a Tailwind-specific @theme directive, while main.tsx imports both stylesheets. Consolidate this into one authoritative token system and remove the build warning.
+- package.json currently has build and typecheck scripts but no dedicated unit/integration test runner. Add deterministic tests before expanding sync and learning logic.
+- Supabase currently reports 30 public tables, all with RLS enabled; the private study-documents bucket is limited to PDF files and 50 MiB. Policy semantics and two-account isolation still require test coverage.
+- Supabase advisors currently report leaked-password protection disabled (security warning), 34 unused indexes (informational; review query usage before changing), and no health findings.
