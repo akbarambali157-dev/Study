@@ -443,74 +443,68 @@ export async function generateStudyMaterial(
     .map((kp, i) => `[${i}] (p.${kp.page}) ${kp.heading}\n${kp.body}`)
     .join('\n\n')
 
-  // ── organizations ──────────────────────────────────────────────────────
+  // ── organizations + flashcards: independent calls run together ────────
   onStage?.('orgs')
-  let orgCount = 0
-  try {
-    const orgResult = await generateStructured({
-      schema: OrgSchema,
-      system: SYSTEM_BASE,
-      prompt: orgsPrompt({ keyPoints: keyPointListing }),
-      model,
-      maxTokens: 5000,
-      effort: 'low',
-      baseUrl,
-      signal,
-      useProxy,
-    })
-    usage = addUsage(usage, orgResult.usage)
-    costUsd += tokensToCost(model, orgResult.usage.inputTokens, orgResult.usage.outputTokens)
-
-    const orgs: Org[] = []
-
-    for (const link of orgResult.data.links) {
-      const keyPoint = keyPoints[link.keyPointIndex]
-      const org = findCatalogOrg(link.slug)
-      // Unknown slugs are dropped rather than trusted: the catalogue is the
-      // allowlist, so an invented body can never become a link.
-      if (!keyPoint || !org) continue
-      orgs.push({
-        id: uid('org'),
-        keyPointId: keyPoint.id,
-        documentId: doc.id,
-        name: org.name,
-        kind: org.kind,
-        url: org.url,
-        why: link.why,
-        verified: true,
+  const orgTask = (async () => {
+    try {
+      const orgResult = await generateStructured({
+        schema: OrgSchema,
+        system: SYSTEM_BASE,
+        prompt: orgsPrompt({ keyPoints: keyPointListing }),
+        model,
+        maxTokens: 5000,
+        effort: 'low',
+        baseUrl,
+        signal,
+        useProxy,
       })
+      usage = addUsage(usage, orgResult.usage)
+      costUsd += tokensToCost(model, orgResult.usage.inputTokens, orgResult.usage.outputTokens)
+
+      const orgs: Org[] = []
+      for (const link of orgResult.data.links) {
+        const keyPoint = keyPoints[link.keyPointIndex]
+        const org = findCatalogOrg(link.slug)
+        // Unknown slugs are dropped rather than trusted: the catalogue is the allowlist.
+        if (!keyPoint || !org) continue
+        orgs.push({
+          id: uid('org'),
+          keyPointId: keyPoint.id,
+          documentId: doc.id,
+          name: org.name,
+          kind: org.kind,
+          url: org.url,
+          why: link.why,
+          verified: true,
+        })
+      }
+
+      for (const proposal of orgResult.data.proposed) {
+        const keyPoint = keyPoints[proposal.keyPointIndex]
+        if (!keyPoint) continue
+        const linkable = isLinkableUrl(proposal.url)
+        orgs.push({
+          id: uid('org'),
+          keyPointId: keyPoint.id,
+          documentId: doc.id,
+          name: proposal.name,
+          kind: proposal.kind,
+          url: linkable ? proposal.url : undefined,
+          why: proposal.why,
+          verified: false,
+        })
+      }
+      await saveOrgs(orgs)
+      return orgs.length
+    } catch (error) {
+      // Organizations are a bonus; they must never make valid notes unusable.
+      if (error instanceof AiError && error.code === 'aborted') throw error
+      return 0
     }
+  })()
 
-    for (const proposal of orgResult.data.proposed) {
-      const keyPoint = keyPoints[proposal.keyPointIndex]
-      if (!keyPoint) continue
-      const linkable = isLinkableUrl(proposal.url)
-      orgs.push({
-        id: uid('org'),
-        keyPointId: keyPoint.id,
-        documentId: doc.id,
-        name: proposal.name,
-        kind: proposal.kind,
-        // Only a https URL on a known-institution host survives as a link.
-        url: linkable ? proposal.url : undefined,
-        why: proposal.why,
-        verified: false,
-      })
-    }
-
-    await saveOrgs(orgs)
-    orgCount = orgs.length
-  } catch (error) {
-    // Organizations are a bonus. Losing them must not lose the notes.
-    if (error instanceof AiError && error.code === 'aborted') throw error
-    orgCount = 0
-  }
-
-  ensureNotAborted(signal)
-
-  // ── flashcards ─────────────────────────────────────────────────────────
   onStage?.('cards')
-  const cardResult = await generateStructured({
+  const cardTask = generateStructured({
     schema: CardsSchema,
     system: SYSTEM_BASE,
     prompt: cardsPrompt({ keyPoints: keyPointListing, pageCount }),
@@ -521,8 +515,11 @@ export async function generateStudyMaterial(
     signal,
     useProxy,
   })
+
+  const [orgCount, cardResult] = await Promise.all([orgTask, cardTask])
   usage = addUsage(usage, cardResult.usage)
   costUsd += tokensToCost(model, cardResult.usage.inputTokens, cardResult.usage.outputTokens)
+  ensureNotAborted(signal)
 
   const deckId = uid('deck')
   const cards: Card[] = []
