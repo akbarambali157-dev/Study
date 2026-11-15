@@ -40,7 +40,7 @@ export const NotesSchema = z.object({
     .array(
       z.object({
         heading: z.string().max(120),
-        body: z.string().max(700),
+        body: z.string().max(1200),
         example: z
           .string()
           .max(600)
