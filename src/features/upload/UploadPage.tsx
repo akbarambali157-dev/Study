@@ -28,6 +28,7 @@ import { MAX_PDF_BYTES, MAX_PDF_SIZE_LABEL } from '@/lib/pdfLimits'
 import { clearGeneratedContent, saveDocument, touchStreak } from '@/lib/store'
 import type { DocumentRec } from '@/lib/types'
 import { nowIso, stripExtension, titleCase, uid } from '@/lib/utils'
+import { setUploadActivity } from '@/lib/uploadActivity'
 
 const STAGE_ORDER: Stage[] = ['extract', 'map', 'reduce', 'orgs', 'cards', 'quiz']
 
@@ -157,21 +158,23 @@ export function UploadPage() {
       setFiles((prev) => [...prev, ...toAdd])
       // Kick off extraction for each newly added file.
       for (const item of toAdd) {
-        void extractFile(item.id, item.file)
+        void extractFile(item.id, item.file, settings.defaultPublicSharing)
       }
     },
-    [extractFile, settings.defaultPublicSharing],
+    [settings.defaultPublicSharing],
   )
 
   const extractFile = useCallback(
-    async (id: string, file: File) => {
+    async (id: string, file: File, defaultPublic: boolean) => {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === id ? { ...f, phase: { kind: 'reading', done: 0, total: 0 } } : f,
         ),
       )
+      setUploadActivity(id, { id, title: file.name, detail: 'Reading PDF pages on this device', progress: 2, phase: 'reading' })
       try {
         const result = await extractPdf(file, (done, total) => {
+          setUploadActivity(id, { id, title: file.name, detail: total ? `Reading PDF · page ${done} of ${total}` : 'Reading PDF pages on this device', progress: total ? Math.max(3, done / total * 18) : 3, phase: 'reading' })
           setFiles((prev) =>
             prev.map((f) =>
               f.id === id
@@ -188,14 +191,16 @@ export function UploadPage() {
                   extracted: result,
                   title: titleCase(result.title || stripExtension(file.name)),
                   pii: findPiiSignal(file.name, result.pages),
-                  isPublic: settings.defaultPublicSharing,
+                  isPublic: defaultPublic,
                   shareOriginal: false,
                   phase: { kind: 'ready' },
                 }
               : f,
           ),
         )
+        setUploadActivity(id, null)
       } catch (err) {
+        setUploadActivity(id, null)
         setFiles((prev) =>
           prev.map((f) =>
             f.id === id
@@ -217,7 +222,7 @@ export function UploadPage() {
         )
       }
     },
-    [settings.defaultPublicSharing],
+    [],
   )
 
   const removeFile = useCallback((id: string) => {
@@ -267,6 +272,7 @@ export function UploadPage() {
         return
       }
 
+      setUploadActivity(id, { id, title: item.title || item.file.name, detail: 'Preparing your private document copy', progress: 8, phase: 'processing' })
       let savedDoc: DocumentRec = {
         id: item.documentId ?? uid('doc'),
         title: item.title.trim() || stripExtension(item.file.name),
@@ -289,6 +295,7 @@ export function UploadPage() {
       // PDF on this device, then let the student start AI generation manually
       // when a connection is available. Never trigger mobile-data work here.
       if (offline) {
+        setUploadActivity(id, null)
         setFiles((prev) => prev.map((f) => f.id === id
           ? { ...f, documentId: savedDoc.id, phase: { kind: 'done', docId: savedDoc.id } }
           : f))
@@ -305,6 +312,7 @@ export function UploadPage() {
         : f))
 
       try {
+        setUploadActivity(id, { id, title: savedDoc.title, detail: 'Uploading the private PDF copy', progress: 14, phase: 'processing' })
         // Cloud persistence is independent from study generation. A storage or
         // indexing outage must not discard a readable local PDF or block BYOK.
         let remote = null
@@ -317,6 +325,7 @@ export function UploadPage() {
               ? { ...f, remoteId: remote!.remoteId, storagePath: remote!.storagePath, cloudSyncIssue: undefined }
               : f))
             await saveDocument(savedDoc)
+            setUploadActivity(id, { id, title: savedDoc.title, detail: 'Private PDF uploaded; preparing study extraction', progress: 22, phase: 'processing' })
           }
         } catch (syncError) {
           if (controller.signal.aborted) throw syncError
@@ -340,6 +349,8 @@ export function UploadPage() {
           useProxy: settings.useProxy,
           onStage: (stage, detail) => {
             currentStage = stage
+            const stageIndex = STAGE_ORDER.indexOf(stage)
+            setUploadActivity(id, { id, title: savedDoc.title, detail: detail || STAGE_LABEL[stage], progress: 25 + Math.max(0, stageIndex) * 12, phase: 'processing' })
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === id
@@ -377,6 +388,7 @@ export function UploadPage() {
           }
         }
         await touchStreak()
+        setUploadActivity(id, { id, title: savedDoc.title, detail: 'Finishing and saving your study set', progress: 96, phase: 'processing' })
         setFiles((prev) =>
           prev.map((f) =>
             f.id === id
@@ -387,12 +399,14 @@ export function UploadPage() {
         const costSummary = gatewayBilling
           ? `${result.usage.inputTokens.toLocaleString()} input / ${result.usage.outputTokens.toLocaleString()} output tokens; gateway billing applies`
           : `${formatUsd(result.costUsd)} estimated at Anthropic list rates`
+        setUploadActivity(id, null)
         toast(
           `${result.keyPointCount} key points, ${result.cardCount} cards and ${result.questionCount} test questions — ${costSummary} for “${savedDoc.title}”.`,
           'success',
         )
         navigate(`/doc/${savedDoc.id}`)
       } catch (err) {
+        setUploadActivity(id, null)
         const stopped = controller.signal.aborted
         await clearGeneratedContent(savedDoc.id)
         await saveDocument({ ...savedDoc, status: stopped ? 'extracting' : 'failed' })
@@ -419,6 +433,7 @@ export function UploadPage() {
           ),
         )
       } finally {
+        setUploadActivity(id, null)
         abortRef.current = null
       }
     },
