@@ -534,5 +534,27 @@ These checks were added after reports of Android users seeing a missing update b
 - [ ] S12. Override the default on an individual file in both directions and confirm the per-file choice wins.
 - [ ] S13. Start extraction and generation, navigate away, and confirm the global progress notification remains until success, failure, cancellation or offline save.
 - [ ] S14. Retry the 191-page PDF after the reduce repair/batch fallback is deployed; confirm all stages complete and no key-point content is silently truncated.
-- [ ] S15. Confirm repair calls are bounded, their usage is counted, hosted mode stays serial, BYOK fallback has at most two workers, and abort stops further requests.
+- [ ] S15. Confirm schema-repair calls are bounded and counted; hosted map/reduce use at most two workers, BYOK uses a small bounded pool, and abort stops further requests.
 - [ ] S16. Repeat release and upload checks on iPhone Safari/PWA and Android Chrome, including a low-memory device.
+
+
+## T. Comprehensive study engine, coverage, caching and configurable tests
+
+- [ ] T1. Upload a long PDF and confirm Comprehensive is selected by default.
+- [ ] T2. Change one file to Quick, Balanced or Near-source and confirm the selected depth is passed into processing and shown in the document reader.
+- [ ] T3. Process the 191-page acceptance PDF at Comprehensive depth; confirm the saved notes contain all generated section batches and are not truncated at 8,000 characters.
+- [ ] T4. Confirm the coverage report shows the source page count, processed section count, captured concept count and covered page count.
+- [ ] T5. Spot-check definitions, examples, exceptions, formulas, arguments and supporting details against the original PDF; record omissions instead of treating the coverage count as proof of semantic completeness.
+- [ ] T6. Interrupt generation after several map sections finish, retry the same document/depth/model, and confirm completed sections are reused from IndexedDB cache.
+- [ ] T7. Change the source content, model or depth and confirm stale section-cache entries are not reused.
+- [ ] T8. Delete the document and confirm its local section-cache entries are deleted too.
+- [ ] T9. Confirm a non-objective PDF upload no longer makes a fixed eight-question AI request during initial processing.
+- [ ] T10. Generate tests with 5, 20, 50 and 100 questions; confirm the exact requested count, distinct stems, four options, one answer key and source page references.
+- [ ] T11. Confirm Progressive tests increase in difficulty from recall through application and analysis to advanced multi-concept questions.
+- [ ] T12. Confirm Foundational, University examination and Advanced difficulty settings each produce the intended style.
+- [ ] T13. For a PDF with original objective questions, test AI-generated, source-only and mixed modes.
+- [ ] T14. Check that questions are distributed across chapters/concepts rather than concentrated in the opening pages.
+- [ ] T15. Run the same test again and confirm saved earlier question sets remain usable without corrupting the new attempt.
+- [ ] T16. Confirm the worker pool remains bounded, completed map sections are cached, and failed sections can be retried without remapping successful sections.
+- [ ] T17. On a low-memory Android device, confirm long comprehensive notes remain scrollable and the UI stays responsive.
+- [ ] T18. Run the 191-page PDF on production after deployment and compare coverage, time, usage and output length with the previous short-note result.
