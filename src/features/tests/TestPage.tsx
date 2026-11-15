@@ -409,7 +409,7 @@ export function TestPage() {
           <Button
             className="mt-5"
             onClick={start}
-            disabled={busy || questionCount < 1 || questionCount > 100 || (keyPoints.length === 0 && (questionSource === 'ai' || questionSource === 'mixed')) || (questionSource === 'source' && sourceQuestionCount === 0)}
+            disabled={busy || questionCount < 1 || questionCount > 100 || (keyPoints.length === 0 && (questionSource === 'ai' || (questionSource === 'mixed' && sourceQuestionCount < questionCount))) || (questionSource === 'source' && sourceQuestionCount === 0)}
             icon={
               busy ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />
             }
