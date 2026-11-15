@@ -25,6 +25,8 @@ import { isTypingTarget } from '@/lib/shortcuts'
 import { Toaster } from '@/components/ui/toast'
 import { IconButton } from '@/components/ui/Button'
 import { applyPwaUpdate, checkForPwaUpdate, hasPwaUpdate, subscribePwaUpdates } from '@/lib/pwa'
+import { useUploadActivities } from '@/lib/uploadActivity'
+import { UpdateAnnouncement } from '@/components/UpdateAnnouncement'
 
 const ShortcutsSheet = lazy(() => import('@/components/ShortcutsSheet').then((module) => ({ default: module.ShortcutsSheet })))
 
@@ -53,6 +55,9 @@ export function App() {
   const [updateAvailable, setUpdateAvailable] = useState(hasPwaUpdate)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [isAdmin, setIsAdmin] = useState(false)
+  const uploadActivityMap = useUploadActivities((state) => state.items)
+  const activeUploads = Object.values(uploadActivityMap)
+  const currentUpload = activeUploads[0]
   const allNavItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
   const navItems = allNavItems.filter((item) => isOnline || !ONLINE_ONLY_PATHS.has(item.to))
   const mobilePrimaryItems = isOnline
@@ -235,6 +240,13 @@ export function App() {
       {updateAvailable ? <div className="mx-auto mt-3 flex w-[calc(100%-1.5rem)] max-w-6xl items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-white/95 px-4 py-3 text-sm shadow-lg dark:border-indigo-900 dark:bg-slate-900/95" role="status" aria-live="polite">
         <div><p className="font-semibold text-body">A new Study Hub version is ready</p><p className="text-xs text-muted">Update when ready. Your current work stays open until you choose.</p></div>
         <div className="flex shrink-0 items-center gap-2"><button type="button" className="rounded-lg px-2 py-2 text-xs text-muted" onClick={()=>setUpdateAvailable(false)}>Later</button><button type="button" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" onClick={()=>void applyPwaUpdate()}><RefreshCw className="size-3.5"/>Update</button></div>
+      </div> : null}
+      <UpdateAnnouncement online={isOnline} />
+      {currentUpload ? <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg sm:bottom-5" role="status" aria-live="polite">
+        <div className="rounded-2xl border border-line bg-surface/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-body">{currentUpload.title}</p><p className="mt-0.5 text-xs text-muted">{currentUpload.detail}</p></div><span className="shrink-0 text-xs font-semibold tabular-nums text-forest-400">{activeUploads.length > 1 ? `${activeUploads.length} files` : `${Math.round(currentUpload.progress)}%`}</span></div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400 transition-[width] duration-300" style={{ width: `${Math.max(4, Math.min(100, currentUpload.progress))}%` }} /></div>
+        </div>
       </div> : null}
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8">
         <Outlet />
