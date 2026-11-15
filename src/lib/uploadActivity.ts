@@ -6,6 +6,8 @@ export type UploadActivity = {
   detail: string
   progress: number
   phase: 'reading' | 'processing'
+  startedAt: number
+  phaseStartedAt: number
 }
 
 type UploadActivityState = {
@@ -17,8 +19,15 @@ export const useUploadActivities = create<UploadActivityState>((set) => ({
   items: {},
   setActivity: (id, activity) => set((state) => {
     const items = { ...state.items }
-    if (activity) items[id] = activity
-    else delete items[id]
+    if (activity) {
+      const previous = state.items[id]
+      const now = Date.now()
+      items[id] = {
+        ...activity,
+        startedAt: previous?.startedAt ?? now,
+        phaseStartedAt: previous?.phase === activity.phase ? previous.phaseStartedAt : now,
+      }
+    } else delete items[id]
     return { items }
   }),
 }))
