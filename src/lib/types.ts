@@ -278,6 +278,8 @@ export interface Settings {
   dark: boolean
   /** Enable subtle interface motion; false restores the static UI baseline. */
   animations: boolean
+  /** Default visibility for newly generated study sets; original PDFs stay private unless separately shared. */
+  defaultPublicSharing: boolean
   /**
    * Optional base URL for an Anthropic-compatible endpoint. Empty means
    * api.anthropic.com. Lets a student point at a gateway they already pay for
