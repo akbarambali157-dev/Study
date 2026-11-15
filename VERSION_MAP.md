@@ -1207,3 +1207,16 @@ Public community contributions now have a first-class import path into the same 
 The original PDF remains optional and private unless its contributor explicitly shares it. Community imports contain only the approved shared learning content; they do not fabricate a local copy of the original PDF.
 
 Source commits: `e35fd63`, `917a452`, `57de3f9`, `fa086c2`, `c4465d2`. Both GitHub CI workflows passed on `c4465d2`. Vercel deployment is pending because its deployment API daily quota returned HTTP 402; see `V1_IMPLEMENTATION_PLAN.md`. Do not mark the feature released until a Vercel READY deployment and Section R acceptance checks.
+
+
+## 22C. Admin control room, release queue and persistent upload feedback
+
+**Implementation status:** Core database and UI implementation committed; end-to-end admin-account and device acceptance remains open. See [ADMIN_CONTROL_ROOM_PLAN.md](ADMIN_CONTROL_ROOM_PLAN.md).
+
+- Admin users are sourced from Supabase Auth and joined with academic profile, AI usage and public-material activity. AI usage is no longer treated as the user directory.
+- Admin can create/edit drafts, publish manually, enable automatic publishing, filter documentation updates and manage named release notes.
+- Published updates are delivered in a sequential iPhone-style in-app notification queue. PWA code-update prompts remain a separate mechanism.
+- New-upload default visibility is configurable in Settings. Generated content may be public while the original PDF remains private unless separately selected.
+- Upload progress is surfaced globally while extraction/cloud save/AI generation remains active.
+- AI reduce now has one bounded schema-correction call and a smaller-batch fallback; hosted mode remains serial and BYOK uses a bounded two-worker fallback.
+- Do not mark this work fully accepted until the matching manual checks in USER_ACCEPTANCE_TESTS.md pass on an admin account and mobile devices.
