@@ -109,6 +109,11 @@ export async function extractPdf(
       if (i === 1 || i === doc.numPages || i % 10 === 0) {
         onProgress?.(i, doc.numPages)
       }
+      // Yield periodically so lower-memory Android browsers can paint progress
+      // and respond to cancellation instead of monopolising the main thread.
+      if (i % 10 === 0 && i < doc.numPages) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      }
     }
 
     stage = 'metadata'
