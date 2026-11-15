@@ -122,6 +122,18 @@ export function DiscoverPage() {
     }
   }
 
+  const takeQuiz = async (row: Material) => {
+    const content = row.content as MaterialContent
+    if (!(content.questions ?? []).length) { toast('This contribution has no shared quiz questions yet.', 'info'); return }
+    setBusy(row.id)
+    try {
+      await importPublicMaterial(row)
+      navigate(`/deck/community-deck-${row.id}/test`)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The quiz could not be opened.', 'error')
+    } finally { setBusy(null) }
+  }
+
   const playRush = async (row: Material) => {
     try {
       await launchPublicMaterialRush(row, navigate)
@@ -164,7 +176,7 @@ export function DiscoverPage() {
                   <Button size="sm" onClick={() => void addToLibrary(row)} disabled={busy === row.id}><BookOpen className="size-3.5" />{busy === row.id ? 'Adding…' : 'Add to Library'}</Button>
                   <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close preview' : 'Preview'}</Button>
                   <Button size="sm" variant="secondary" disabled={cards.length < 4} onClick={() => void playRush(row)}><Zap className="size-3.5" />Play Rush</Button>
-                  {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" onClick={() => navigate(`/discover/${row.id}/quiz`)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
+                  {(content.questions ?? []).length > 0 ? <Button size="sm" variant="secondary" onClick={() => void takeQuiz(row)}><ClipboardCheck className="size-3.5" />Take quiz</Button> : null}
                   {row.share_original ? <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void downloadOriginal(row)}><Download className="size-3.5" />Download original PDF</Button> : null}
                   <Button size="sm" variant="secondary" disabled={busy === row.id} onClick={() => void toggleSaved(row)}><Bookmark className="size-3.5" />{saved ? 'Saved' : 'Save to Library'}</Button>
                   {mine ? <><Button size="sm" variant="secondary" onClick={() => void visibility(row)}>{row.is_public ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}{row.is_public ? 'Make private' : 'Publish'}</Button><Button size="sm" variant="ghost" onClick={() => void remove(row)}><Trash2 className="size-3.5" /></Button></> : null}
