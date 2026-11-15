@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Check,
   Download,
@@ -26,9 +26,28 @@ import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { getVapidPublicKey, getCurrentDevicePushEndpoint, registerCurrentDeviceForPush, removeCurrentDevicePushSubscription, requiresHomeScreenInstallForPush, supportsWebPush } from '@/lib/push'
 
+const SETTINGS_SECTIONS = [
+  { id: 'account', title: 'Account', description: 'Your sign-in, account details and profile access.' },
+  { id: 'academic', title: 'Academic profile', description: 'Institution, department, interests and discovery visibility.' },
+  { id: 'ai', title: 'AI & providers', description: 'Provider mode, private key status, model selection and connection test.' },
+  { id: 'appearance', title: 'Appearance', description: 'Theme, learning trail and interface preferences.' },
+  { id: 'notifications', title: 'Notifications', description: 'Choose what can notify you and when.' },
+  { id: 'privacy', title: 'Privacy & safety', description: 'Profile visibility, blocked accounts and contact controls.' },
+  { id: 'storage', title: 'Storage & documents', description: 'Export, local data and document storage information.' },
+  { id: 'offline', title: 'Offline & app', description: 'Offline readiness, animation preference and app updates.' },
+  { id: 'help', title: 'Help & about', description: 'Keyboard shortcuts, app version and useful guidance.' },
+] as const
+
 export function SettingsPage() {
   const settings = useSettings()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedSection = searchParams.get('section')
+  const activeSection = SETTINGS_SECTIONS.some((section) => section.id === requestedSection)
+    ? requestedSection
+    : null
+  const activeSectionInfo = SETTINGS_SECTIONS.find((section) => section.id === activeSection)
+  const sectionClass = (id: string) => activeSection === id ? 'mb-6' : 'hidden'
 
   const [keyInput, setKeyInput] = useState('')
   const [credentialConfigured, setCredentialConfigured] = useState(false)
@@ -217,14 +236,37 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Settings" subtitle="Manage your account, learning experience, privacy and app preferences." />
-      <nav aria-label="Settings modules" className="sticky top-[4.5rem] z-20 mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-line bg-app/95 p-2 backdrop-blur-sm">
-        {[
-          ['account','Account'],['academic','Academic'],['ai','AI'],['appearance','Appearance'],
-          ['notifications','Notifications'],['privacy','Privacy'],['storage','Storage'],['offline','Offline & app'],['help','Help'],
-        ].map(([id,label]) => <a key={id} href={`#settings-${id}`} className="shrink-0 rounded-xl px-3 py-2 text-xs font-semibold text-muted transition hover:bg-surface-2 hover:text-body">{label}</a>)}
-      </nav>
-      <section id="settings-account" className="mb-6 scroll-mt-28">
+      <PageHeading
+        title="Settings"
+        subtitle={activeSectionInfo?.description ?? 'Manage your account, learning experience, privacy and app preferences.'}
+      />
+      {activeSection ? (
+        <div className="mb-5 flex items-center gap-3 border-b border-line pb-4">
+          <Button size="sm" variant="secondary" onClick={() => setSearchParams({})}>← All settings</Button>
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-semibold">{activeSectionInfo?.title}</h2>
+            <p className="text-xs text-muted">Focused settings · changes are saved as you make them</p>
+          </div>
+        </div>
+      ) : (
+        <nav aria-label="Settings categories" className="mb-6 grid gap-3 sm:grid-cols-2">
+          {SETTINGS_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setSearchParams({ section: section.id })}
+              className="group flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4 text-left shadow-sm transition hover:border-forest-400/50 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-body">{section.title}</span>
+                <span className="mt-1 block text-[13px] leading-relaxed text-muted">{section.description}</span>
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-lg text-muted transition group-hover:translate-x-0.5 group-hover:text-forest-400">→</span>
+            </button>
+          ))}
+        </nav>
+      )}
+      <section id="settings-account" className={sectionClass('account')}>
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -236,12 +278,12 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </div>
       </Card>
       </section>
-      <section id="settings-academic" className="mb-6 scroll-mt-28">
+      <section id="settings-academic" className={sectionClass('academic')}>
         <Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Academic profile and discovery</h2><p className="mt-1 text-[13px] text-muted">Manage research interests, skills, profile visibility, message requests and collaboration availability.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Open academic profile</Button></div></Card>
       </section>
 
       {/* ── API key ────────────────────────────────────────────────────── */}
-      <section id="settings-ai" className="mb-6 scroll-mt-28">
+      <section id="settings-ai" className={sectionClass('ai')}>
         <SectionTitle hint="Hosted provider or your own configured key">
           API key
         </SectionTitle>
@@ -383,7 +425,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       </section>
 
       {/* ── model ─────────────────────────────────────────────────────── */}
-      <section className="mb-6 scroll-mt-28">
+      <section className={sectionClass('ai')}>
         <SectionTitle hint="What a 40-page handout costs to process">
           Model
         </SectionTitle>
@@ -424,7 +466,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       </section>
 
       {/* ── preferences ───────────────────────────────────────────────── */}
-      <section id="settings-appearance" className="mb-6 scroll-mt-28">
+      <section id="settings-appearance" className={sectionClass('appearance')}>
         <SectionTitle>Appearance & learning preferences</SectionTitle>
         <Card className="divide-y divide-line p-0">
           <ToggleRow
@@ -443,13 +485,13 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
 
-      <section id="settings-notifications" className="mb-6 scroll-mt-28">
+      <section id="settings-notifications" className={sectionClass('notifications')}>
         <SectionTitle hint="Choose what Study Hub may notify you about">Notifications</SectionTitle>
         <NotificationPreferences />
       </section>
 
       {/* ── data ──────────────────────────────────────────────────────── */}
-      <section id="settings-storage" className="mb-6 scroll-mt-28">
+      <section id="settings-storage" className={sectionClass('storage')}>
         <SectionTitle hint="Export a portable copy of your local study data">
           Your data
         </SectionTitle>
@@ -484,14 +526,14 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
 
-      <section id="settings-privacy" className="mb-6 scroll-mt-28">
+      <section id="settings-privacy" className={sectionClass('privacy')}>
         <SectionTitle hint="Control your academic visibility and unwanted contact">Privacy & safety</SectionTitle>
         <Card className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Academic profile visibility</p><p className="text-xs text-muted">Your profile is private until you opt in to student discovery.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Manage visibility</Button></div>
           <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Blocked students</p><p className="text-xs text-muted">Review or unblock accounts you have blocked.</p></div><BlockedUsersSettings /></div>
         </Card>
       </section>
-      <section id="settings-offline" className="mb-6 scroll-mt-28">
+      <section id="settings-offline" className={sectionClass('offline')}>
         <SectionTitle hint="Prepare this device for weak networks and offline study">Offline & app</SectionTitle>
         <Card className="space-y-3">
           <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Connection status</p><p className="text-xs text-muted">{navigator.onLine ? 'Online — cloud features are available.' : 'Offline — saved local study materials remain available.'}</p></div><Chip tone={navigator.onLine ? 'green' : 'gold'}>{navigator.onLine ? 'Online' : 'Offline'}</Chip></div>
@@ -509,7 +551,7 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>
       {/* ── shortcuts ─────────────────────────────────────────────────── */}
-      <section id="settings-help" className="scroll-mt-28">
+      <section id="settings-help" className={sectionClass('help')}>
         <SectionTitle hint="Press ? anywhere for this list">Keyboard</SectionTitle>
         <Card className="p-0">
           <div className="divide-y divide-line">
