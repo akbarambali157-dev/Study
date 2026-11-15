@@ -43,7 +43,7 @@
 - Create, edit, publish, return to draft and delete release notes.
 - Filter by Feature, Improvement, Fix, Documentation, Security and Announcement.
 - Manual mode saves a draft; automatic mode publishes on save.
-- A published update appears as an iPhone-style in-app banner. Banners are queued newest-first; dismissing one advances to the next and dismissal survives reload on that browser.
+- A published update appears as an iPhone-style in-app banner. Banners are queued newest-first; dismissing one advances to the next. Signed-in dismissal syncs across the user's devices; guest dismissal is scoped to that browser.
 - Optional documentation links must be root-relative app paths or HTTPS links.
 
 ## Upload experience
