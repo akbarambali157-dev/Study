@@ -547,7 +547,7 @@ export function UploadPage() {
                   if (item.extracted) {
                     setFiles((prev) => prev.map((f) => f.id === item.id ? { ...f, phase: { kind: 'ready' } } : f))
                   } else {
-                    void extractFile(item.id, item.file)
+                    void extractFile(item.id, item.file, settings.defaultPublicSharing)
                   }
                 }}
               >
