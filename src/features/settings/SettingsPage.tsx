@@ -43,11 +43,13 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedSection = searchParams.get('section')
-  const activeSection = SETTINGS_SECTIONS.some((section) => section.id === requestedSection)
-    ? requestedSection
-    : null
-  const activeSectionInfo = SETTINGS_SECTIONS.find((section) => section.id === activeSection)
-  const sectionClass = (id: string) => activeSection === id ? 'mb-6' : 'hidden'
+  const isAiPage = requestedSection === 'ai'
+  const [expandedSection, setExpandedSection] = useState<string | null>(() => {
+    const initial = searchParams.get('section')
+    return initial && initial !== 'ai' && SETTINGS_SECTIONS.some((section) => section.id === initial)
+      ? initial
+      : null
+  })
 
   const [keyInput, setKeyInput] = useState('')
   const [credentialConfigured, setCredentialConfigured] = useState(false)
@@ -77,7 +79,266 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       setCredentialLoading(false)
     }
     void checkCredential().catch(() => { if (active) setCredentialLoading(false) })
-    return () => { active = false }
+    const settingsPanels: Record<Exclude<(typeof SETTINGS_SECTIONS)[number]['id'], 'ai'>, ReactNode> = {
+    account: (<section id="settings-account" className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Student account</h2>
+            <p className="mt-1 text-[13px] text-muted">{accountName || 'Student'}{accountEmail ? ` · ${accountEmail}` : ''}</p>
+            <p className="mt-1 text-[11px] text-muted">Email is managed by your verified sign-in account. Academic details are editable in your profile.</p>
+          </div>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button><Button size="sm" variant="ghost" onClick={() => void signOut()}>Sign out</Button></div>
+        </div>
+      </Card>
+      </section>),
+    academic: (<section id="settings-academic" className="space-y-4">
+        <Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Academic profile and discovery</h2><p className="mt-1 text-[13px] text-muted">Manage research interests, skills, profile visibility, message requests and collaboration availability.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Open academic profile</Button></div></Card>
+      </section>),
+    appearance: (<section id="settings-appearance" className="space-y-4">
+        <SectionTitle>Appearance & learning preferences</SectionTitle>
+        <Card className="divide-y divide-line p-0">
+          <ToggleRow
+            title="Learning trail"
+            body="Record what you search for, ask about and miss, so the app can tell you what you keep coming back to. Nothing leaves the device except in the one batched insight call."
+            checked={settings.trailEnabled}
+            onChange={(checked) => void saveSettings({ trailEnabled: checked })}
+          />
+          <ToggleRow
+            title="Dark mode"
+            icon={<Moon className="size-4" />}
+            body="Same palette, inverted. Useful for reading at night."
+            checked={settings.dark}
+            onChange={(checked) => void saveSettings({ dark: checked })}
+          />
+        </Card>
+      </section>),
+    notifications: (<section id="settings-notifications" className="space-y-4">
+        <SectionTitle hint="Choose what Study Hub may notify you about">Notifications</SectionTitle>
+        <NotificationPreferences />
+      </section>),
+    privacy: (<section id="settings-privacy" className="space-y-4">
+        <SectionTitle hint="Control your academic visibility and unwanted contact">Privacy & safety</SectionTitle>
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Academic profile visibility</p><p className="text-xs text-muted">Your profile is private until you opt in to student discovery.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Manage visibility</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Blocked students</p><p className="text-xs text-muted">Review or unblock accounts you have blocked.</p></div><BlockedUsersSettings /></div>
+        </Card>
+      </section>),
+    storage: (<section id="settings-storage" className="space-y-4">
+        <SectionTitle hint="Export a portable copy of your local study data">
+          Your data
+        </SectionTitle>
+        <Card>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={exportAll}
+              icon={<Download className="size-3.5" />}
+            >
+              Export everything (JSON)
+            </Button>
+            <Button
+              variant={confirmWipe ? 'danger' : 'secondary'}
+              size="sm"
+              onClick={wipe}
+              icon={<Trash2 className="size-3.5" />}
+            >
+              {confirmWipe ? 'Tap again to delete everything' : 'Delete everything'}
+            </Button>
+          </div>
+          {confirmWipe ? (
+            <p className="mt-2 text-[13px] text-clay">
+              This erases documents, notes, cards, grades, tests, planner tasks, learning goals, the trail and your key from
+              this browser. It cannot be undone.
+            </p>
+          ) : null}
+          <p className="mt-3 text-[12px] leading-relaxed text-muted">
+            When you are signed in, the original PDF is stored in private account storage; extracted text is sent to your selected AI provider only when you generate study materials. Without an account, the local copy stays on this device. Do not upload result slips or other personal records.
+          </p>
+        </Card>
+      </section>),
+    offline: (<section id="settings-offline" className="space-y-4">
+        <SectionTitle hint="Prepare this device for weak networks and offline study">Offline & app</SectionTitle>
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Connection status</p><p className="text-xs text-muted">{navigator.onLine ? 'Online — cloud features are available.' : 'Offline — saved local study materials remain available.'}</p></div><Chip tone={navigator.onLine ? 'green' : 'gold'}>{navigator.onLine ? 'Online' : 'Offline'}</Chip></div>
+          <div className="border-t border-line pt-1">
+            <ToggleRow
+              title="Animations"
+              icon={<Sparkles className="size-4" />}
+              body="Use subtle transitions and interface feedback. Turn this off to use the static Study Hub interface. Your device's reduced-motion setting always takes priority."
+              checked={settings.animations !== false}
+              onChange={(checked) => void saveSettings({ animations: checked })}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/install')}>Installation & offline guide</Button><Button size="sm" variant="secondary" onClick={() => void checkForPwaUpdate()}>Check for app updates</Button></div>
+           <PageHeading
+        title={isAiPage ? 'AI & Providers' : 'Settings'}
+        subtitle={isAiPage ? 'Configure the hosted model or your own secure provider connection.' : 'Manage your account, learning experience, privacy and app preferences.'}
+      />
+      {isAiPage ? (
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center gap-3 border-b border-line pb-4">
+            <Button size="sm" variant="secondary" onClick={() => setSearchParams({})}>← All settings</Button>
+            <p className="text-xs text-muted">Provider configuration · changes are saved as you make them</p>
+          </div>
+          {aiProviderPanel}
+        </div>
+      ) : (
+        <nav aria-label="Settings categories" className="mb-6 grid gap-3">
+          {SETTINGS_SECTIONS.map((section) => {
+            if (section.id === 'ai') {
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setSearchParams({ section: 'ai' })}
+                  className="group flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-forest-400/40 bg-surface p-4 text-left shadow-sm transition hover:border-forest-400 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-body">{section.title}</span>
+                    <span className="mt-1 block text-[13px] leading-relaxed text-muted">{section.description}</span>
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-lg text-muted transition group-hover:translate-x-0.5 group-hover:text-forest-400">↗</span>
+                </button>
+              )
+            }
+            const isOpen = expandedSection === section.id
+            return (
+              <div key={section.id} className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+                <button
+                  id={`settings-category-${section.id}`}
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`settings-panel-${section.id}`}
+                  onClick={() => {
+                    if (searchParams.has('section')) setSearchParams({})
+                    setExpandedSection(isOpen ? null : section.id)
+                  }}
+                  className="group flex min-h-20 w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-body">{section.title}</span>
+                    <span className="mt-1 block text-[13px] leading-relaxed text-muted">{section.description}</span>
+                  </span>
+                  <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line text-lg text-muted transition-colors group-hover:border-forest-400/50 group-hover:text-forest-400">{isOpen ? '−' : '+'}</span>
+                </button>
+                <div
+                  id={`settings-panel-${section.id}`}
+                  role="region"
+                  aria-labelledby={`settings-category-${section.id}`}
+                  aria-hidden={!isOpen}
+                  data-open={isOpen ? 'true' : 'false'}
+                  className="settings-accordion-panel"
+                >
+                  <div className="settings-accordion-panel-inner">
+                    {isOpen ? settingsPanels[section.id] : null}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+      )}
+ <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-3"
+                    onClick={() => void saveUseProxy(false)}
+                  >
+                    {credentialConfigured ? 'Use my saved private key instead' : 'Set up my private API key'}
+                  </Button>
+                </>
+              ) : credentialConfigured ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Chip tone="green">Encrypted in your account vault</Chip>
+                    {credentialLoading ? <Chip>Checking…</Chip> : null}
+                  </div>
+                  <p className="mt-2 text-[13px] text-muted">
+                    Your key is stored encrypted in Supabase Vault and is only retrieved by the authenticated server-side proxy for your account. It is never returned to the browser or included in app logs.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="danger" onClick={() => void removeKey()} icon={<Trash2 className="size-3.5" />}>Remove key</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    Optional: use a personal provider key instead of the shared BrewKeg provider. It is sent once over HTTPS and stored encrypted in your account's Supabase Vault.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="password"
+                      value={keyInput}
+                      onChange={(event) => setKeyInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') saveKey()
+                      }}
+                      placeholder="sk-ant-… or your gateway token"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 font-mono text-[13px] outline-none focus:border-forest-400"
+                    />
+                    <Button onClick={() => void saveKey()} disabled={!keyInput.trim() || credentialLoading}>
+                      Save key
+                    </Button>
+                  </div>
+
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ── AI connection test ───────────────────────────────────────── */}
+          {(useProxy || credentialConfigured) && (
+            <div className="mt-4 border-t border-line pt-4">
+              <label className="text-xs font-medium uppercase tracking-wide text-muted">
+                Test the model connection
+              </label>
+              <div className="mt-1.5 flex flex-wrap gap-2 sm:flex-row">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={testAI}
+                  disabled={testingAI}
+                  icon={
+                    testingAI ? (
+                      <Wrench className="size-3.5 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="size-3.5" />
+                    )
+                  }
+                >
+                  {testingAI ? 'Testing…' : 'Test connection'}
+                </Button>
+                {aiTestResult === 'ok' ? (
+                  <Chip tone="green">Connection OK — the model replied.</Chip>
+                ) : aiTestResult === 'fail' ? (
+                  <Chip tone="clay">Test failed. Check the diagnostic below.</Chip>
+                ) : null}
+              </div>
+              {aiTestDiagnostic ? (
+                <p className="mt-2 rounded-lg border border-clay/30 bg-clay/5 px-3 py-2 font-mono text-[11px] text-muted">
+                  Diagnostic: {aiTestDiagnostic}
+                </p>
+              ) : null}
+              <p className="mt-1.5 text-[12px] text-muted">
+                Sends a single test prompt to the current model. Uses a few tokens
+                and shows you exactly whether the AI is reachable before you upload a PDF.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
+            <p className="font-semibold text-body">Provider endpoint</p>
+            <p className="mt-1">{useProxy ? 'https://brewkeg.dev (site-managed)' : credentialConfigured ? baseUrl : 'Selected automatically when you save your key'}</p>
+            <p className="mt-1">Personal credentials are restricted to the official Anthropic API or the configured BrewKeg endpoint. The endpoint is saved alongside your encrypted account credential and cannot be changed to an arbitrary URL.</p>
+          </div>
+        </Card>
+      </section>)
+
+  return () => { active = false }
   }, [])
 
   useEffect(() => {
@@ -266,163 +527,11 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
           ))}
         </nav>
       )}
-      <section id="settings-account" className={sectionClass('account')}>
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">Student account</h2>
-            <p className="mt-1 text-[13px] text-muted">{accountName || 'Student'}{accountEmail ? ` · ${accountEmail}` : ''}</p>
-            <p className="mt-1 text-[11px] text-muted">Email is managed by your verified sign-in account. Academic details are editable in your profile.</p>
-          </div>
-          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Edit student profile</Button><Button size="sm" variant="ghost" onClick={() => void signOut()}>Sign out</Button></div>
-        </div>
-      </Card>
-      </section>
-      <section id="settings-academic" className={sectionClass('academic')}>
-        <Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Academic profile and discovery</h2><p className="mt-1 text-[13px] text-muted">Manage research interests, skills, profile visibility, message requests and collaboration availability.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Open academic profile</Button></div></Card>
-      </section>
+      
+      
 
       {/* ── API key ────────────────────────────────────────────────────── */}
-      <section id="settings-ai" className={sectionClass('ai')}>
-        <SectionTitle hint="Hosted provider or your own configured key">
-          API key
-        </SectionTitle>
-        <Card>
-          {/* Proxy mode toggle: site provides the model vs BYOK */}
-          <div className="p-4 border-b border-line">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={useProxy}
-                onChange={(event) => void saveUseProxy(event.target.checked)}
-                className="mt-0.5 size-4 shrink-0 accent-forest"
-              />
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-sm font-semibold">
-                  Site provides the model
-                </span>
-                <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">
-                  Students don’t need their own key. The site holds the brewkeg.dev
-                  key server-side and you pay for usage. Turn this off to let each
-                  student paste their own key instead.
-                </span>
-              </span>
-            </label>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <KeyRound className="mt-0.5 size-5 shrink-0 text-forest-400" />
-            <div className="min-w-0 flex-1">
-              {useProxy ? (
-                <>
-                  <p className="text-[13px] leading-relaxed text-muted">
-                    BrewKeg is the shared provider. You do not need a personal API key. Sign in to your Study Hub account, then upload a PDF to generate notes, cards and tests.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="mt-3 mr-2"
-                    onClick={() => navigate('/auth')}
-                  >
-                    Sign in / create account
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="mt-3"
-                    onClick={() => void saveUseProxy(false)}
-                  >
-                    {credentialConfigured ? 'Use my saved private key instead' : 'Set up my private API key'}
-                  </Button>
-                </>
-              ) : credentialConfigured ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Chip tone="green">Encrypted in your account vault</Chip>
-                    {credentialLoading ? <Chip>Checking…</Chip> : null}
-                  </div>
-                  <p className="mt-2 text-[13px] text-muted">
-                    Your key is stored encrypted in Supabase Vault and is only retrieved by the authenticated server-side proxy for your account. It is never returned to the browser or included in app logs.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="danger" onClick={() => void removeKey()} icon={<Trash2 className="size-3.5" />}>Remove key</Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-[13px] leading-relaxed text-muted">
-                    Optional: use a personal provider key instead of the shared BrewKeg provider. It is sent once over HTTPS and stored encrypted in your account's Supabase Vault.
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <input
-                      type="password"
-                      value={keyInput}
-                      onChange={(event) => setKeyInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') saveKey()
-                      }}
-                      placeholder="sk-ant-… or your gateway token"
-                      autoComplete="off"
-                      spellCheck={false}
-                      className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-app px-3 font-mono text-[13px] outline-none focus:border-forest-400"
-                    />
-                    <Button onClick={() => void saveKey()} disabled={!keyInput.trim() || credentialLoading}>
-                      Save key
-                    </Button>
-                  </div>
-
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ── AI connection test ───────────────────────────────────────── */}
-          {(useProxy || credentialConfigured) && (
-            <div className="mt-4 border-t border-line pt-4">
-              <label className="text-xs font-medium uppercase tracking-wide text-muted">
-                Test the model connection
-              </label>
-              <div className="mt-1.5 flex flex-wrap gap-2 sm:flex-row">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={testAI}
-                  disabled={testingAI}
-                  icon={
-                    testingAI ? (
-                      <Wrench className="size-3.5 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="size-3.5" />
-                    )
-                  }
-                >
-                  {testingAI ? 'Testing…' : 'Test connection'}
-                </Button>
-                {aiTestResult === 'ok' ? (
-                  <Chip tone="green">Connection OK — the model replied.</Chip>
-                ) : aiTestResult === 'fail' ? (
-                  <Chip tone="clay">Test failed. Check the diagnostic below.</Chip>
-                ) : null}
-              </div>
-              {aiTestDiagnostic ? (
-                <p className="mt-2 rounded-lg border border-clay/30 bg-clay/5 px-3 py-2 font-mono text-[11px] text-muted">
-                  Diagnostic: {aiTestDiagnostic}
-                </p>
-              ) : null}
-              <p className="mt-1.5 text-[12px] text-muted">
-                Sends a single test prompt to the current model. Uses a few tokens
-                and shows you exactly whether the AI is reachable before you upload a PDF.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-4 border-t border-line pt-4 text-[12px] text-muted">
-            <p className="font-semibold text-body">Provider endpoint</p>
-            <p className="mt-1">{useProxy ? 'https://brewkeg.dev (site-managed)' : credentialConfigured ? baseUrl : 'Selected automatically when you save your key'}</p>
-            <p className="mt-1">Personal credentials are restricted to the official Anthropic API or the configured BrewKeg endpoint. The endpoint is saved alongside your encrypted account credential and cannot be changed to an arbitrary URL.</p>
-          </div>
-        </Card>
-      </section>
+      
 
       {/* ── model ─────────────────────────────────────────────────────── */}
       <section className={sectionClass('ai')}>
@@ -466,129 +575,17 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
       </section>
 
       {/* ── preferences ───────────────────────────────────────────────── */}
-      <section id="settings-appearance" className={sectionClass('appearance')}>
-        <SectionTitle>Appearance & learning preferences</SectionTitle>
-        <Card className="divide-y divide-line p-0">
-          <ToggleRow
-            title="Learning trail"
-            body="Record what you search for, ask about and miss, so the app can tell you what you keep coming back to. Nothing leaves the device except in the one batched insight call."
-            checked={settings.trailEnabled}
-            onChange={(checked) => void saveSettings({ trailEnabled: checked })}
-          />
-          <ToggleRow
-            title="Dark mode"
-            icon={<Moon className="size-4" />}
-            body="Same palette, inverted. Useful for reading at night."
-            checked={settings.dark}
-            onChange={(checked) => void saveSettings({ dark: checked })}
-          />
-        </Card>
-      </section>
+      
 
-      <section id="settings-notifications" className={sectionClass('notifications')}>
-        <SectionTitle hint="Choose what Study Hub may notify you about">Notifications</SectionTitle>
-        <NotificationPreferences />
-      </section>
+      
 
       {/* ── data ──────────────────────────────────────────────────────── */}
-      <section id="settings-storage" className={sectionClass('storage')}>
-        <SectionTitle hint="Export a portable copy of your local study data">
-          Your data
-        </SectionTitle>
-        <Card>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={exportAll}
-              icon={<Download className="size-3.5" />}
-            >
-              Export everything (JSON)
-            </Button>
-            <Button
-              variant={confirmWipe ? 'danger' : 'secondary'}
-              size="sm"
-              onClick={wipe}
-              icon={<Trash2 className="size-3.5" />}
-            >
-              {confirmWipe ? 'Tap again to delete everything' : 'Delete everything'}
-            </Button>
-          </div>
-          {confirmWipe ? (
-            <p className="mt-2 text-[13px] text-clay">
-              This erases documents, notes, cards, grades, tests, planner tasks, learning goals, the trail and your key from
-              this browser. It cannot be undone.
-            </p>
-          ) : null}
-          <p className="mt-3 text-[12px] leading-relaxed text-muted">
-            When you are signed in, the original PDF is stored in private account storage; extracted text is sent to your selected AI provider only when you generate study materials. Without an account, the local copy stays on this device. Do not upload result slips or other personal records.
-          </p>
-        </Card>
-      </section>
+      
 
-      <section id="settings-privacy" className={sectionClass('privacy')}>
-        <SectionTitle hint="Control your academic visibility and unwanted contact">Privacy & safety</SectionTitle>
-        <Card className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Academic profile visibility</p><p className="text-xs text-muted">Your profile is private until you opt in to student discovery.</p></div><Button size="sm" variant="secondary" onClick={() => navigate('/profile-setup')}>Manage visibility</Button></div>
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Blocked students</p><p className="text-xs text-muted">Review or unblock accounts you have blocked.</p></div><BlockedUsersSettings /></div>
-        </Card>
-      </section>
-      <section id="settings-offline" className={sectionClass('offline')}>
-        <SectionTitle hint="Prepare this device for weak networks and offline study">Offline & app</SectionTitle>
-        <Card className="space-y-3">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Connection status</p><p className="text-xs text-muted">{navigator.onLine ? 'Online — cloud features are available.' : 'Offline — saved local study materials remain available.'}</p></div><Chip tone={navigator.onLine ? 'green' : 'gold'}>{navigator.onLine ? 'Online' : 'Offline'}</Chip></div>
-          <div className="border-t border-line pt-1">
-            <ToggleRow
-              title="Animations"
-              icon={<Sparkles className="size-4" />}
-              body="Use subtle transitions and interface feedback. Turn this off to use the static Study Hub interface. Your device's reduced-motion setting always takes priority."
-              checked={settings.animations !== false}
-              onChange={(checked) => void saveSettings({ animations: checked })}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => navigate('/install')}>Installation & offline guide</Button><Button size="sm" variant="secondary" onClick={() => void checkForPwaUpdate()}>Check for app updates</Button></div>
-          <p className="text-[11px] text-muted">Study Hub {__APP_VERSION__} · Build {__BUILD_ID__}</p>
-        </Card>
-      </section>
+      
+      
       {/* ── shortcuts ─────────────────────────────────────────────────── */}
-      <section id="settings-help" className={sectionClass('help')}>
-        <SectionTitle hint="Press ? anywhere for this list">Keyboard</SectionTitle>
-        <Card className="p-0">
-          <div className="divide-y divide-line">
-            {SCOPE_ORDER.map((scope) => {
-              const rows = SHORTCUTS.filter((shortcut) => shortcut.where === scope)
-              if (rows.length === 0) return null
-              return (
-                <div key={scope} className="px-4 py-3">
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    {scope}
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {rows.map((shortcut) => (
-                      <li
-                        key={`${scope}-${shortcut.label}`}
-                        className="flex items-baseline justify-between gap-3 text-[13px]"
-                      >
-                        <span className="min-w-0 flex-1 text-muted">{shortcut.label}</span>
-                        <span className="flex shrink-0 gap-1">
-                          {shortcut.keys.map((key) => (
-                            <kbd
-                              key={key}
-                              className="rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px]"
-                            >
-                              {key}
-                            </kbd>
-                          ))}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      </section>
+      
 
       <p className="mb-2 text-center text-[11px] text-muted">
         Study Hub {__APP_VERSION__} · Build {__BUILD_ID__}

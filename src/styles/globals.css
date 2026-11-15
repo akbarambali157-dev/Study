@@ -600,3 +600,28 @@ html[data-motion='off'] *::after {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Lightweight Settings accordions. Content is mounted only while expanded. */
+.settings-accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 180ms ease, opacity 180ms ease;
+}
+.settings-accordion-panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.settings-accordion-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+html[data-motion="off"] .settings-accordion-panel {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-accordion-panel {
+    transition: none;
+  }
+}
