@@ -26,7 +26,6 @@ import { AiError, generateStructured, MAP_CONCURRENCY, type AiUsage } from './ai
 import {
   askPrompt,
   cardsPrompt,
-  compressDigestsPrompt,
   mapPrompt,
   orgsPrompt,
   quizPrompt,
@@ -50,7 +49,7 @@ export type Stage = 'extract' | 'map' | 'reduce' | 'orgs' | 'cards' | 'quiz'
 export const STAGE_LABEL: Record<Stage, string> = {
   extract: 'Reading the PDF',
   map: 'Reading each section',
-  reduce: 'Writing your short notes',
+  reduce: 'Building comprehensive notes',
   orgs: 'Finding related organizations',
   cards: 'Building flashcards',
   quiz: 'Writing the test',
@@ -178,7 +177,7 @@ export async function generateStudyMaterial(
   onStage?.('map', `${chunks.length} sections`)
   let mapped = 0
   // Hosted requests are serialized to avoid overwhelming the shared provider.
-  const mapConcurrency = useProxy ? 1 : MAP_CONCURRENCY
+  const mapConcurrency = useProxy ? 2 : Math.min(3, MAP_CONCURRENCY + 1)
   // A single dense section can still produce an overlong point even when
   // the PDF was chunked. If the map response exceeds a schema limit, split
   // that section into smaller page ranges and map them independently. This
@@ -251,11 +250,10 @@ export async function generateStudyMaterial(
   costUsd += maps.reduce((total, item) => total + tokensToCost(item.usedModel, item.usage.inputTokens, item.usage.outputTokens), 0)
   ensureNotAborted(signal)
 
-  // A 400-page source can create a large collection of otherwise-small
-  // digests. Compress them hierarchically so the final synthesis prompt stays
-  // comfortably below the proxy and model request-size limits.
+  // Keep every validated section digest. Compressing them into a small final
+  // prompt was the main source of information loss on long PDFs.
   type DigestRecord = { fromPage: number; toPage: number; text: string }
-  let digestRecords: DigestRecord[] = maps.map((m) => ({
+  const digestRecords: DigestRecord[] = maps.map((m) => ({
     fromPage: m.chunk.fromPage,
     toPage: m.chunk.toPage,
     text:
@@ -264,43 +262,8 @@ export async function generateStudyMaterial(
         .map((kp) => `- (p.${clampPage(kp.page, m.chunk.fromPage, m.chunk.toPage)}) ${kp.heading}: ${kp.body}`)
         .join('\n'),
   }))
-  const digestSize = () => digestRecords.reduce((total, item) => total + item.text.length, 0)
-  while (digestRecords.length > 8 && digestSize() > 65_000) {
-    ensureNotAborted(signal)
-    const batches: DigestRecord[][] = []
-    for (let index = 0; index < digestRecords.length; index += 8) {
-      batches.push(digestRecords.slice(index, index + 8))
-    }
-    let compressedCount = 0
-    const compressed = await pool(batches, mapConcurrency, async (batch) => {
-      ensureNotAborted(signal)
-      const fromPage = batch[0].fromPage
-      const toPage = batch[batch.length - 1].toPage
-      const result = await callMapWithFallback(
-        compressDigestsPrompt({
-          title: doc.title,
-          pageCount,
-          fromPage,
-          toPage,
-          digests: batch.map((item) => item.text).join('\n\n'),
-        }),
-        3000,
-      )
-      usage = addUsage(usage, result.usage)
-      costUsd += tokensToCost(result.usedModel, result.usage.inputTokens, result.usage.outputTokens)
-      compressedCount += 1
-      onStage?.('map', `Condensing long document summaries · ${compressedCount} of ${batches.length}`)
-      const text =
-        `── condensed pages ${fromPage}–${toPage} ──\n${result.data.summary}\n` +
-        result.data.keyPoints
-          .map((kp) => `- (p.${clampPage(kp.page, fromPage, toPage)}) ${kp.heading}: ${kp.body}`)
-          .join('\n')
-      return { fromPage, toPage, text }
-    })
-    digestRecords = compressed
-  }
-  // ── reduce: short notes + key points ───────────────────────────────────
-  onStage?.('reduce')
+  // ── reduce: comprehensive notes in small, loss-minimising batches ──────
+  onStage?.('reduce', `Writing detailed notes from ${digestRecords.length} source sections`)
   const reduceBatch = async (records: DigestRecord[], depth = 0): Promise<NotesResult[]> => {
     ensureNotAborted(signal)
     try {
@@ -334,31 +297,44 @@ export async function generateStudyMaterial(
       const left = records.slice(0, midpoint)
       const right = records.slice(midpoint)
       onStage?.('reduce', `Rebalancing a long synthesis into smaller batches · ${records.length} source sections`)
-      // Two bounded workers for personal providers; hosted requests stay serial
-      // so a shared account is not flooded by concurrent calls.
-      const concurrency = useProxy ? 1 : 2
+      // Bounded parallel workers shorten elapsed time without flooding a provider.
+      const concurrency = useProxy ? 2 : 3
       const nested = await pool([left, right], concurrency, (batch) => reduceBatch(batch, depth + 1))
       return nested.flat()
     }
   }
 
-  let reducedParts: NotesResult[]
-  try {
-    reducedParts = await reduceBatch(digestRecords)
-  } catch (error) {
-    if (error instanceof AiError && error.code === 'aborted') throw error
-    throw error
+  const reduceGroups: DigestRecord[][] = []
+  for (let index = 0; index < digestRecords.length; index += 3) {
+    reduceGroups.push(digestRecords.slice(index, index + 3))
   }
+  let completedReduceGroups = 0
+  const reducedGroups = await pool(reduceGroups, useProxy ? 2 : 3, async (records) => {
+    ensureNotAborted(signal)
+    const parts = await reduceBatch(records)
+    completedReduceGroups += 1
+    onStage?.('reduce', `Detailed sections completed · ${completedReduceGroups} of ${reduceGroups.length}`)
+    return {
+      fromPage: records[0].fromPage,
+      toPage: records[records.length - 1].toPage,
+      parts,
+    }
+  })
   ensureNotAborted(signal)
+  const reducedParts = reducedGroups.flatMap((group) => group.parts)
   const reduced = {
     data: {
       title: reducedParts[0]?.title || doc.title,
-      summary: reducedParts.map((part, index) => `## Part ${index + 1}\n${part.summary}`).join('\\n\\n').slice(0, 8000),
+      // No arbitrary character cap: every section remains in the saved note.
+      summary: reducedGroups.map((group) =>
+        `## Pages ${group.fromPage}–${group.toPage}\n\n${group.parts.map((part) => part.summary).join('\n\n')}`,
+      ).join('\n\n'),
       takeaways: [...new Set(reducedParts.flatMap((part) => part.takeaways))].slice(0, 8),
       keyPoints: (() => {
         const seen = new Set<string>()
         return reducedParts.flatMap((part) => part.keyPoints).filter((point) => {
-          const key = point.heading.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+          const heading = point.heading.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+          const key = `${heading}|p.${point.page}`
           if (seen.has(key)) return false
           seen.add(key)
           return true
@@ -527,15 +503,12 @@ export async function generateStudyMaterial(
   await saveDeck(deck)
   await saveCards(cards)
 
-  // ── quiz: preserve source objective questions; otherwise generate ──────
-  onStage?.('quiz')
+  // ── quiz: import source questions only; AI tests are generated on demand ──
+  onStage?.('quiz', 'Ready to build a test with the student’s chosen question count')
   const parsedObjectiveQuestions = parseObjectiveQuestions(doc.pages)
   let questions: QuizQuestion[] = []
 
   if (isObjectiveQuestionDocument(parsedObjectiveQuestions)) {
-    // Stems, options and numbering come directly from extracted PDF text.
-    // The supplied answer is kept as the scoring key until a student asks for
-    // an advisory AI review; the review never silently changes the source.
     questions = parsedObjectiveQuestions.map((raw) => ({
       id: uid('q'),
       deckId,
@@ -549,42 +522,6 @@ export async function generateStudyMaterial(
       sourceNumber: raw.number,
       sourceAnswerText: raw.answerText,
     }))
-    await saveQuestions(questions)
-  } else {
-    const quizResult = await generateStructured({
-      schema: QuizSchema,
-      system: SYSTEM_BASE,
-      prompt: quizPrompt({ keyPoints: keyPointListing, pageCount, count: 8 }),
-      model,
-      maxTokens: 8000,
-      effort: 'medium',
-      baseUrl,
-      signal,
-      useProxy,
-    })
-    usage = addUsage(usage, quizResult.usage)
-    costUsd += tokensToCost(model, quizResult.usage.inputTokens, quizResult.usage.outputTokens)
-
-    for (const raw of quizResult.data.questions) {
-      const keyPoint = keyPoints[raw.keyPointIndex]
-      if (!keyPoint || raw.options.length !== 4) continue
-      questions.push({
-        id: uid('q'),
-        deckId,
-        documentId: doc.id,
-        keyPointId: keyPoint.id,
-        stem: raw.stem,
-        options: raw.options,
-        answerIndex: raw.answerIndex,
-        explanation: raw.explanation,
-        page: keyPoint.page ?? 1,
-        sourceType: 'generated',
-      })
-    }
-
-    if (questions.length === 0) {
-      throw new AiError('The model did not return usable test questions. Try generating again.', 'schema')
-    }
     await saveQuestions(questions)
   }
 
