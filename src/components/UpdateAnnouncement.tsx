@@ -55,7 +55,10 @@ export function UpdateAnnouncement({ online }: { online: boolean }) {
         setUpdates((updateResult.data ?? []) as PublishedUpdate[])
       }
       void load().catch(() => undefined)
-      const authSubscription = supabase.auth.onAuthStateChange(() => { void load().catch(() => undefined) })
+      const authSubscription = supabase.auth.onAuthStateChange(() => {
+        // Defer Supabase reads until the auth callback releases its internal lock.
+        window.setTimeout(() => { if (active) void load().catch(() => undefined) }, 0)
+      })
       unsubscribe = () => authSubscription.data.subscription.unsubscribe()
     }).catch(() => undefined)
     return () => { active = false; unsubscribe?.() }
