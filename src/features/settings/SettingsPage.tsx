@@ -369,7 +369,8 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
         </Card>
       </section>),
   }
-  const aiProviderPanel = (<section id="settings-ai" className="space-y-4">
+  const aiProviderPanel = (<>
+<section id="settings-ai" className="space-y-4">
         <SectionTitle hint="Hosted provider or your own configured key">
           API key
         </SectionTitle>
@@ -508,7 +509,47 @@ const [aiTestDiagnostic, setAiTestDiagnostic] = useState<string | null>(null)
             <p className="mt-1">Personal credentials are restricted to the official Anthropic API or the configured BrewKeg endpoint. The endpoint is saved alongside your encrypted account credential and cannot be changed to an arbitrary URL.</p>
           </div>
         </Card>
-      </section>)
+      </section>
+<section className="space-y-4">
+        <SectionTitle hint="What a 40-page handout costs to process">
+          Model
+        </SectionTitle>
+        <div className="space-y-2">
+          {MODELS.map((model) => {
+            const active = settings.model === model.id
+            return (
+              <button
+                key={model.id}
+                type="button"
+                onClick={async () => {
+                  await saveSettings({ model: model.id })
+                  toast(`${model.label} selected.`, 'success')
+                }}
+                className={cn(
+                  'w-full rounded-xl border px-4 py-3 text-left transition',
+                  active
+                    ? 'border-forest-400 bg-forest-400/5'
+                    : 'border-line bg-surface hover:border-forest-400/40',
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    {model.label}
+                    {active ? <Check className="size-4 text-forest-400" /> : null}
+                  </span>
+                  <span className="tnum text-[12px] text-muted">
+                    ≈{formatUsd(estimateFor40Pages(model.id))} per
+                    handout
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{model.note}</p>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-[11px] text-muted">Cost examples use Anthropic list rates. BrewKeg and other gateways apply their own billing rates.</p>
+      </section>
+</>)
 
   return (
     <div className="mx-auto max-w-3xl">
