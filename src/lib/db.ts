@@ -160,6 +160,8 @@ export const DEFAULT_SETTINGS: Settings = {
   persistKey: false,
   trailEnabled: true,
   dark: false,
+  // Motion is enabled for new installs; OS reduced-motion is still respected by the app shell.
+  animations: true,
   // A deployed build can pin the endpoint without anyone touching Settings.
   // Empty means the standard Anthropic API.
   baseUrl: import.meta.env.VITE_AI_BASE_URL || undefined,
