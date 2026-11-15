@@ -147,7 +147,7 @@ export function AuthPage() {
         if (error) throw error
 
         const remoteResult = await supabase.from('student_profiles')
-          .select('display_name,institution,faculty,department,level,programme,academic_session')
+          .select('display_name,institution,faculty,department,level,programme,academic_session,research_interests,skills,project_goals,discoverable,profile_visibility,message_policy,collaboration_available')
           .eq('user_id', data.user.id).maybeSingle()
         if (remoteResult.error) throw remoteResult.error
         const remote = remoteResult.data
@@ -158,6 +158,10 @@ export function AuthPage() {
           faculty: faculty || remote?.faculty || '', department: department || remote?.department || '',
           level: level || remote?.level || '', programme: remote?.programme || '',
           academicSession: remote?.academic_session || '',
+          researchInterests: remote?.research_interests ?? [], skills: remote?.skills ?? [],
+          projectGoals: remote?.project_goals ?? [], discoverable: remote?.discoverable ?? false,
+          profileVisibility: remote?.profile_visibility ?? 'private', messagePolicy: remote?.message_policy ?? 'requests',
+          collaborationAvailable: remote?.collaboration_available ?? false,
         }
         await saveStudentAcademicProfile(data.user.id, academic)
         await saveProfile(name, academic.faculty, academic.department, academic.level)
