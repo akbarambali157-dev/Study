@@ -133,6 +133,8 @@ export interface QuizQuestion {
   dirty?: boolean
 }
 
+export type QuizDifficulty = 'progressive' | 'foundational' | 'exam' | 'advanced'
+
 export type QuizMode = 'guided' | 'exam'
 
 export interface QuizAnswer {
