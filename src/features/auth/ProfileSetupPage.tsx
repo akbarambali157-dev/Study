@@ -13,7 +13,6 @@ export function ProfileSetupPage() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
-  const [userId, setUserId] = useState<string | null>(null)
   const [form, setForm] = useState({
     displayName: '', institution: 'Olabisi Onabanjo University', faculty: '', department: '',
     level: '', programme: '', academicSession: '', researchInterests: '', skills: '', projectGoals: '',
@@ -34,7 +33,6 @@ export function ProfileSetupPage() {
       }
       if (!active) return
       setEmail(user?.email ?? '')
-      setUserId(user?.id ?? null)
       setForm({
         displayName: String(remote?.display_name ?? (local?.displayName && local.displayName !== 'Student' ? local.displayName : user?.user_metadata?.display_name ?? user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? '')),
         institution: String(remote?.institution ?? local?.institution ?? 'Olabisi Onabanjo University'),
@@ -79,7 +77,6 @@ export function ProfileSetupPage() {
         })
         const { error: metadataError } = await supabase.auth.updateUser({ data: { display_name: form.displayName.trim(), full_name: form.displayName.trim() } })
         if (metadataError) throw metadataError
-        setUserId(currentUser.id)
       }
       const existing = await db.profile.get('me')
       await db.profile.put({

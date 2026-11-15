@@ -129,11 +129,11 @@ export function AuthPage() {
             toast('Account created. Check your email to confirm it, then sign in.', 'success')
             return
           }
+          await saveStudentAcademicProfile(data.user.id, {
+            displayName, institution: 'Olabisi Onabanjo University', faculty, department, level,
+          })
         }
 
-        if (supabase && data.user) await saveStudentAcademicProfile(data.user.id, {
-          displayName, institution: 'Olabisi Onabanjo University', faculty, department, level,
-        })
         await saveProfile(displayName, faculty, department, level)
         if (!faculty || !department || !level) { navigate('/profile-setup'); return }
         toast(supabase ? 'Account created. Welcome.' : 'Local profile created on this device.', 'success')

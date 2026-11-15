@@ -32,7 +32,7 @@ export async function waitForAuthInitialization(): Promise<void> {
   if (!supabase) return
   if (!authInitialization) {
     authInitialization = new Promise<void>((resolve) => {
-      let unsubscribe = () => undefined
+      let unsubscribe: () => void = () => {}
       let initialized = false
       const { data } = supabase!.auth.onAuthStateChange((event) => {
         if (event !== 'INITIAL_SESSION') return
