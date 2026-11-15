@@ -68,9 +68,11 @@ Produce the student's revision notes:
   can read in five minutes and still remember the shape of the topic.
 - takeaways: 3–8 one-line things that must be remembered.
 - keyPoints: 3–14 points derived FROM YOUR NOTES above, each with:
-  - heading, body (2–4 sentences)
+  - heading, body (1–3 concise sentences; target 350–500 characters and never exceed 1,000 characters)
   - example: a concrete worked example, calculation, or Nigerian-context illustration
-    of that point. This is the part students actually revise from.
+    of that point (target 250–350 characters; never exceed 800 characters).
+  - Split separate concepts into separate points. Do not paste whole paragraphs into a field.
+  - Prefer concise, complete explanations over long prose.
   - page: the page in the original document. Only use page numbers you saw in the
     digests, between 1 and ${opts.pageCount}.
   - confidence: 0–1, how strongly the digest supports this point.
