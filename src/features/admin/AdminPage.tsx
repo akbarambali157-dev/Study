@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Activity, Cpu, Gauge, RefreshCw, ShieldAlert, Users, Save, PauseCircle, PlayCircle, Plus, Send, FileText, Trash2, Pencil, Eye } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Activity, Cpu, Gauge, RefreshCw, ShieldAlert, Users, Save, PauseCircle, PlayCircle, Plus, Send, FileText, Trash2, Pencil } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip } from '@/components/ui/misc'
@@ -21,7 +21,7 @@ function dateLabel(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 }
 
-function TabButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return <button type="button" onClick={onClick} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${active ? 'bg-forest text-white' : 'bg-surface-2 text-muted hover:text-body'}`}>{children}</button>
 }
 
