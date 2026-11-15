@@ -397,7 +397,7 @@ Use Redmi 10A as an explicit low-end Android baseline. Measure initial compresse
 ### 1.3 release gate
 - [ ] New visual system is consistent across primary destinations.
 - [ ] Settings side/slider navigation is removed.
-- [ ] Focused settings categories and back navigation work.
+- [ ] Non-AI Settings categories expand inline as accordions; AI & Providers alone uses a dedicated page.
 - [ ] Animation toggle defaults ON, persists, and OFF matches static baseline.
 - [ ] OS reduced-motion preference is respected.
 - [ ] Online-only destinations/actions are hidden offline.
@@ -963,7 +963,7 @@ This inventory is the cross-version checklist to prevent features being forgotte
 ### App experience
 - [ ] Responsive mobile/desktop UI.
 - [ ] Five primary destinations and clear hierarchy.
-- [ ] Focused Settings modules.
+- [ ] Settings overview, inline category accordions and dedicated AI & Providers page.
 - [ ] Animation toggle ON by default; OFF = current static baseline.
 - [ ] OS reduced-motion support.
 - [ ] Offline-aware navigation and AI controls.
