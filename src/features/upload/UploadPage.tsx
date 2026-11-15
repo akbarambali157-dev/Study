@@ -183,7 +183,7 @@ export function UploadPage() {
       setUploadActivity(id, { id, title: file.name, detail: 'Reading PDF pages on this device', progress: 2, phase: 'reading' })
       try {
         const result = await extractPdf(file, (done, total) => {
-          setUploadActivity(id, { id, title: file.name, detail: total ? `Reading PDF · page ${done} of ${total}` : 'Reading PDF pages on this device', progress: total ? Math.max(3, done / total * 18) : 3, phase: 'reading' })
+          setUploadActivity(id, { id, title: file.name, detail: total ? `Reading PDF · page ${done} of ${total}` : 'Reading PDF pages on this device', progress: total ? Math.max(2, done / total * 100) : 2, phase: 'reading' })
           setFiles((prev) =>
             prev.map((f) =>
               f.id === id
