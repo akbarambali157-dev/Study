@@ -21,6 +21,8 @@ A test marked NOT READY should wait until the relevant implementation has been d
 
 ## A. Test environment and release identification
 
+For the complete V1.x execution order and Android performance measurement contract, see [V1_IMPLEMENTATION_PLAN.md](V1_IMPLEMENTATION_PLAN.md).
+
 - [ ] A1. Open Study Hub and record the visible app version and build ID from Settings.
 - [ ] A2. Confirm the deployed build matches the Git commit the release notes identify.
 - [ ] A3. Test in a normal browser tab.
@@ -32,7 +34,9 @@ A test marked NOT READY should wait until the relevant implementation has been d
 - [ ] A9. Record cold-start behaviour after fully closing the browser/app.
 - [ ] A10. Record any blank screen, browser reload, tab crash, excessive heat or unusual battery use.
 
-## B. Version 1.0 — Account, PDF and AI acceptance
+## B. Version 1.0 — Account, PDF and AI regression/security suite
+
+**Product-owner status: ACCEPTED on 15 November 2026.** The product owner has already accepted V1.0. The unchecked boxes below are retained as individual regression/security checks whose execution has not necessarily been recorded here; they do not mean V1.0 is awaiting the user's acceptance. Reopen V1.0 only for a reproducible regression, security issue or data-integrity defect. Do not mark individual checks PASS without recording an actual test.
 
 ### B1. Authentication and profile
 - [ ] Register a new test account with an email you control.
@@ -199,21 +203,22 @@ Perform only with two test accounts and non-sensitive sample PDFs.
 ### E3. Settings redesign
 - [ ] Settings opens to a clean category overview.
 - [ ] Side/slider-style navigation is gone.
-- [ ] Account opens a focused page and Back returns to the overview.
-- [ ] Academic Profile opens a focused page and preserves current values.
-- [ ] AI & Provider opens a focused page; test connection and key management remain intact.
-- [ ] Appearance opens a focused page; dark mode and learning trail work.
-- [ ] Notifications opens a focused page; all existing preferences still work.
-- [ ] Privacy & Safety opens a focused page; blocked-user controls still work.
-- [ ] Storage & Documents opens a focused page; export and delete controls remain correct.
-- [ ] Offline & App opens a focused page; update/build information remains visible.
-- [ ] Help & About opens a focused page; shortcuts are readable.
-- [ ] One-toggle settings remain inline only where the design specifies.
+- [ ] Account expands inline beneath its row and preserves account controls.
+- [ ] Academic Profile expands inline and preserves current values.
+- [ ] AI & Providers alone opens a dedicated page; connection test and key management remain intact.
+- [ ] Appearance expands inline; dark mode, learning trail and Animations are available there.
+- [ ] Notifications expands inline; all existing preferences still work.
+- [ ] Privacy & Safety expands inline; blocked-user controls still work.
+- [ ] Storage & Documents expands inline; export and delete controls remain correct.
+- [ ] Offline & App expands inline; update/build information remains visible.
+- [ ] Help & About expands inline; shortcuts are readable.
+- [ ] Accordion expands/collapses directly under its row with restrained motion.
+- [ ] Accordion motion becomes static/instant when Animations is OFF or OS reduced-motion is enabled.
 - [ ] Back navigation does not lose unsaved settings.
 - [ ] Every visible toggle actually changes and persists.
 
 ### E4. Animation preference
-- [ ] A new browser profile has Animations ON by default.
+- [ ] A new browser profile has Animations ON by default; the control is located in Settings → Appearance.
 - [ ] With animations ON, navigation and small UI feedback are subtle and do not delay actions.
 - [ ] Turn Animations OFF; the interface returns to the current static UI baseline.
 - [ ] Refresh while OFF; preference remains OFF.
