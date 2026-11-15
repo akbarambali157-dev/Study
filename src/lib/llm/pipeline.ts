@@ -156,6 +156,7 @@ export async function generateStudyMaterial(
       baseUrl,
       signal,
       useProxy,
+      repairSchemaErrors: true,
     })
   const callMapWithFallback = async (prompt: string, maxTokens: number) => {
     const firstModel = activeMapModel
@@ -224,6 +225,10 @@ export async function generateStudyMaterial(
       onStage?.('map', `${mapped} sections completed (smaller sections are created automatically when needed)`)
       return [{ chunk, ...result.data, usage: result.usage, usedModel: result.usedModel }]
     } catch (error) {
+      if (error instanceof AiError && error.usage) {
+        usage = addUsage(usage, error.usage)
+        costUsd += tokensToCost(error.requestId ? activeMapModel : activeMapModel, error.usage.inputTokens, error.usage.outputTokens)
+      }
       const isSizeFailure =
         error instanceof AiError &&
         error.code === 'schema' &&
