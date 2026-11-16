@@ -17,7 +17,7 @@ import { deleteDocument } from '@/lib/store'
 import { record } from '@/lib/inquiries'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
-import { Card, Chip, EmptyState } from '@/components/ui/misc'
+import { Card, Chip, EmptyState, ListSkeleton } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { formatRelative } from '@/lib/utils'
 import { getAuthenticatedUser, supabase } from '@/lib/supabase'
@@ -275,7 +275,7 @@ function CloudDocuments() {
   if (!supabase) return null
   return <section className="mt-8">
     <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 className="font-display text-lg font-semibold">Private cloud documents</h2><p className="mt-1 text-xs text-muted">Restore source PDFs and extracted page text from your account on another device.</p></div><Button size="sm" variant="secondary" onClick={() => void load()} disabled={loading}>Refresh</Button></div>
-    {loading ? <Card className="p-4 text-sm text-muted">Checking your cloud library…</Card>
+    {loading ? <ListSkeleton count={3} />
       : error ? <Card className="p-4 text-sm text-muted">{error}</Card>
       : !rows.length ? <Card className="p-4 text-sm text-muted">No private cloud PDFs are synced to this account yet. Use “Sync PDF” on a local document to create a cloud copy.</Card>
       : !available.length ? <Card className="p-4 text-sm text-muted">All your cloud PDFs are already available on this device.</Card>
