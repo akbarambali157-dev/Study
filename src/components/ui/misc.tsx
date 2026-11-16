@@ -109,7 +109,33 @@ export function EmptyState({
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-lg bg-surface-2', className)} />
+  return <div className={cn('animate-pulse rounded-lg bg-surface-2', className)} aria-hidden="true" />
+}
+
+/** Content-shaped placeholders used while a route is waiting for remote data. */
+export function FeedSkeleton({ count = 3 }: { count?: number }) {
+  return <div className="space-y-4" role="status" aria-label="Loading posts">
+    {Array.from({ length: count }, (_, index) => <Card key={index} className="space-y-4 p-4 sm:p-5">
+      <div className="flex items-center gap-3"><Skeleton className="size-10 shrink-0 rounded-xl" /><div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-3 w-36" /><Skeleton className="h-2.5 w-24" /></div><Skeleton className="h-7 w-16 rounded-full" /></div>
+      <div className="space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-5/6" /></div>
+      <div className="flex gap-2 border-t border-line pt-3"><Skeleton className="h-8 w-20 rounded-lg" /><Skeleton className="h-8 w-20 rounded-lg" /><Skeleton className="h-8 w-16 rounded-lg" /></div>
+    </Card>)}
+    <span className="sr-only">Loading content…</span>
+  </div>
+}
+
+export function ListSkeleton({ count = 4 }: { count?: number }) {
+  return <div className="space-y-2" role="status" aria-label="Loading list">
+    {Array.from({ length: count }, (_, index) => <div key={index} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4"><Skeleton className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-3 w-40 max-w-[70%]" /><Skeleton className="h-3 w-full max-w-sm" /></div><Skeleton className="h-3 w-12" /></div>)}
+    <span className="sr-only">Loading content…</span>
+  </div>
+}
+
+export function GridSkeleton({ count = 4 }: { count?: number }) {
+  return <div className="grid gap-3 md:grid-cols-2" role="status" aria-label="Loading study materials">
+    {Array.from({ length: count }, (_, index) => <Card key={index} className="space-y-3 p-4 sm:p-5"><div className="flex gap-2"><Skeleton className="h-5 w-20 rounded-full" /><Skeleton className="h-5 w-14 rounded-full" /></div><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-5/6" /><div className="flex gap-2 pt-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-20 rounded-lg" /></div></Card>)}
+    <span className="sr-only">Loading content…</span>
+  </div>
 }
 
 export function StatTile({
