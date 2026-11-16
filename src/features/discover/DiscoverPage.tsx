@@ -88,14 +88,16 @@ export function DiscoverPage() {
     if (!supabase || !userId) { toast('Sign in to save materials to your library.', 'info'); return }
     setBusy(row.id)
     const isSaved = savedIds.includes(row.id)
+    const previous = savedIds
+    // Update the save control immediately; restore the previous list on failure.
+    setSavedIds((old) => isSaved ? old.filter((id) => id !== row.id) : [...old, row.id])
     const result = isSaved
       ? await supabase.from('saved_public_materials').delete().eq('user_id', userId).eq('material_id', row.id)
       : await supabase.from('saved_public_materials').insert({ user_id: userId, material_id: row.id })
-    if (result.error) toast(result.error.message, 'error')
-    else {
-      setSavedIds((old) => isSaved ? old.filter((id) => id !== row.id) : [...old, row.id])
-      toast(isSaved ? 'Removed from your library.' : 'Saved to your library.', 'success')
-    }
+    if (result.error) {
+      setSavedIds(previous)
+      toast(result.error.message || 'Save could not be synced. Your previous state has been restored.', 'error')
+    } else toast(isSaved ? 'Removed from your library.' : 'Saved to your library.', 'success')
     setBusy(null)
   }
 
