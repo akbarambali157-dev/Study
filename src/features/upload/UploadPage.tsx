@@ -82,7 +82,7 @@ export function UploadPage() {
   const navigate = useNavigate()
   const settings = useSettings()
   const fileRef = useRef<HTMLInputElement>(null)
-  const abortRef = useRef<AbortController | null>(null)
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map())
   // PDF.js extraction is memory-intensive on mobile. Keep one extraction active
   // at a time, even when the student selects several files in one batch.
   const extractionTailRef = useRef<Promise<void>>(Promise.resolve())
@@ -320,7 +320,7 @@ export function UploadPage() {
 
       const controller = new AbortController()
       let currentStage: Stage = 'extract'
-      abortRef.current = controller
+      abortControllersRef.current.set(id, controller)
       setFiles((prev) => prev.map((f) => f.id === id
         ? { ...f, documentId: savedDoc.id, phase: { kind: 'running', stage: 'extract', detail: 'Preparing your private document copy' } }
         : f))
@@ -449,7 +449,9 @@ export function UploadPage() {
         )
       } finally {
         setUploadActivity(id, null)
-        abortRef.current = null
+        if (abortControllersRef.current.get(id) === controller) {
+          abortControllersRef.current.delete(id)
+        }
       }
     },
     [files, keyReady, navigate, settings.baseUrl, settings.model, settings.useProxy],
@@ -573,7 +575,7 @@ export function UploadPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => abortRef.current?.abort()}
+                onClick={() => abortControllersRef.current.get(item.id)?.abort()}
                 icon={<X className="size-3.5" />}
               >
                 Stop
