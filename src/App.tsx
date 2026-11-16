@@ -269,7 +269,7 @@ export function App() {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400 transition-[width] duration-300" style={{ width: `${Math.max(2, Math.min(100, currentUpload.progress))}%` }} /></div>
         </div>
       </div> : null}
-      {routePending ? <div className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-surface-2" role="status" aria-label="Loading page"><div className="h-full w-1/3 animate-[route-progress_1.1s_ease-in-out_infinite] rounded-full bg-forest-400" /></div> : null}
+      {routePending ? <div className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-surface-2" role="status" aria-label="Loading page"><div className="h-full w-1/3 animate-pulse rounded-full bg-forest-400" /></div> : null}
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8" aria-busy={routePending}>
         {routePending ? <div className="mx-auto max-w-5xl space-y-5" role="status" aria-label="Loading page content"><div className="space-y-2"><Skeleton className="h-3 w-28" /><Skeleton className="h-8 w-2/5" /><Skeleton className="h-4 w-3/5" /></div><div className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-36 rounded-2xl" /><Skeleton className="h-36 rounded-2xl" /></div><div className="space-y-3"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /></div><span className="sr-only">Loading the next page…</span></div> : <Outlet />}
       </main>
