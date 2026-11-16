@@ -6,23 +6,34 @@ export type UploadActivity = {
   detail: string
   progress: number
   phase: 'reading' | 'processing'
+  startedAt: number
+  phaseStartedAt: number
 }
+
+type UploadActivityInput = Omit<UploadActivity, 'startedAt' | 'phaseStartedAt'>
 
 type UploadActivityState = {
   items: Record<string, UploadActivity>
-  setActivity: (id: string, activity: UploadActivity | null) => void
+  setActivity: (id: string, activity: UploadActivityInput | null) => void
 }
 
 export const useUploadActivities = create<UploadActivityState>((set) => ({
   items: {},
   setActivity: (id, activity) => set((state) => {
     const items = { ...state.items }
-    if (activity) items[id] = activity
-    else delete items[id]
+    if (activity) {
+      const previous = state.items[id]
+      const now = Date.now()
+      items[id] = {
+        ...activity,
+        startedAt: previous?.startedAt ?? now,
+        phaseStartedAt: previous?.phase === activity.phase ? previous.phaseStartedAt : now,
+      }
+    } else delete items[id]
     return { items }
   }),
 }))
 
-export function setUploadActivity(id: string, activity: UploadActivity | null) {
+export function setUploadActivity(id: string, activity: UploadActivityInput | null) {
   useUploadActivities.getState().setActivity(id, activity)
 }

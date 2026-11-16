@@ -30,6 +30,17 @@ import { UpdateAnnouncement } from '@/components/UpdateAnnouncement'
 
 const ShortcutsSheet = lazy(() => import('@/components/ShortcutsSheet').then((module) => ({ default: module.ShortcutsSheet })))
 
+function estimateRemainingLabel(activity: { progress: number; phaseStartedAt: number }, now: number): string | null {
+  const progress = Math.min(99, Math.max(0, activity.progress))
+  const elapsed = now - activity.phaseStartedAt
+  // Avoid displaying a made-up ETA until we have enough elapsed time and progress.
+  if (elapsed < 8000 || progress < 8) return null
+  const remaining = elapsed * (100 - progress) / progress
+  if (!Number.isFinite(remaining) || remaining < 10000 || remaining > 15 * 60 * 1000) return null
+  if (remaining < 60_000) return `About ${Math.ceil(remaining / 1000)} s left`
+  return `About ${Math.ceil(remaining / 60_000)} min left`
+}
+
 const ONLINE_ONLY_PATHS = new Set(['/community', '/discover', '/students', '/groups', '/admin'])
 const ONLINE_ONLY_ROUTES = ['/community', '/discover', '/students', '/groups', '/messages', '/notifications', '/admin']
 
@@ -58,6 +69,7 @@ export function App() {
   const uploadActivityMap = useUploadActivities((state) => state.items)
   const activeUploads = Object.values(uploadActivityMap)
   const currentUpload = activeUploads[0]
+  const [progressNow, setProgressNow] = useState(() => Date.now())
   const allNavItems = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck, end: false }] : NAV
   const navItems = allNavItems.filter((item) => isOnline || !ONLINE_ONLY_PATHS.has(item.to))
   const mobilePrimaryItems = isOnline
@@ -67,6 +79,12 @@ export function App() {
   const mobileMoreItems = navItems.filter((item) => !primaryPaths.has(item.to))
   const moreIsActive = mobileMoreItems.some((item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/'))
   const pendingG = useRef(false)
+
+  useEffect(() => {
+    if (activeUploads.length === 0) return
+    const timer = window.setInterval(() => setProgressNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [activeUploads.length])
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine)
@@ -244,8 +262,8 @@ export function App() {
       <UpdateAnnouncement online={isOnline} pwaUpdateAvailable={updateAvailable} />
       {currentUpload ? <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg sm:bottom-5" role="status" aria-live="polite">
         <div className="rounded-2xl border border-line bg-surface/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-body">{currentUpload.title}</p><p className="mt-0.5 text-xs text-muted">{currentUpload.detail}</p></div><span className="shrink-0 text-xs font-semibold tabular-nums text-forest-400">{activeUploads.length > 1 ? `${activeUploads.length} files` : `${Math.round(currentUpload.progress)}%`}</span></div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400 transition-[width] duration-300" style={{ width: `${Math.max(4, Math.min(100, currentUpload.progress))}%` }} /></div>
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-body">{currentUpload.title}</p><p className="mt-0.5 text-xs text-muted">{currentUpload.detail}</p><p className="mt-1 text-[11px] text-muted">{estimateRemainingLabel(currentUpload, progressNow) ?? (currentUpload.phase === 'reading' ? 'Preparing your document on this device' : 'Working through the study stages')}</p></div><span className="shrink-0 text-xs font-semibold tabular-nums text-forest-400">{Math.round(currentUpload.progress)}%</span></div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-forest-400 transition-[width] duration-300" style={{ width: `${Math.max(2, Math.min(100, currentUpload.progress))}%` }} /></div>
         </div>
       </div> : null}
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-3 pb-28 pt-5 sm:px-6 sm:pb-16 lg:px-8 lg:pt-8">
