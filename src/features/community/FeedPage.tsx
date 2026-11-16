@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
-import { Card, Chip } from '@/components/ui/misc'
+import { Card, Chip, FeedSkeleton } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { db } from '@/lib/db'
 import { getAuthenticatedUser, supabase } from '@/lib/supabase'
@@ -364,6 +364,13 @@ export function FeedPage() {
   const toggleReaction = async (postId: string, reaction: ReactionType) => {
     if (!supabase || !userId) return
     const current = reactions.find((item) => item.post_id === postId && item.user_id === userId)
+    const previous = reactions
+    const optimisticId = `optimistic-${postId}-${userId}`
+    // Reflect the tap immediately; restore the exact previous state if the server rejects it.
+    setReactions((items) => [
+      ...items.filter((item) => !(item.post_id === postId && item.user_id === userId)),
+      ...(current?.reaction === reaction ? [] : [{ id: optimisticId, post_id: postId, user_id: userId, reaction }]),
+    ])
     setBusyPost(postId)
     try {
       if (current?.reaction === reaction) {
@@ -384,7 +391,8 @@ export function FeedPage() {
         setReactions((items) => items.filter((item) => !(item.post_id === postId && item.user_id === userId)))
       }
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Your reaction could not be saved.', 'error')
+      setReactions(previous)
+      toast(error instanceof Error ? error.message : 'Your reaction could not be saved. Your previous reaction has been restored.', 'error')
     } finally {
       setBusyPost(null)
     }
@@ -393,11 +401,15 @@ export function FeedPage() {
   const toggleBookmark = async (postId: string) => {
     if (!supabase || !userId) { toast('Sign in to save research posts.', 'info'); return }
     const saved = bookmarkedIds.has(postId)
+    const previous = bookmarkedIds
+    setBookmarkedIds((current) => { const next = new Set(current); saved ? next.delete(postId) : next.add(postId); return next })
     const result = saved
       ? await supabase.from('post_bookmarks').delete().eq('post_id', postId).eq('user_id', userId)
       : await supabase.from('post_bookmarks').insert({ post_id: postId, user_id: userId })
-    if (result.error) toast(result.error.message, 'error')
-    else setBookmarkedIds((current) => { const next = new Set(current); saved ? next.delete(postId) : next.add(postId); return next })
+    if (result.error) {
+      setBookmarkedIds(previous)
+      toast(result.error.message || 'Bookmark could not be synced. Your previous state has been restored.', 'error')
+    }
   }
 
   const toggleFollow = async (authorId: string) => {
@@ -538,7 +550,7 @@ export function FeedPage() {
 
       {loadError ? <Card className="mb-4 border-rose-300 p-4"><div className="flex gap-2 text-sm"><AlertTriangle className="size-4 shrink-0 text-rose-500" /><span>{loadError}</span></div></Card> : null}
       {loading ? (
-        <Card className="p-8 text-center text-sm text-muted">Loading the research community…</Card>
+        <FeedSkeleton count={3} />
       ) : visiblePosts.length === 0 ? (
         <Card className="p-8 text-center sm:p-10">
           <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-500"><BookOpen className="size-7" /></span>
