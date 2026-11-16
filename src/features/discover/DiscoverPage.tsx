@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BookOpen, Bookmark, ClipboardCheck, Download, Eye, EyeOff, Search, Sparkles, Trash2, Zap } from 'lucide-react'
 import { PageHeading } from '@/components/PageShell'
 import { Button } from '@/components/ui/Button'
-import { Card, Chip, EmptyState } from '@/components/ui/misc'
+import { Card, Chip, EmptyState, GridSkeleton } from '@/components/ui/misc'
 import { toast } from '@/components/ui/toast'
 import { getPublicMaterialDownloadUrl, importPublicMaterial, launchPublicMaterialRush, publicMaterialCards } from '@/lib/publicMaterials'
 import { getAuthenticatedUser, supabase } from '@/lib/supabase'
@@ -88,14 +88,16 @@ export function DiscoverPage() {
     if (!supabase || !userId) { toast('Sign in to save materials to your library.', 'info'); return }
     setBusy(row.id)
     const isSaved = savedIds.includes(row.id)
+    const previous = savedIds
+    // Update the save control immediately; restore the previous list on failure.
+    setSavedIds((old) => isSaved ? old.filter((id) => id !== row.id) : [...old, row.id])
     const result = isSaved
       ? await supabase.from('saved_public_materials').delete().eq('user_id', userId).eq('material_id', row.id)
       : await supabase.from('saved_public_materials').insert({ user_id: userId, material_id: row.id })
-    if (result.error) toast(result.error.message, 'error')
-    else {
-      setSavedIds((old) => isSaved ? old.filter((id) => id !== row.id) : [...old, row.id])
-      toast(isSaved ? 'Removed from your library.' : 'Saved to your library.', 'success')
-    }
+    if (result.error) {
+      setSavedIds(previous)
+      toast(result.error.message || 'Save could not be synced. Your previous state has been restored.', 'error')
+    } else toast(isSaved ? 'Removed from your library.' : 'Saved to your library.', 'success')
     setBusy(null)
   }
 
@@ -158,7 +160,7 @@ export function DiscoverPage() {
         <div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).length}</p><p className="text-[11px] text-white/70">Public sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.owner_id === userId).length}</p><p className="text-[11px] text-white/70">Your sets</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-2xl font-semibold">{rows.filter((row) => row.is_public).reduce((n, row) => n + Number((row.content as MaterialContent).flashcards?.length ?? 0), 0)}</p><p className="text-[11px] text-white/70">Shared cards</p></div></div>
       </section>
       <div className="hub-discover-search relative mb-4"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search subjects, titles, tags or students…" className="h-12 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-sm outline-none focus:border-forest-400" /></div>
-      {loading ? <Card className="p-6 text-sm text-muted">Loading the community library…</Card> : filtered.length === 0 ? <EmptyState icon={<BookOpen className="size-6" />} title="No materials found" body="Try another search, or publish a study set from Add material." /> : (
+      {loading ? <GridSkeleton count={4} /> : filtered.length === 0 ? <EmptyState icon={<BookOpen className="size-6" />} title="No materials found" body="Try another search, or publish a study set from Add material." /> : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((row) => {
             const content = row.content as MaterialContent
